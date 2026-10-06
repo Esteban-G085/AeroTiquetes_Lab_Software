@@ -35,28 +35,10 @@ En el **Sprint 1** se construirá la base funcional del sistema para permitir el
 
 ```text
 Proyecto/
-├── backend/
-│   ├── app/
-│   │   ├── core/              # Config, seguridad, BD, errores y correo
-│   │   ├── modules/           # usuarios/, vuelos/, busqueda/
-│   │   └── main.py
-│   ├── alembic/               # Migraciones
-│   ├── tests/
-│   └── requirements.txt
-├── frontend/
-│   └── src/
-│       ├── features/          # usuarios/, vuelos/, busqueda/
-│       ├── components/        # Componentes reutilizables
-│       ├── services/          # Axios
-│       ├── context/           # Autenticación/Sesión
-│       ├── routes/            # Rutas protegidas por rol
-│       └── mocks/             # MSW
 ├── Plan_Sprint_1.md           # Plan completo del Sprint 1
-├── parte3.txt                 # Requerimientos para iteraciones 2–4
 └── README.md
 ```
 
 ## Documentación
 
 - Ver [Plan_Sprint_1.md](./Plan_Sprint_1.md) para el plan detallado: reparto por equipo, tareas, hitos, modelo de datos, reglas de negocio y criterios de aceptación.
-- Ver [parte3.txt](../parte3.txt) para los módulos de Check-in, Recomendación y Chatbot (Iteraciones 2–4).
