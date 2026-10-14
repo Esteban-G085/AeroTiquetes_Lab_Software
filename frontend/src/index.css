@@ -1,0 +1,114 @@
+/* ==========================================================================
+   AeroTiquetes — tokens de diseño
+   Paleta azul/negro y títulos en tipografía mono (según lineamientos del plan).
+   Bootstrap aporta el sistema de grillas y componentes; aquí se sobreescribe.
+   ========================================================================== */
+
+:root {
+  --at-azul: #0b3d91;
+  --at-azul-claro: #1d4ed8;
+  --at-azul-suave: #eef4ff;
+  --at-negro: #0a0a0a;
+  --at-gris: #6b7280;
+  --at-borde: #e5e7eb;
+  --at-blanco: #ffffff;
+  --at-ok: #12805c;
+  --at-error: #b42318;
+  --at-radio: 10px;
+}
+
+body {
+  background-color: #f6f7fb;
+  color: var(--at-negro);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+h1, h2, h3, h4, .titulo-mono, .navbar-brand {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace;
+  letter-spacing: -0.01em;
+}
+
+/* --- Navbar --- */
+.at-navbar {
+  background-color: var(--at-negro);
+}
+.at-navbar .navbar-brand {
+  color: var(--at-blanco);
+  font-weight: 700;
+}
+.at-navbar .nav-link {
+  color: rgba(255, 255, 255, 0.78);
+}
+.at-navbar .nav-link.active,
+.at-navbar .nav-link:hover {
+  color: var(--at-blanco);
+}
+
+/* --- Botones --- */
+.btn-primary {
+  --bs-btn-bg: var(--at-azul);
+  --bs-btn-border-color: var(--at-azul);
+  --bs-btn-hover-bg: var(--at-azul-claro);
+  --bs-btn-hover-border-color: var(--at-azul-claro);
+  --bs-btn-active-bg: var(--at-azul);
+  --bs-btn-active-border-color: var(--at-azul);
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--at-azul);
+  --bs-btn-border-color: var(--at-azul);
+  --bs-btn-hover-bg: var(--at-azul);
+  --bs-btn-hover-border-color: var(--at-azul);
+}
+
+/* --- Tarjetas --- */
+.at-card {
+  border: 1px solid var(--at-borde);
+  border-radius: var(--at-radio);
+  background: var(--at-blanco);
+  box-shadow: 0 1px 2px rgba(10, 10, 10, 0.04);
+}
+
+/* --- Panel de búsqueda --- */
+.at-hero {
+  background: linear-gradient(135deg, var(--at-azul) 0%, var(--at-negro) 100%);
+  color: var(--at-blanco);
+  border-radius: var(--at-radio);
+}
+
+/* --- Ruta de vuelo (origen → destino) --- */
+.at-ruta {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 600;
+}
+
+/* --- Precio --- */
+.at-precio {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 700;
+  color: var(--at-azul);
+}
+
+.at-precio-tachado {
+  text-decoration: line-through;
+  color: var(--at-gris);
+  font-size: 0.875rem;
+}
+
+/* --- Estados --- */
+.at-estado {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+}
+.at-estado--programado { background: var(--at-azul-suave); color: var(--at-azul); }
+.at-estado--sucedido { background: #f3f4f6; color: var(--at-gris); }
+.at-estado--realizado { background: #e8f5f0; color: var(--at-ok); }
+.at-estado--cancelado { background: #fde8e8; color: var(--at-error); }
+
+/* --- Utilidades --- */
+.at-contenedor {
+  max-width: 1120px;
+}
+.texto-suave { color: var(--at-gris); }
+.cursor-pointer { cursor: pointer; }
