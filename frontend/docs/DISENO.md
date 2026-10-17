@@ -39,7 +39,7 @@ Los bordes de campos usan `--at-line-strong` (≥ 3:1).
 |---|---|
 | `ui/` | `Button` (primary · outline-primary · outline-secondary · ghost · danger · `size`) · `Input` (con mostrar/ocultar contraseña) · `Select` · `Modal` · `ConfirmDialog` · `Badge` · `Switch` · `Notice` · `Skeleton` · `Card` · `Icon` |
 | `feedback/` | `LoadingState` · `ErrorState` · `EmptyState` · `useToast` · `ErrorBoundary` · `PagePlaceholder` |
-| `layout/` | `MainLayout` (cabecera + pie) · `BareLayout` (pantalla completa) · `Header` · `Drawer` · `UserMenu` · `PageHeader` · `Footer` |
+| `layout/` | `MainLayout` (cabecera + pie) · `BareLayout` (pantalla completa) · `Header` · `Drawer` · `UserMenu` · `PageHeader` · `BackLink` · `Footer` |
 | `brand/` | `Logo` · `Wordmark` · `SkyArt` (ilustración vectorial; variantes `tall` y `wide`) |
 | `travel/` | `FlightCard` · `Stepper` (ver §5) |
 
@@ -91,3 +91,22 @@ npm run lint && npm test && npm run build
 npm run dev            # en otra terminal:
 npm run audit:ui       # desbordes, accesibilidad (axe) y áreas de toque en 6 anchos
 ```
+`scripts/audit-ui.py` cubre el módulo Usuarios y las pantallas de vuelos (búsqueda, detalle, panel, programación y consulta)
+simulando la API: no hace falta el backend levantado.
+
+## 7. Patrones de presentación compartidos (armonía F1 ↔ F2)
+Las pantallas de búsqueda y de vuelos se alinearon con el lenguaje del rediseño **reutilizando piezas**, no copiando estilos:
+* **`.at-table`** (`styles/components.css`): la tabla de datos de la app. `.at-table__scroll` da scroll lateral cuando las
+  columnas no caben y `.at-table--cards` convierte cada fila en tarjeta en móvil (≤ 767,98 px): el `thead` se oculta
+  visualmente (sigue existiendo para lectores de pantalla) y cada celda se rotula con su `data-label`. Sustituye a la
+  `table` de Bootstrap, cuyo fondo opaco pelea con la superficie de `.at-card`.
+* **`.at-hero`** (se usa junto a `.at-sky` y `SkyArt variant="wide"`): franja de marca con el `PageHeader` en texto claro;
+  es la portada del buscador y del detalle público del vuelo. Título y resumen van sobre la parte oscura del degradado
+  (blanco sobre `#1d3b85` ≈ 10:1), por eso el degradado de marca empieza oscuro arriba.
+* **`BackLink`** (`components/layout`): el único botón «Volver» de la app (flecha + texto, variante secundaria). Acepta `to`
+  (enlace real, se puede abrir en otra pestaña) o `onClick` (volver a la pantalla anterior). Está en el núcleo porque lo
+  usan F1 (perfil) y F2 (detalle y consulta del panel); ningún módulo debe repetir el enlace con «←».
+* **`VueloDetalleSkeleton`** (`components/travel`): silueta con la forma de `VueloDetalle`, para el detalle público (HU5)
+  y la consulta del panel (HU19). Las pantallas de vuelos **ya no** usan `LoadingState`.
+* **Jerarquía y escalonamiento:** una sola acción primaria por pantalla (§4) —de ahí que «Ver detalle» en los resultados sea
+  `outline-primary`— y las tarjetas entran con `at-enter`, `at-enter-2` y `at-enter-3`, igual que los paneles de F1.
