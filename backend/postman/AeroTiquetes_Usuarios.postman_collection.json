@@ -1,0 +1,847 @@
+{
+  "info": {
+    "name": "AeroTiquetes - Usuarios (B1)",
+    "description": "Auth, perfil, administradores y roles. Orden sugerido: 1) Login root, 2) Root y roles, 3) Registro de cliente, 4) Login cliente, 5) Usuarios (perfil).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "rootId",
+      "value": "root"
+    },
+    {
+      "key": "rootPassword",
+      "value": "CAMBIAR_POR_TU_ROOT_PASSWORD_DEL_.env"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login root",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Guarda el token en la variable {{token}}. Necesario para la carpeta Root.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identificador\": \"{{rootId}}\",\n  \"password\": \"{{rootPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set(\"token\", data.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registro de cliente",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/registro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "registro"
+              ]
+            },
+            "description": "multipart/form-data. DNI, correo y usuario deben ser unicos: si lo repites responde 409.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "dni",
+                  "value": "1000000001",
+                  "type": "text"
+                },
+                {
+                  "key": "nombres",
+                  "value": "Ana",
+                  "type": "text"
+                },
+                {
+                  "key": "apellidos",
+                  "value": "Gomez",
+                  "type": "text"
+                },
+                {
+                  "key": "fecha_nacimiento",
+                  "value": "1995-05-20",
+                  "type": "text"
+                },
+                {
+                  "key": "lugar_nacimiento",
+                  "value": "Pereira",
+                  "type": "text"
+                },
+                {
+                  "key": "direccion_facturacion",
+                  "value": "Calle 10 # 5-20",
+                  "type": "text"
+                },
+                {
+                  "key": "genero",
+                  "value": "femenino",
+                  "type": "text"
+                },
+                {
+                  "key": "correo",
+                  "value": "ana.gomez@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "usuario",
+                  "value": "anagomez",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "clavesegura123",
+                  "type": "text"
+                },
+                {
+                  "key": "telefono",
+                  "value": "3001234567",
+                  "type": "text"
+                },
+                {
+                  "key": "imagen",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true,
+                  "description": "Opcional. JPG o PNG de maximo 2 MB."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Tambien guarda {{token}} (el ultimo login manda). Sirve para probar la carpeta Perfil como cliente.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identificador\": \"anagomez\",\n  \"password\": \"clavesegura123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set(\"token\", data.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completar registro de administrador",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/completar-registro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "completar-registro"
+              ]
+            },
+            "description": "El token llega en el enlace del correo de invitacion (Mailpit: http://localhost:8025). Vence en 48 h y es de un solo uso.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "token",
+                  "value": "PEGAR_TOKEN_DEL_CORREO_DE_INVITACION",
+                  "type": "text"
+                },
+                {
+                  "key": "dni",
+                  "value": "1000000002",
+                  "type": "text"
+                },
+                {
+                  "key": "nombres",
+                  "value": "Luis",
+                  "type": "text"
+                },
+                {
+                  "key": "apellidos",
+                  "value": "Perez",
+                  "type": "text"
+                },
+                {
+                  "key": "fecha_nacimiento",
+                  "value": "1990-01-15",
+                  "type": "text"
+                },
+                {
+                  "key": "lugar_nacimiento",
+                  "value": "Cali",
+                  "type": "text"
+                },
+                {
+                  "key": "direccion_facturacion",
+                  "value": "Carrera 5 # 10-10",
+                  "type": "text"
+                },
+                {
+                  "key": "genero",
+                  "value": "masculino",
+                  "type": "text"
+                },
+                {
+                  "key": "correo",
+                  "value": "luis.perez@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "usuario",
+                  "value": "luisperez",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "claveadmin123",
+                  "type": "text"
+                },
+                {
+                  "key": "telefono",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "imagen",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true,
+                  "description": "Opcional. JPG o PNG de maximo 2 MB."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validar enlace de invitacion (sin consumirlo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/completar-registro?token=PEGAR_TOKEN_DEL_CORREO",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "completar-registro"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "PEGAR_TOKEN_DEL_CORREO"
+                }
+              ]
+            },
+            "description": "Devuelve {correo, nombre}. 410 si vencio o ya se uso."
+          }
+        },
+        {
+          "name": "Verificar correo nuevo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verificar-correo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verificar-correo"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"PEGAR_TOKEN_DEL_CORREO_DE_VERIFICACION\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Usuarios (perfil)",
+      "item": [
+        {
+          "name": "Ver mi perfil",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar mi perfil",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "multipart/form-data (como lo envia el front). Campos vacios = sin cambio. DNI y correo no se aceptan aqui.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "nombres",
+                  "value": "Ana Maria",
+                  "type": "text"
+                },
+                {
+                  "key": "telefono",
+                  "value": "3109998877",
+                  "type": "text"
+                },
+                {
+                  "key": "imagen",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cambiar contrasena",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "password"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password_actual\": \"clavesegura123\",\n  \"password_nueva\": \"nuevaclave456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Solicitar cambio de correo",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "PUT /me con correo_nuevo + password_actual (multipart). Responde 202 y manda el enlace al correo nuevo (Mailpit).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "correo_nuevo",
+                  "value": "ana.nueva@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "password_actual",
+                  "value": "clavesegura123",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 202\", function () { pm.response.to.have.status(202); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sin token (debe dar 401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Formato de error unico\", function () { pm.expect(pm.response.json().error.code).to.eql(\"no_autenticado\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Root y roles",
+      "item": [
+        {
+          "name": "Listar administradores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/root/administradores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "root",
+                "administradores"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invitar administrador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/root/administradores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "root",
+                "administradores"
+              ]
+            },
+            "description": "Solo correo y nombre. El administrador recibe un enlace de un solo uso (48 h).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"luis.perez@example.com\",\n  \"nombre\": \"Luis Perez\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar administrador",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/root/administradores/2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "root",
+                "administradores",
+                "2"
+              ]
+            },
+            "description": "Cambia el 2 por el id del administrador que quieras eliminar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ver matriz de roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/root/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "root",
+                "roles"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Desactivar modulo para un rol",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/root/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "root",
+                "roles"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roles\": [\n    {\n      \"id\": \"cliente\",\n      \"modulos\": {\n        \"busqueda\": false\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reactivar modulo para un rol",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/root/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "root",
+                "roles"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roles\": [\n    {\n      \"id\": \"cliente\",\n      \"modulos\": {\n        \"busqueda\": true\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

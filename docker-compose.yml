@@ -1,0 +1,30 @@
+# Levanta PostgreSQL (base de datos) y Mailpit (bandeja de correos de prueba).
+# Uso:  docker compose up -d     |     Apagar: docker compose down
+# Los datos de la BD se guardan en el volumen "pgdata" y sobreviven a los reinicios.
+services:
+  postgres:
+    image: postgres:16
+    container_name: aerotiquetes-postgres
+    environment:
+      POSTGRES_USER: aerotiquetes
+      POSTGRES_PASSWORD: aerotiquetes
+      POSTGRES_DB: aerotiquetes
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aerotiquetes"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: aerotiquetes-mailpit
+    ports:
+      - "1025:1025"   # SMTP: aqui el backend envia los correos
+      - "8025:8025"   # Interfaz web: aqui los lees
+
+volumes:
+  pgdata:

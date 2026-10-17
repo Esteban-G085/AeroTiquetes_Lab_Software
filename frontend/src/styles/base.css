@@ -1,0 +1,126 @@
+/* Se carga DESPUÉS de Bootstrap: aquí se reasigna Bootstrap al sistema visual. */
+:root {
+  --bs-primary: var(--at-blue-600);
+  --bs-primary-rgb: 36, 77, 190;
+  --bs-body-font-family: var(--at-font-sans);
+  --bs-body-font-size: var(--at-text-base);
+  --bs-body-line-height: 1.6;
+  --bs-body-color: var(--at-ink);
+  --bs-body-bg: var(--at-surface-2);
+  --bs-border-color: var(--at-line);
+  --bs-border-radius: var(--at-radius);
+  --bs-secondary-color: var(--at-muted);
+  /* Bootstrap 5.3 pinta los enlaces con las variables *-rgb */
+  --bs-link-color: var(--at-blue-600);
+  --bs-link-color-rgb: 36, 77, 190;
+  --bs-link-hover-color: var(--at-blue-800);
+  --bs-link-hover-color-rgb: 26, 51, 108;
+}
+
+html { scroll-behavior: smooth; }
+body { min-height: 100vh; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+.text-secondary, .text-muted { color: var(--at-muted) !important; }
+::selection { background: var(--at-blue-200); color: var(--at-ink); }
+
+/* ---- Títulos: serif editorial con carácter ---- */
+h1, h2, h3, h4, h5, h6, .at-display {
+  font-family: var(--at-font-display);
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.15;
+  color: var(--at-ink);
+  font-variation-settings: 'opsz' 72;
+}
+h1 { font-size: var(--at-h1); }
+h2 { font-size: var(--at-h2); }
+h3 { font-size: var(--at-h3); }
+.at-mono, code { font-family: var(--at-font-mono); }
+code { color: var(--at-blue-700); background: var(--at-blue-50); padding: .1em .4em; border-radius: 6px; font-size: .85em; }
+a { text-underline-offset: .2em; }
+
+/* ---- Botones: primario con relieve sutil, secundarios limpios ---- */
+.btn {
+  --bs-btn-border-radius: var(--at-radius);
+  --bs-btn-padding-x: 1.25rem;
+  --bs-btn-padding-y: .65rem;
+  --bs-btn-font-weight: 600;
+  font-weight: 600;
+  letter-spacing: .005em;
+  transition: transform var(--at-fast) var(--at-ease), box-shadow var(--at-med) var(--at-ease),
+              background-color var(--at-fast) ease, border-color var(--at-fast) ease, color var(--at-fast) ease;
+}
+.btn:not(:disabled):not(.disabled):active { transform: translateY(1px) scale(.99); }
+.btn-sm { --bs-btn-padding-y: .4rem; --bs-btn-padding-x: .9rem; --bs-btn-font-size: var(--at-text-sm); }
+.btn-lg { --bs-btn-padding-y: .85rem; --bs-btn-padding-x: 1.6rem; }
+
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--at-blue-600);
+  --bs-btn-border-color: var(--at-blue-600);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--at-blue-700);
+  --bs-btn-hover-border-color: var(--at-blue-700);
+  --bs-btn-active-bg: var(--at-blue-800);
+  --bs-btn-active-border-color: var(--at-blue-800);
+  --bs-btn-disabled-bg: var(--at-blue-600);
+  --bs-btn-disabled-border-color: var(--at-blue-600);
+  --bs-btn-focus-shadow-rgb: 36, 77, 190;
+  box-shadow: var(--at-shadow-cta);
+}
+.btn-primary:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 12px 22px -10px rgb(36 77 190 / 75%); }
+
+.btn-bright {
+  --bs-btn-color: #fff; --bs-btn-bg: var(--at-blue-bright); --bs-btn-border-color: var(--at-blue-bright);
+  --bs-btn-hover-color: #fff; --bs-btn-hover-bg: #2860da; --bs-btn-hover-border-color: #2860da;
+  --bs-btn-disabled-color: #fff; --bs-btn-disabled-bg: var(--at-blue-bright); --bs-btn-disabled-border-color: var(--at-blue-bright);
+}
+.btn-ghost {
+  --bs-btn-color: var(--at-blue-600); --bs-btn-bg: transparent; --bs-btn-border-color: transparent;
+  --bs-btn-hover-color: var(--at-blue-800); --bs-btn-hover-bg: var(--at-blue-50); --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-bg: var(--at-blue-100); --bs-btn-active-border-color: transparent;
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--at-blue-600); --bs-btn-border-color: var(--at-blue-300);
+  --bs-btn-hover-color: var(--at-blue-800); --bs-btn-hover-bg: var(--at-blue-50); --bs-btn-hover-border-color: var(--at-blue-600);
+  --bs-btn-active-color: #fff; --bs-btn-active-bg: var(--at-blue-600); --bs-btn-active-border-color: var(--at-blue-600);
+  --bs-btn-disabled-color: var(--at-blue-600); --bs-btn-disabled-border-color: var(--at-blue-300);
+}
+.btn-outline-secondary {
+  --bs-btn-color: var(--at-ink); --bs-btn-border-color: var(--at-line-strong);
+  --bs-btn-hover-color: var(--at-ink); --bs-btn-hover-bg: var(--at-blue-50); --bs-btn-hover-border-color: var(--at-blue-600);
+  --bs-btn-active-color: var(--at-ink); --bs-btn-active-bg: var(--at-blue-100);
+}
+.btn-danger {
+  --bs-btn-bg: var(--at-danger); --bs-btn-border-color: var(--at-danger);
+  --bs-btn-hover-bg: #8f1b12; --bs-btn-hover-border-color: #8f1b12;
+  --bs-btn-disabled-bg: var(--at-danger); --bs-btn-disabled-border-color: var(--at-danger);
+}
+
+/* ---- Formularios: altura cómoda, borde visible, foco claro ---- */
+.form-label { font-size: var(--at-text-sm); font-weight: 600; color: var(--at-ink); margin-bottom: .35rem; }
+.form-control, .form-select {
+  min-height: 3rem; border-radius: var(--at-radius); border: 1px solid var(--at-line-strong);
+  background-color: var(--at-surface); color: var(--at-ink); padding-inline: .95rem;
+  transition: border-color var(--at-fast) ease, box-shadow var(--at-med) var(--at-ease), background-color var(--at-fast) ease;
+}
+.form-control::placeholder { color: #7d869b; }
+.form-control:hover:not(:disabled):not([readonly]), .form-select:hover:not(:disabled) { border-color: var(--at-blue-500); }
+.form-control:focus, .form-select:focus { border-color: var(--at-blue-600); box-shadow: var(--at-focus); background-color: #fff; }
+.form-control[readonly] { background-color: var(--at-surface-2); color: var(--at-muted); border-color: var(--at-line); }
+.form-control.is-invalid, .form-select.is-invalid { border-color: var(--at-danger); background-image: none; padding-right: .95rem; }
+.form-control.is-invalid:focus, .form-select.is-invalid:focus { box-shadow: 0 0 0 3px rgb(180 35 24 / 22%); }
+.form-check-input:checked { background-color: var(--at-blue-600); border-color: var(--at-blue-600); }
+
+:focus-visible { outline: 2px solid var(--at-blue-600); outline-offset: 2px; }
+
+/* ---- Animación de entrada de pantallas ---- */
+@keyframes at-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes at-fade { from { opacity: 0; } to { opacity: 1; } }
+.at-enter { animation: at-rise var(--at-med) var(--at-ease) both; }
+.at-enter-2 { animation: at-rise var(--at-med) var(--at-ease) 70ms both; }
+.at-enter-3 { animation: at-rise var(--at-med) var(--at-ease) 140ms both; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
