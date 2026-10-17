@@ -1,6 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/components/feedback'
-import { PageHeader } from '@/components/layout'
+import { BackLink, PageHeader } from '@/components/layout'
 import { useCiudades } from '@/utils/useCiudades'
 import VueloForm from '../components/VueloForm'
 import { crearVuelo } from '../api'
@@ -21,9 +21,7 @@ export default function ProgramarVueloPage() {
 
   return (
     <div className="vu-page">
-      <Link className="vu-back" to="/admin/vuelos">
-        <span aria-hidden="true">←</span> Volver al panel
-      </Link>
+      <BackLink to="/admin/vuelos">Volver al panel</BackLink>
 
       <PageHeader
         eyebrow="Administración"

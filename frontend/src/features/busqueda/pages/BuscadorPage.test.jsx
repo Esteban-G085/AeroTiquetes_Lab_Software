@@ -73,6 +73,20 @@ describe('BuscadorPage (HU5)', () => {
     expect(screen.getByLabelText('Origen')).toBeInTheDocument()
   })
 
+  it('abre bajo la franja de marca con el título de la pantalla', () => {
+    renderWithProviders(<AppRouter />, { route: '/' })
+    const titulo = screen.getByRole('heading', { level: 1, name: 'Buscar vuelos' })
+    expect(titulo.closest('.at-hero')).not.toBeNull()
+  })
+
+  it('mientras consulta la API reserva el hueco de los resultados con un esqueleto', async () => {
+    api.buscarVuelos.mockReturnValue(new Promise(() => {}))
+    renderWithProviders(<AppRouter />, { route: '/' })
+
+    expect(await screen.findByRole('status', { name: 'Buscando vuelos…' })).toBeInTheDocument()
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+  })
+
   it('si la búsqueda falla, ofrece reintentar', async () => {
     api.buscarVuelos.mockRejectedValueOnce(new ApiError({ status: 500, message: 'Falló el servidor' }))
     renderWithProviders(<AppRouter />, { route: '/' })

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Auditoría de UI del módulo Usuarios en un navegador real (F1-09). Complementa a Vitest, que usa jsdom
+Auditoría de UI en un navegador real (F1-09 y armonía de F2). Complementa a Vitest, que usa jsdom
 y por eso NO puede ver estilos: desbordes horizontales, elementos tapados, contraste, etc.
+
+Cubre el módulo Usuarios (F1) y las pantallas de vuelos de F2: búsqueda, detalle, panel del
+administrador, programación y consulta (donde vive la tabla responsive .at-table).
 
 Qué revisa, en cada pantalla y en 6 anchos (320 → 1280 px):
   1. Desborde horizontal (la página no debe tener scroll lateral).
@@ -30,6 +33,26 @@ ROLES = {'modulos': [{'id': 'usuarios', 'nombre': 'Usuarios'}, {'id': 'vuelos', 
          'roles': [{'id': r, 'nombre': r.capitalize(), 'descripcion': 'Descripción del rol', 'editable': r != 'root',
                     'modulos': {'usuarios': r == 'root', 'vuelos': r != 'visitante', 'reservas': r == 'cliente'}}
                    for r in ['root', 'administrador', 'cliente', 'visitante']]}
+
+# Catálogo y vuelos de ejemplo (docs/CONTRATO_VUELOS.md): lo justo para que las pantallas de F2
+# se pinten con datos reales en vez de con el estado de error.
+BOG = {'codigo': 'BOG', 'nombre': 'Bogotá', 'pais': 'Colombia', 'zona_horaria': 'America/Bogota',
+       'es_capital_departamento': True, 'grupo_internacional': 'colombia'}
+MDE = {'codigo': 'MDE', 'nombre': 'Medellín', 'pais': 'Colombia', 'zona_horaria': 'America/Bogota',
+       'es_capital_departamento': True, 'grupo_internacional': 'colombia'}
+CLO = {'codigo': 'CLO', 'nombre': 'Cali', 'pais': 'Colombia', 'zona_horaria': 'America/Bogota',
+       'es_capital_departamento': True, 'grupo_internacional': 'colombia'}
+MAD = {'codigo': 'MAD', 'nombre': 'Madrid', 'pais': 'España', 'zona_horaria': 'Europe/Madrid',
+       'es_capital_departamento': False, 'grupo_internacional': 'exterior'}
+CIUDADES = {'items': [BOG, MDE, CLO, MAD]}
+VUELOS = [
+    {'id': 9, 'codigo': 'AT-0009', 'tipo': 'nacional', 'estado': 'programado', 'origen': BOG, 'destino': MDE,
+     'salida_utc': '2030-01-15T13:00:00Z', 'llegada_utc': '2030-01-15T14:05:00Z', 'duracion_min': 65,
+     'costo': 300000, 'cupos_economica': 125, 'cupos_primera': 25, 'fecha_programacion': '2026-10-17T10:00:00Z'},
+    {'id': 10, 'codigo': 'AT-0010', 'tipo': 'internacional', 'estado': 'cancelado', 'origen': BOG, 'destino': MAD,
+     'salida_utc': '2030-02-01T03:10:00Z', 'llegada_utc': '2030-02-01T13:25:00Z', 'duracion_min': 615,
+     'costo': 2450000, 'cupos_economica': 0, 'cupos_primera': 4, 'fecha_programacion': '2026-10-17T10:00:00Z'},
+]
 
 def jwt(rol):
     b = lambda o: base64.urlsafe_b64encode(json.dumps(o).encode()).decode().rstrip('=')
@@ -60,19 +83,44 @@ SCREENS = [
     ('roles', '/root/roles', 'root', None),
     ('menú lateral (móvil)', '/root/roles', 'root', open_drawer),
     ('menú de cuenta (escritorio)', '/', 'cliente', open_user_menu),
-    ('inicio visitante', '/', None, None),
+    # ── Vuelos (F2): búsqueda, detalle y panel del administrador ──
+    ('búsqueda de vuelos (visitante)', '/', None, None),
+    ('detalle del vuelo (visitante)', '/vuelos/9', None, None),
+    ('detalle del vuelo (cliente)', '/vuelos/9', 'cliente', None),
+    ('vuelos programados', '/admin/vuelos', 'administrador', None),
+    ('programar vuelo', '/admin/vuelos/nuevo', 'administrador', None),
+    ('consultar vuelo programado', '/admin/vuelos/9', 'administrador', None),
     ('catálogo de diseño y piezas de viaje', '/dev/ui', None, None),
     ('403', '/root/roles', 'cliente', None),
     ('404', '/no-existe', None, None),
 ]
 
 def mock_api(pg):
+    def vuelo_de(partes, indice):
+        return next((v for v in VUELOS if str(v['id']) == partes[indice]), None)
+
     def handler(route):
         r = route.request
         if r.method == 'OPTIONS': return route.fulfill(status=204, headers=CORS)
         url = r.url.replace(API, '')
+        ruta = url.split('?')[0].rstrip('/')
+        partes = ruta.split('/')  # ['', 'admin', 'vuelos', '9'] o ['', 'vuelos', '9']
         body, status = {}, 200
         if url.startswith('/me') and r.method == 'GET': body = PERFIL
+        elif ruta.startswith('/ciudades'): body = CIUDADES
+        elif ruta.startswith('/admin/vuelos'):
+            if r.method == 'POST': body = VUELOS[0]
+            elif len(partes) > 3:
+                vuelo = vuelo_de(partes, 3)
+                if vuelo: body = vuelo
+                else: status, body = 404, {'error': {'code': 'NO_ENCONTRADO', 'message': 'El vuelo no existe.'}}
+            else: body = {'total': len(VUELOS), 'items': VUELOS}
+        elif ruta.startswith('/vuelos'):
+            if len(partes) > 2:
+                vuelo = vuelo_de(partes, 2)
+                if vuelo: body = vuelo
+                else: status, body = 404, {'error': {'code': 'NO_ENCONTRADO', 'message': 'El vuelo no existe.'}}
+            else: body = {'total': len(VUELOS), 'items': VUELOS}
         elif url.startswith('/root/administradores'): body = ADMINS
         elif url.startswith('/root/roles'): body = ROLES
         elif url.startswith('/auth/completar-registro') and r.method == 'GET':

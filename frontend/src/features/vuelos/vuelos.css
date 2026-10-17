@@ -1,17 +1,6 @@
 /* Estilos propios del módulo Administración de vuelos. Prefijo vu- (ver features/README.md).
    Los colores, tipografía y sombras salen de styles/tokens.css. */
 
-.vu-back {
-  display: inline-flex;
-  align-items: center;
-  gap: .4rem;
-  margin-bottom: 1rem;
-  color: var(--at-blue-700);
-  font-weight: 700;
-  text-decoration: none;
-}
-.vu-back:hover { text-decoration: underline; }
-
 /* ═══ Filtros del panel (HU19) ══════════════════════════════════════════ */
 .vu-filters {
   display: grid;
@@ -23,25 +12,16 @@
 .vu-filters > .at-field { margin-bottom: 0; }
 .vu-filters__clear { align-self: end; margin-bottom: .1rem; }
 
-/* ═══ Tabla de vuelos ═══════════════════════════════════════════════════ */
-.vu-table table { --bs-table-bg: transparent; }
-.vu-table thead th {
-  padding: .85rem 1rem;
-  border-bottom: 1px solid var(--at-line);
-  color: var(--at-muted);
-  font-size: var(--at-text-xs);
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-.vu-table tbody td { padding: .85rem 1rem; border-bottom: 1px solid var(--at-line); vertical-align: middle; }
-.vu-table tbody tr:last-child td { border-bottom: 0; }
-.vu-table tbody tr:hover { background: var(--at-blue-50); }
+/* ═══ Tabla de vuelos (la estructura vive en el .at-table del núcleo) ═══ */
+.vu-table__cell { display: block; }
 .vu-table__code { font-weight: 700; color: var(--at-blue-800); white-space: nowrap; }
 .vu-table__route { display: block; font-weight: 700; }
 .vu-table__cities { display: block; color: var(--at-muted); font-size: var(--at-text-xs); }
 .vu-table__val { white-space: nowrap; }
+
+/* Esqueleto de la tabla mientras llegan los vuelos (DISENO.md §4) */
+.vu-skeleton { display: grid; gap: 1.1rem; padding: 1.25rem 1rem; }
+.vu-skeleton__row { display: flex; flex-wrap: wrap; align-items: center; gap: .9rem 1.25rem; }
 
 /* ═══ Formulario de programación (HU18) ═════════════════════════════════ */
 .vu-form { display: grid; gap: .5rem; }

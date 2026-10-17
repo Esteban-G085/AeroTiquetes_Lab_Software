@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { EmptyState, ErrorState, LoadingState } from '@/components/feedback'
+import { EmptyState, ErrorState } from '@/components/feedback'
 import { Notice, Select } from '@/components/ui'
 import { PageHeader } from '@/components/layout'
 import { ESTADO_OPCIONES } from '@/domain/estados'
 import { ciudadesDeColombia, ciudadesDelExterior } from '@/utils/ciudadesOpciones'
 import { useCiudades } from '@/utils/useCiudades'
 import VuelosTable from '../components/VuelosTable'
+import VuelosTableSkeleton from '../components/VuelosTableSkeleton'
 import { listarVuelos } from '../api'
 import '../vuelos.css'
 
@@ -49,7 +50,7 @@ export default function VuelosAdminPage() {
         </Notice>
       )}
 
-      <div className="vu-filters at-card">
+      <div className="vu-filters at-card at-enter-2">
         <Select label="Estado" value={filtros.estado} onChange={set('estado')} placeholder="Todos"
           options={ESTADO_OPCIONES} />
         <Select label="Origen" value={filtros.origen} onChange={set('origen')} placeholder="Todos"
@@ -61,22 +62,24 @@ export default function VuelosAdminPage() {
         </button>
       </div>
 
-      {resultado.status === 'loading' && <LoadingState label="Cargando vuelos…" />}
+      <div className="at-enter-3">
+        {resultado.status === 'loading' && <VuelosTableSkeleton />}
 
-      {resultado.status === 'error' && (
-        <ErrorState message={resultado.error?.message} onRetry={() => setIntento((n) => n + 1)} />
-      )}
+        {resultado.status === 'error' && (
+          <ErrorState message={resultado.error?.message} onRetry={() => setIntento((n) => n + 1)} />
+        )}
 
-      {resultado.status === 'ready' && (
-        resultado.vuelos.length > 0
-          ? <VuelosTable vuelos={resultado.vuelos} />
-          : (
-            <EmptyState
-              title="No hay vuelos con esos filtros"
-              message="Programa un vuelo nuevo o quita los filtros para verlos todos."
-            />
-          )
-      )}
+        {resultado.status === 'ready' && (
+          resultado.vuelos.length > 0
+            ? <VuelosTable vuelos={resultado.vuelos} />
+            : (
+              <EmptyState
+                title="No hay vuelos con esos filtros"
+                message="Programa un vuelo nuevo o quita los filtros para verlos todos."
+              />
+            )
+        )}
+      </div>
     </div>
   )
 }

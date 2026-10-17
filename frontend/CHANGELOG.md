@@ -27,6 +27,23 @@ compartir subió al núcleo: **`features/usuarios` no tuvo que cambiar nada**.
   `docs/CONTRATO_VUELOS.md`) y las pantallas de vuelos muestran `ErrorState` hasta que B2 publique su API.
   `VITE_USE_MOCKS` queda reservada y `src/mocks/` vacío.
 
+## Parte 10 — Armonía visual de las pantallas de vuelos (F2)
+Alinea búsqueda y vuelos con el lenguaje del rediseño (ver `docs/DISENO.md` §7). Lo que otro módulo puede notar:
+* **Tabla de datos compartida** (`styles/components.css`): `.at-table` + `.at-table__scroll` + el modificador `.at-table--cards`.
+  Con 8 columnas ya no se recorta: hay scroll lateral cuando no caben y, en móvil (≤ 767,98 px), cada fila se vuelve una
+  tarjeta y cada celda se rotula con su `data-label` (el `thead` se oculta visualmente, no se borra). La usa `VuelosTable`
+  (HU19). Si otro módulo pinta tablas, **usar estas clases y no `table` de Bootstrap**: el fondo opaco de Bootstrap pelea
+  con la superficie de `.at-card`.
+* **`components/layout`: `BackLink`** — el único botón «Volver» (flecha + texto, `outline-secondary`). Acepta `to` (enlace
+  real) u `onClick` (volver atrás con `useGoBack`). Reemplaza los enlaces con «←» de cada módulo: F1 ya lo usa en el perfil
+  y F2 en el detalle y en la consulta del panel.
+* **`components/travel`: `VueloDetalleSkeleton`** — silueta con la forma de `VueloDetalle` para los estados de carga.
+* **Franja de marca `.at-hero`** (junto a `.at-sky` + `SkyArt variant="wide"`): portada con el `PageHeader` en texto claro.
+  La usan el buscador y el detalle público del vuelo.
+* **Jerarquía:** «Ver detalle» en los resultados de búsqueda pasa a `outline-primary` (una sola acción primaria por
+  pantalla) y las pantallas de vuelos se escalonan con `at-enter-2` / `at-enter-3`, como los paneles de F1.
+* Los estados de carga de estas pantallas **ya no usan `LoadingState`**: usan esqueletos con la forma del contenido.
+
 ## Parte 8 — Rediseño visual integral
 **Lo que otro módulo debe saber al integrar** (cambios que sí pueden notarse):
 * **Tipografía:** Fraunces (titulares) + Plus Jakarta Sans (texto) reemplazan a Roboto; Roboto Mono solo para códigos.

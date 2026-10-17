@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { FlightCard, Stepper } from '@/components/travel'
+import { FlightCard, Stepper, VueloDetalleSkeleton } from '@/components/travel'
 
 const vuelo = {
   codigo: 'AT-204', aerolinea: 'AeroTiquetes',
@@ -85,5 +85,19 @@ describe('Stepper', () => {
   it('en el primer paso no hay completados', () => {
     render(<Stepper steps={steps} current={0} />)
     expect(screen.queryByText(/completado/)).not.toBeInTheDocument()
+  })
+})
+
+describe('VueloDetalleSkeleton', () => {
+  it('anuncia la carga y reserva el hueco de la ficha en vez de un spinner suelto', () => {
+    const { container } = render(<VueloDetalleSkeleton />)
+    expect(screen.getByRole('status', { name: 'Cargando vuelo…' })).toBeInTheDocument()
+    expect(container.querySelector('.at-detail')).toBeInTheDocument()
+    expect(container.querySelectorAll('.at-skeleton').length).toBeGreaterThan(6)
+  })
+
+  it('nombra el estado según quien lo use', () => {
+    render(<VueloDetalleSkeleton label="Cargando el vuelo programado…" />)
+    expect(screen.getByRole('status', { name: 'Cargando el vuelo programado…' })).toBeInTheDocument()
   })
 })

@@ -72,6 +72,14 @@ describe('VuelosAdminPage (HU19)', () => {
     expect(await screen.findByText('No hay vuelos con esos filtros')).toBeInTheDocument()
   })
 
+  it('mientras carga reserva el hueco de la tabla con un esqueleto', async () => {
+    api.listarVuelos.mockReturnValue(new Promise(() => {}))
+    renderWithProviders(<AppRouter />, { route: '/admin/vuelos' })
+
+    expect(await screen.findByRole('status', { name: 'Cargando vuelos…' })).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
   it('si falla la carga, ofrece reintentar', async () => {
     api.listarVuelos.mockRejectedValueOnce(new ApiError({ status: 500, message: 'Falló el servidor' }))
     renderWithProviders(<AppRouter />, { route: '/admin/vuelos' })

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ErrorState, LoadingState } from '@/components/feedback'
+import { ErrorState } from '@/components/feedback'
 import { Notice } from '@/components/ui'
 import { PageHeader } from '@/components/layout'
+import { SkyArt } from '@/components/brand'
 import { useCiudades } from '@/utils/useCiudades'
 import FlightResults from '../components/FlightResults'
+import ResultadosSkeleton from '../components/ResultadosSkeleton'
 import SearchForm from '../components/SearchForm'
 import { buscarVuelos, FILTROS_VACIOS } from '../api'
 import '../busqueda.css'
@@ -49,11 +51,14 @@ export default function BuscadorPage() {
 
   return (
     <div className="bu-page">
-      <PageHeader
-        eyebrow="Búsqueda de vuelos"
-        title="Buscar vuelos"
-        subtitle="Encuentra vuelos nacionales e internacionales combinando origen, destino, fecha, precio, duración y clase."
-      />
+      <div className="at-hero at-sky">
+        <SkyArt variant="wide" />
+        <PageHeader
+          eyebrow="Búsqueda de vuelos"
+          title="Buscar vuelos"
+          subtitle="Encuentra vuelos nacionales e internacionales combinando origen, destino, fecha, precio, duración y clase."
+        />
+      </div>
 
       {ciudadesStatus === 'fallback' && (
         <Notice tone="info" className="mb-3">
@@ -61,15 +66,17 @@ export default function BuscadorPage() {
         </Notice>
       )}
 
-      <SearchForm
-        ciudades={ciudades}
-        valoresIniciales={{ ...FILTROS_VACIOS, ...filtrosDeLaUrl(searchParams) }}
-        onBuscar={buscar}
-        cargando={resultado.status === 'loading'}
-      />
+      <div className="at-enter-2">
+        <SearchForm
+          ciudades={ciudades}
+          valoresIniciales={{ ...FILTROS_VACIOS, ...filtrosDeLaUrl(searchParams) }}
+          onBuscar={buscar}
+          cargando={resultado.status === 'loading'}
+        />
+      </div>
 
-      <div className="bu-page__results">
-        {resultado.status === 'loading' && <LoadingState label="Buscando vuelos…" />}
+      <div className="bu-page__results at-enter-3">
+        {resultado.status === 'loading' && <ResultadosSkeleton />}
         {resultado.status === 'error' && (
           <ErrorState message={resultado.error?.message} onRetry={() => setIntento((n) => n + 1)} />
         )}
