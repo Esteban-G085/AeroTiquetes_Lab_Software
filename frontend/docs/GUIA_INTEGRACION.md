@@ -13,7 +13,7 @@ npm run lint && npm test && npm run build     # lo que corre el CI
 | Carpeta | Dueño | Nota |
 |---|---|---|
 | `src/features/usuarios/` | F1 | Hecho |
-| `src/features/vuelos/` · `src/features/busqueda/` | **F2** | Hoy son *stubs* mínimos que F2 reemplaza |
+| `src/features/vuelos/` · `src/features/busqueda/` | **F2** | Integrados sobre la base de F1 (`feature/integracion-f2`); ya no son stubs |
 | `src/components/`, `src/routes/`, `src/styles/`, `src/config/`, `src/context/`, `src/services/` | F1 | Si F2 necesita algo compartido, PR pequeño a F1 |
 
 ## Cómo F2 reemplaza sus módulos
@@ -29,6 +29,9 @@ npm run lint && npm test && npm run build     # lo que corre el CI
 | Botones, campos, selects, modal, confirmación, insignias, interruptor, avisos (`Notice`), esqueletos, tarjetas, iconos | `@/components/ui` (catálogo visual en `/dev/ui`) |
 | Encabezado de pantalla (título + subtítulo + acciones) | `PageHeader` de `@/components/layout` (cada pantalla pone su `<h1>`) |
 | Tarjeta de vuelo, pasos de la compra, formato de precio/duración/hora | `@/components/travel` y `@/utils/format` (ver `DISENO.md` §5) |
+| Ficha del vuelo (detalle público y del panel) | `VueloDetalle` y `EstadoBadge` de `@/components/travel` |
+| Catálogo de ciudades (`GET /ciudades`) y selects Colombia/Internacional | `@/utils/useCiudades` y `@/utils/ciudadesOpciones` |
+| Reglas nacional/internacional, catálogos de estado y lecturas de cupos | `@/domain/ciudades`, `@/domain/estados`, `@/domain/vuelo` |
 | Cargando / error con reintento / vacío ("No existen vuelos…") | `@/components/feedback` (`LoadingState`, `ErrorState`, `EmptyState`) |
 | Avisos | `useToast()` → `toast.success / error / info` |
 | Llamar a la API | `import { http } from '@/services/http'` (ya agrega el JWT y normaliza errores) |
