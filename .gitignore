@@ -8,3 +8,7 @@ __pycache__/
 .pytest_cache/
 backend/static/perfiles/*
 !backend/static/perfiles/.gitkeep
+contexto.info/Tecnologias_AeroTiquetes.md
+.gitignore
+contexto.info/Requerimientos Lab Soft.md
+contexto.info/SRS_IEEE830_Sistema_Tiquetes_Aereos_nuevo (1).md
