@@ -1,0 +1,37 @@
+/* Estilos propios del módulo Búsqueda. Prefijo bu- (ver features/README.md).
+   Los colores, tipografía y sombras salen de styles/tokens.css. */
+
+.bu-page__results { margin-top: clamp(1.25rem, 3vw, 2rem); }
+
+/* ═══ Formulario de búsqueda (HU5) ═══════════════════════════════════════ */
+.bu-search { display: grid; gap: .5rem; }
+.bu-search__grid {
+  display: grid;
+  gap: .25rem 1.1rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+.bu-search__grid > .at-field { margin-bottom: .6rem; }
+.bu-search__actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .5rem; }
+
+/* ═══ Resultados ════════════════════════════════════════════════════════ */
+.bu-results { display: grid; gap: 1rem; }
+.bu-results__count { margin: 0; color: var(--at-muted); font-size: var(--at-text-sm); font-weight: 600; }
+.bu-results__list {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 27rem), 1fr));
+}
+
+/* ═══ Detalle del vuelo ═════════════════════════════════════════════════ */
+.bu-detail { display: grid; gap: 1rem; }
+.bu-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  justify-self: start;
+  color: var(--at-blue-700);
+  font-weight: 700;
+  text-decoration: none;
+}
+.bu-detail__back:hover { text-decoration: underline; }
+.bu-detail__note { color: var(--at-muted); font-size: var(--at-text-sm); align-self: center; }

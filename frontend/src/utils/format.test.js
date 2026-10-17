@@ -1,4 +1,7 @@
-import { dayOffset, formatDay, formatDuration, formatPrice, formatTime, minutesBetween } from './format'
+import {
+  dayOffset, formatDate, formatDateShort, formatDateTime, formatDay, formatDuration,
+  formatPrice, formatTime, formatZone, minutesBetween, minutesToTime, timeToMinutes, todayISO,
+} from './format'
 
 const SALE = '2026-11-10T22:10:00-05:00' // Bogotá
 const LLEGA = '2026-11-11T14:25:00+01:00' // Madrid
@@ -47,5 +50,42 @@ describe('horas y días en la zona del aeropuerto (no la del equipo)', () => {
   })
   it('minutesBetween es independiente de la zona (instantes absolutos)', () => {
     expect(minutesBetween(SALE, LLEGA)).toBe(615)
+  })
+  it('un instante ausente o inválido no rompe la pantalla (respuestas parciales del backend)', () => {
+    expect(formatTime(undefined, 'America/Bogota')).toBe('—')
+    expect(formatTime('no-es-fecha', 'America/Bogota')).toBe('—')
+    expect(formatDay(null, 'America/Bogota')).toBe('—')
+    expect(dayOffset(SALE, 'America/Bogota', undefined, 'Europe/Madrid')).toBe(0)
+  })
+})
+
+describe('fechas con año y utilidades de hora (módulos F2)', () => {
+  it('formatDate / formatDateShort muestran el año en la zona pedida', () => {
+    expect(formatDate(SALE, 'America/Bogota')).toMatch(/10 nov 2026/)
+    expect(formatDateShort(SALE, 'America/Bogota')).toMatch(/10 nov 2026/)
+    expect(formatDateTime(SALE, 'America/Bogota')).toMatch(/10 nov 2026 · 22:10/)
+  })
+
+  it('un valor vacío o inválido no rompe la pantalla (campos opcionales)', () => {
+    expect(formatDate(null)).toBe('—')
+    expect(formatDateShort(undefined)).toBe('—')
+    expect(formatDateTime('no-es-fecha')).toBe('—')
+  })
+
+  it('formatZone devuelve la sigla de la zona', () => {
+    expect(formatZone(SALE, 'America/Bogota')).toMatch(/COT|GMT-5/)
+    expect(formatZone(null, 'America/Bogota')).toBe('')
+  })
+
+  it('todayISO tiene el formato del input date', () => {
+    expect(todayISO()).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('timeToMinutes y minutesToTime son inversas, y rechazan horas inválidas', () => {
+    expect(timeToMinutes('08:30')).toBe(510)
+    expect(minutesToTime(510)).toBe('08:30')
+    expect(timeToMinutes('24:00')).toBeNull()
+    expect(timeToMinutes('')).toBeNull()
+    expect(minutesToTime(-1)).toBe('')
   })
 })
