@@ -1,7 +1,8 @@
 import { lazy } from 'react'
 import { ROLES } from '@/config/roles'
 
-// F2 — módulo Administración de vuelos. Stub inicial de F1; F2 lo reemplaza (F2-05, F2-06).
+// F2 — módulo Administración de vuelos (HU18: F2-05; HU19: F2-06).
+// Solo el administrador entra; la raíz entra por /root/administradores.
 export default {
   name: 'vuelos',
   routes: [
