@@ -43,7 +43,7 @@ export default function FlightResults({ vuelos = [], huboBusqueda = false }) {
             precio={vuelo.costo}
             detalles={`Vuelo ${TIPO_LABEL[vuelo.tipo] ?? vuelo.tipo}`}
             disponibilidad={disponibilidadTexto(vuelo)}
-            action={<Link className="btn btn-primary" to={`/vuelos/${vuelo.id}`}>Ver detalle</Link>}
+            action={<Link className="btn btn-outline-primary" to={`/vuelos/${vuelo.id}`}>Ver detalle</Link>}
           />
         ))}
       </div>

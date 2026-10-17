@@ -71,6 +71,9 @@
 .at-pageheader__sub { margin: .5rem 0 0; color: var(--at-muted); max-width: 40rem; }
 .at-pageheader__actions { display: flex; gap: .5rem; flex-wrap: wrap; }
 
+/* ── Volver atrás: una sola pieza para toda la app ── */
+.at-back { display: inline-flex; align-items: center; gap: .5rem; }
+
 /* ═══ Marca ══════════════════════════════════════════════════════════════ */
 .at-logo { display: inline-block; flex: none; }
 .at-sky { position: relative; overflow: hidden; background: var(--at-grad-sky); isolation: isolate; }
@@ -83,11 +86,58 @@
 .at-skyart__cloud--c { animation: at-drift 70s ease-in-out infinite alternate; }
 @keyframes at-drift { from { transform: translateX(-24px); } to { transform: translateX(24px); } }
 
+/* ── Franja de marca: portada de una pantalla sobre el cielo ── */
+/* Va con .at-sky y contiene el PageHeader; el texto pasa a claro sobre el degradado. */
+.at-hero { border-radius: var(--at-radius-xl); padding: clamp(1.5rem, 4vw, 2.5rem); margin-bottom: clamp(1.25rem, 3vw, 2rem); color: #fff; box-shadow: var(--at-shadow-md); }
+.at-hero .at-pageheader { margin-bottom: 0; }
+.at-hero .at-pageheader__eyebrow { color: #ffd98a; }
+.at-hero .at-pageheader__title { color: #fff; }
+.at-hero .at-pageheader__sub { color: #dbe5f8; }
+
 /* ═══ Superficies ════════════════════════════════════════════════════════ */
 .at-card { background: var(--at-surface); border: 1px solid var(--at-line); border-radius: var(--at-radius-lg); padding: clamp(1.1rem, 2.5vw, 1.75rem); box-shadow: var(--at-shadow-sm); }
 .at-card--flush { padding: 0; overflow: hidden; }
 .at-card--night { background: var(--at-grad-banner); border: 0; color: #fff; box-shadow: var(--at-shadow-lg); }
 .at-card--night :is(h1, h2, h3) { color: #fff; }
+
+/* ═══ Tablas de datos ════════════════════════════════════════════════════ */
+/* La tabla va dentro de un .at-card--flush; el scroll vive en el envoltorio para que
+   la tarjeta conserve las esquinas redondeadas sin recortar el contenido.
+   `position: relative` no es decorativo: los rótulos .visually-hidden de las cabeceras son
+   `position: absolute` y, si ningún ancestro que recorta es su bloque contenedor, escapan del
+   overflow y estiran el ancho del documento (scroll lateral fantasma). */
+.at-table__scroll { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.at-table table { width: 100%; min-width: 44rem; border-collapse: collapse; }
+.at-table thead th {
+  padding: .85rem 1rem; background: var(--at-surface-2); border-bottom: 1px solid var(--at-line);
+  color: var(--at-muted); font-size: var(--at-text-xs); font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; text-align: left; white-space: nowrap;
+}
+.at-table thead th:first-child { border-top-left-radius: var(--at-radius-lg); }
+.at-table thead th:last-child { border-top-right-radius: var(--at-radius-lg); }
+.at-table tbody td { padding: .85rem 1rem; border-bottom: 1px solid var(--at-line); vertical-align: middle; }
+.at-table tbody tr:last-child td { border-bottom: 0; }
+.at-table tbody tr:hover { background: var(--at-blue-50); }
+
+/* Móvil: una tarjeta por fila; cada celda muestra su encabezado con data-label */
+@media (max-width: 767.98px) {
+  .at-table--cards table, .at-table--cards tbody, .at-table--cards tr, .at-table--cards th, .at-table--cards td { display: block; }
+  .at-table--cards table { min-width: 0; }
+  .at-table--cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .at-table--cards tbody tr { padding: .85rem 1rem; border-bottom: 1px solid var(--at-line); }
+  .at-table--cards tbody tr:last-child { border-bottom: 0; }
+  .at-table--cards tbody tr:hover { background: var(--at-blue-50); }
+  .at-table--cards tbody td {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+    padding: .3rem 0; border: 0; text-align: right;
+  }
+  .at-table--cards tbody td::before {
+    content: attr(data-label); flex: none; color: var(--at-muted); font-size: var(--at-text-xs);
+    font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  }
+  .at-table--cards tbody td[data-label=''] { justify-content: flex-end; }
+  .at-table--cards tbody td[data-label='']::before { content: none; }
+}
 
 /* ═══ Avisos en línea ════════════════════════════════════════════════════ */
 .at-notice { display: flex; gap: .65rem; align-items: flex-start; padding: .75rem .9rem; border-radius: var(--at-radius); font-size: var(--at-text-sm); border: 1px solid transparent; }

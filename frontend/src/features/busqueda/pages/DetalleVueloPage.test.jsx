@@ -61,4 +61,18 @@ describe('DetalleVueloPage (HU5)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(await screen.findByText('AT-0007')).toBeInTheDocument()
   })
+
+  it('abre con la franja de marca y el código del vuelo como título', async () => {
+    await abrir()
+    const titulo = screen.getByRole('heading', { level: 1, name: 'Vuelo AT-0007' })
+    expect(titulo.closest('.at-hero')).not.toBeNull()
+  })
+
+  it('mientras carga muestra la ficha en esqueleto y la vuelta a los resultados', async () => {
+    api.obtenerVuelo.mockReturnValue(new Promise(() => {}))
+    renderWithProviders(<AppRouter />, { route: '/vuelos/7' })
+
+    expect(await screen.findByRole('status', { name: 'Cargando vuelo…' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Volver a los resultados' })).toHaveAttribute('href', '/')
+  })
 })

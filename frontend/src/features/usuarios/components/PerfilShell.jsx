@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { Button, Icon } from '@/components/ui'
+import { Icon } from '@/components/ui'
+import { BackLink } from '@/components/layout'
 import { SkyArt, Wordmark } from '@/components/brand'
 import { resolveMediaUrl } from '@/utils/media'
 
@@ -49,7 +50,7 @@ export default function PerfilShell({ name, idLine, avatar, actions, onBack, chi
         <div className="us-perfil__body">{children}</div>
 
         <div className="us-perfil__back">
-          <Button variant="outline-secondary" onClick={onBack}><Icon name="arrow-left" size={18} className="me-2" />Atrás</Button>
+          <BackLink onClick={onBack}>Atrás</BackLink>
         </div>
       </main>
     </div>

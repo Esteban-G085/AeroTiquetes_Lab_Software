@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
-import { EmptyState, ErrorState, LoadingState } from '@/components/feedback'
-import { PageHeader } from '@/components/layout'
-import { VueloDetalle } from '@/components/travel'
+import { EmptyState, ErrorState } from '@/components/feedback'
+import { BackLink, PageHeader } from '@/components/layout'
+import { VueloDetalle, VueloDetalleSkeleton } from '@/components/travel'
 import useVueloAdmin from '../hooks/useVueloAdmin'
 import '../vuelos.css'
 
@@ -10,7 +10,16 @@ export default function ConsultarVueloPage() {
   const { id } = useParams()
   const { vuelo, status, error, recargar } = useVueloAdmin(id)
 
-  if (status === 'loading') return <LoadingState label="Cargando vuelo…" />
+  const volver = <BackLink to="/admin/vuelos">Volver al panel</BackLink>
+
+  if (status === 'loading') {
+    return (
+      <div className="vu-page">
+        {volver}
+        <VueloDetalleSkeleton />
+      </div>
+    )
+  }
 
   if (status === 'error') {
     if (error?.status === 404) {
@@ -27,9 +36,7 @@ export default function ConsultarVueloPage() {
 
   return (
     <div className="vu-page">
-      <Link className="vu-back" to="/admin/vuelos">
-        <span aria-hidden="true">←</span> Volver al panel
-      </Link>
+      {volver}
 
       <PageHeader
         eyebrow="Administración"

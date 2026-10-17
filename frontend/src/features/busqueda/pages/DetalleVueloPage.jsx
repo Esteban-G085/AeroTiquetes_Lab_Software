@@ -1,7 +1,9 @@
 import { Link, useParams } from 'react-router-dom'
-import { EmptyState, ErrorState, LoadingState } from '@/components/feedback'
+import { EmptyState, ErrorState } from '@/components/feedback'
 import { Button } from '@/components/ui'
-import { VueloDetalle } from '@/components/travel'
+import { BackLink, PageHeader } from '@/components/layout'
+import { SkyArt } from '@/components/brand'
+import { VueloDetalle, VueloDetalleSkeleton } from '@/components/travel'
 import { ROLES } from '@/config/roles'
 import { useAuth } from '@/context'
 import useVuelo from '../hooks/useVuelo'
@@ -13,7 +15,16 @@ export default function DetalleVueloPage() {
   const { vuelo, status, error, recargar } = useVuelo(id)
   const { rol, isAuthenticated } = useAuth()
 
-  if (status === 'loading') return <LoadingState label="Cargando vuelo…" />
+  const volver = <BackLink to="/">Volver a los resultados</BackLink>
+
+  if (status === 'loading') {
+    return (
+      <div className="bu-detail">
+        {volver}
+        <VueloDetalleSkeleton />
+      </div>
+    )
+  }
 
   if (status === 'error') {
     if (error?.status === 404) {
@@ -29,12 +40,18 @@ export default function DetalleVueloPage() {
   }
 
   const esCliente = isAuthenticated && rol === ROLES.CLIENTE
+  const ruta = vuelo?.origen?.nombre && vuelo?.destino?.nombre
+    ? `${vuelo.origen.nombre} → ${vuelo.destino.nombre}`
+    : undefined
 
   return (
     <div className="bu-detail">
-      <Link className="bu-detail__back" to="/">
-        <span aria-hidden="true">←</span> Volver a los resultados
-      </Link>
+      {volver}
+
+      <div className="at-hero at-sky">
+        <SkyArt variant="wide" />
+        <PageHeader eyebrow="Detalle del vuelo" title={`Vuelo ${vuelo.codigo}`} subtitle={ruta} />
+      </div>
 
       <VueloDetalle
         vuelo={vuelo}

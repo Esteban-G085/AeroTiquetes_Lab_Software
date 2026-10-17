@@ -22,16 +22,11 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 27rem), 1fr));
 }
 
+/* ═══ Esqueleto de resultados (silueta de la tarjeta de vuelo) ══════════ */
+.bu-skeleton .at-flight__stop--end { justify-items: end; }
+.bu-skeleton .at-flight__path { width: 100%; }
+
 /* ═══ Detalle del vuelo ═════════════════════════════════════════════════ */
-.bu-detail { display: grid; gap: 1rem; }
-.bu-detail__back {
-  display: inline-flex;
-  align-items: center;
-  gap: .4rem;
-  justify-self: start;
-  color: var(--at-blue-700);
-  font-weight: 700;
-  text-decoration: none;
-}
-.bu-detail__back:hover { text-decoration: underline; }
+.bu-detail { display: grid; gap: 1rem; justify-items: start; }
+.bu-detail > :not(.at-back) { width: 100%; }
 .bu-detail__note { color: var(--at-muted); font-size: var(--at-text-sm); align-self: center; }
