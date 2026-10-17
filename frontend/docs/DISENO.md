@@ -1,6 +1,6 @@
 # Diseño de AeroTiquetes
 
-Dirección visual, sistema de diseño y reglas de experiencia de compra. Es la referencia para F2 y para cualquier
+Dirección visual, sistema de diseño y reglas de experiencia de compra. Es la referencia para cualquier
 pantalla nueva. **Reemplaza el aspecto de los mockups de las HU**; estos siguen valiendo solo como referencia de
 funciones y estructura (ver `MOCKUPS.md`).
 
@@ -41,7 +41,7 @@ Los bordes de campos usan `--at-line-strong` (≥ 3:1).
 | `feedback/` | `LoadingState` · `ErrorState` · `EmptyState` · `useToast` · `ErrorBoundary` · `PagePlaceholder` |
 | `layout/` | `MainLayout` (cabecera + pie) · `BareLayout` (pantalla completa) · `Header` · `Drawer` · `UserMenu` · `PageHeader` · `Footer` |
 | `brand/` | `Logo` · `Wordmark` · `SkyArt` (ilustración vectorial; variantes `tall` y `wide`) |
-| `travel/` | `FlightCard` · `Stepper` (ver §5) |
+| `travel/` | `FlightCard` · `VueloDetalle` · `EstadoBadge` · `Stepper` (ver §5) |
 
 Catálogo visual vivo: **`/dev/ui`** (solo en desarrollo).
 
@@ -58,8 +58,18 @@ con `alt` útil y sin cargar en móvil las de escritorio.
 * **Retroalimentación:** carga con esqueletos, botones con estado de envío, avisos emergentes con icono.
 * **Accesibilidad:** foco visible, navegación por teclado, `prefers-reduced-motion` respetado, áreas de toque ≥ 24 px.
 
-## 5. Para F2: pantallas de búsqueda y compra
-Estas pantallas **aún no existen**, así que el rediseño dejó listas las piezas y las reglas, no pantallas con datos inventados.
+## 5. Búsqueda, detalle y administración de vuelos
+
+Las historias 5, 18 y 19 **no tienen mockup** en `Historias_de_Usuario.docx`, así que su referencia visual es este
+documento. Estas son las pantallas ya construidas:
+
+| Pantalla | Ruta | Quién | Qué muestra |
+|---|---|---|---|
+| Buscar vuelos | `/` | visitante y cliente | Formulario de criterios combinables y la lista de resultados |
+| Detalle del vuelo | `/vuelos/:id` | visitante y cliente | `VueloDetalle`; al visitante se le invita a registrarse (la compra es de la Iteración 2) |
+| Vuelos programados | `/admin/vuelos` | administrador | Filtros + tabla de solo lectura (HU19) |
+| Programar vuelo | `/admin/vuelos/nuevo` | administrador | Formulario de HU18 con vista previa de lo que generará el backend |
+| Consultar vuelo | `/admin/vuelos/:id` | administrador | `VueloDetalle` sin acciones |
 
 ### `FlightCard`
 Solo presenta; no busca ni compra. Recibe de la API: código, aerolínea, origen/destino, salida/llegada **como instantes ISO con zona**,
@@ -69,11 +79,24 @@ y el "+1" si llega al día siguiente.
 * `action`: el botón lo pone quien la usa, así la tarjeta nunca finge ser funcional.
 * `detalles`: condiciones y restricciones (equipaje, cambios, cargos) **visibles en la tarjeta**, no escondidas.
 
+### `VueloDetalle` y `EstadoBadge`
+La ficha del vuelo (código, ruta, salida y llegada en hora local, duración, costo y cupos por clase) y la insignia de
+estado (`programado` · `realizado` · `cancelado`, con los tonos de `Badge`). Las comparten el detalle público y la consulta
+del administrador; `acciones` es opcional, así la misma ficha sirve en modo solo lectura.
+
 ### `Stepper`
 Para reserva → pasajeros → pago → confirmación. `aria-current="step"` y pasos completados anunciados.
+(Aún sin uso: la compra es de la Iteración 2.)
 
 ### Utilidades (`utils/format.js`)
-`formatPrice` · `formatDuration` · `formatTime`/`formatDay` (en la zona del aeropuerto, no la del equipo) · `dayOffset` · `minutesBetween`.
+`formatPrice` · `formatDuration` · `formatTime`/`formatDay` (en la zona del aeropuerto, no la del equipo) · `dayOffset` ·
+`minutesBetween` · `formatDate`/`formatDateShort`/`formatDateTime` · `formatZone` · `todayISO` · `timeToMinutes`/`minutesToTime`.
+Devuelven `—` cuando el instante falta o es inválido, para que un dato ausente de la API no rompa la pantalla.
+
+### `domain/` (no es UI, pero manda en ella)
+`ciudades.js` (catálogo y clasificación nacional/internacional), `estados.js` (catálogos de estado) y `vuelo.js`
+(lecturas de cupos y disponibilidad) concentran las reglas que comparten las pantallas de búsqueda y de vuelos.
+Es presentación, no negocio: las reglas de verdad las impone el backend.
 
 ### Reglas para el flujo de compra (de la brief de diseño)
 1. **Precio claro y total antes de pagar**; ningún costo aparece al final.

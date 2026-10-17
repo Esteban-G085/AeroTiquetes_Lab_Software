@@ -1,6 +1,31 @@
-# Cambios en componentes compartidos (para F2 y para la unión final)
+# Cambios en componentes compartidos
 
-Lo que otro módulo puede notar al integrar. Los cambios de un solo feature (`features/usuarios`) no se listan aquí.
+Lo que otro módulo puede notar al integrar. Los cambios de un solo feature no se listan aquí.
+
+## Parte 9 — Integración de búsqueda y vuelos (F2)
+
+Los módulos `features/busqueda` y `features/vuelos` se construyeron sobre la base de F1. Todo lo que necesitaban
+compartir subió al núcleo: **`features/usuarios` no tuvo que cambiar nada**.
+
+**Nuevo**
+* **`domain/`** (carpeta nueva): `ciudades.js` (catálogo de ciudades y `clasificarVuelo`, que decide nacional/internacional — RF04–RF06),
+  `estados.js` (catálogos de estado de vuelo y sus etiquetas) y `vuelo.js` (lecturas de cupos y texto de disponibilidad por clase).
+* **`components/travel`**: `VueloDetalle` (ficha completa del vuelo, compartida por el detalle público y el panel) y `EstadoBadge`.
+* **`utils/`**: `useCiudades.js` (`GET /ciudades` con respaldo local si el backend no responde) y `ciudadesOpciones.js`
+  (grupos Colombia/Internacional para el `Select`).
+* **`utils/format.js`**: `formatDate`, `formatDateShort`, `formatDateTime`, `formatZone`, `todayISO`, `timeToMinutes` y `minutesToTime`.
+* **`Select`** admite `groups: [{ label, options }]`, que se pintan como `<optgroup>` (lo usa el respaldo de ciudades).
+* Estilos compartidos en `styles/components.css`: `.at-detail` (ficha del vuelo).
+
+**Cambios que pueden notarse**
+* `formatTime`, `formatDay` y `dayOffset` ahora devuelven `—` si el instante falta o no es válido. Antes lanzaban
+  `RangeError: Invalid time value` y dejaban la pantalla en blanco cuando la API no enviaba la llegada (hay pruebas de regresión).
+* Las funciones de formato trabajan con **instantes ISO**; para mostrar la hora local del aeropuerto se les pasa la zona IANA.
+
+**Descartado del plan**
+* **F2-01 (MSW):** no se usa. El front se construyó contra los contratos acordados (`docs/CONTRATO_USUARIOS.md` y
+  `docs/CONTRATO_VUELOS.md`) y las pantallas de vuelos muestran `ErrorState` hasta que B2 publique su API.
+  `VITE_USE_MOCKS` queda reservada y `src/mocks/` vacío.
 
 ## Parte 8 — Rediseño visual integral
 **Lo que otro módulo debe saber al integrar** (cambios que sí pueden notarse):

@@ -4,7 +4,7 @@ Sistema de gestión para compra y reserva de tiquetes aéreos en línea. Desarro
 
 ## ¿Qué se va a hacer?
 
-En el **Sprint 1** se construirá la base funcional del sistema para permitir el flujo completo de autenticación, gestión de usuarios y ciclo básico de vuelos.
+En el **Sprint 1** se construyó la base funcional del sistema para permitir el flujo completo de autenticación, gestión de usuarios y ciclo básico de vuelos.
 
 ### Funcionalidades a implementar
 
@@ -13,6 +13,19 @@ En el **Sprint 1** se construirá la base funcional del sistema para permitir el
 - **Administración de vuelos**: El administrador podrá programar vuelos (generando código consecutivo, hora de llegada con zona horaria y cupos por clase) y consultarlos en modo solo lectura.
 - **Búsqueda de vuelos**: Visitantes y clientes podrán buscar vuelos con criterios combinables (origen, destino, fecha, precio, duración y clase), ver resultados y consultar el detalle de cada vuelo.
 - **Datos semilla**: Catálogo de ciudades (32 capitales de departamento + ciudades internacionales), vuelos de ejemplo y creación automática del usuario Root al iniciar la aplicación.
+
+### Estado del Sprint 1
+
+| Módulo | Equipo | Estado |
+|---|---|---|
+| Base del frontend, autenticación, cuenta y panel root (HU1–HU4, HU23, HU24) | F1 | ✅ integrado |
+| Búsqueda y administración de vuelos (HU5, HU18, HU19) | F2 | ✅ integrado en el frontend · ⏳ falta el backend B2 |
+| API de usuarios (auth, perfil, root) | B1 | ✅ integrado |
+| API de vuelos y ciudades | B2 | ⏳ pendiente |
+
+> Las pantallas de búsqueda y de vuelos ya están construidas y probadas, pero mientras B2 no publique su API
+> muestran el estado de error con reintento. Lo que el front espera del backend está en
+> [`frontend/docs/CONTRATO_VUELOS.md`](./frontend/docs/CONTRATO_VUELOS.md).
 
 ### Demo a mostrar
 
@@ -26,19 +39,53 @@ En el **Sprint 1** se construirá la base funcional del sistema para permitir el
 ## Tecnologías
 
 - **Backend**: Python, FastAPI, SQLAlchemy 2.x, Alembic, Pydantic v2, JWT, bcrypt
-- **Frontend**: React + Vite, Bootstrap, Axios, MSW (para mocks de API)
+- **Frontend**: React + Vite, Bootstrap, Axios, React Router
 - **Base de datos**: PostgreSQL
 - **Correo (desarrollo)**: Mailpit (SMTP 1025, UI 8025)
-- **Pruebas**: Pytest (backend), Vitest (frontend)
+- **Pruebas**: Pytest (backend, 43 pruebas) · Vitest (frontend, 233 pruebas) · Playwright en un navegador real (`npm run e2e`, `npm run audit:ui`)
+
+No se usan **mocks de API**: el front se construyó contra los contratos acordados, y lo que aún no existe en el
+backend (vuelos) se ve como estado de error hasta que B2 lo publique.
 
 ## Estructura del proyecto
 
 ```text
 Proyecto/
-├── Plan_Sprint_1.md           # Plan completo del Sprint 1
+├── backend/               # API FastAPI (módulo usuarios) + Alembic + pruebas + colección Postman
+├── frontend/              # SPA React + Vite (módulos usuarios, búsqueda y vuelos)
+│   ├── docs/              # sistema de diseño, contratos de API, mockups y estado del sprint
+│   └── src/features/      # un módulo por carpeta (ver src/features/README.md)
+├── .github/               # CI del frontend (lint + pruebas + build) y plantilla de PR
+├── docker-compose.yml     # PostgreSQL + Mailpit para desarrollo
+├── Plan_Sprint_1.md       # Plan completo del Sprint 1
 └── README.md
 ```
 
+## Puesta en marcha
+
+```bash
+docker compose up -d          # PostgreSQL + Mailpit
+cd backend                    # alembic upgrade head
+                              # uvicorn app.main:app --reload
+cd ../frontend                # npm ci
+                              # cp .env.example .env.local
+                              # npm run dev  →  http://localhost:5173
+```
+
+Los correos de desarrollo se ven en http://localhost:8025. El arranque detallado de cada parte está en
+[`backend/README.md`](./backend/README.md) y [`frontend/README.md`](./frontend/README.md).
+
 ## Documentación
 
-- Ver [Plan_Sprint_1.md](./Plan_Sprint_1.md) para el plan detallado: reparto por equipo, tareas, hitos, modelo de datos, reglas de negocio y criterios de aceptación.
+| Documento | Contenido |
+|---|---|
+| [Plan_Sprint_1.md](./Plan_Sprint_1.md) | Plan completo del Sprint 1: reparto por equipo, tareas, hitos, modelo de datos, reglas de negocio y criterios de aceptación |
+| [CAMBIOS_INTEGRACION.md](./CAMBIOS_INTEGRACION.md) | Qué se ajustó al unir el backend B1 con el frontend de usuarios (F1) |
+| [frontend/README.md](./frontend/README.md) | Arranque, comandos, estructura y convenciones del frontend |
+| [frontend/docs/DISENO.md](./frontend/docs/DISENO.md) | Sistema de diseño: tokens, componentes y reglas de experiencia |
+| [frontend/docs/CONTRATO_USUARIOS.md](./frontend/docs/CONTRATO_USUARIOS.md) | API que el front espera de B1 (acordada con el backend) |
+| [frontend/docs/CONTRATO_VUELOS.md](./frontend/docs/CONTRATO_VUELOS.md) | API que el front espera de B2 (por acordar; incluye preguntas abiertas) |
+| [frontend/docs/ESTADO_SPRINT1.md](./frontend/docs/ESTADO_SPRINT1.md) | Estado del sprint y checklist de terminado por historia |
+| [frontend/docs/MOCKUPS.md](./frontend/docs/MOCKUPS.md) | Comparación entre los mockups de las historias y lo implementado |
+| [frontend/src/features/README.md](./frontend/src/features/README.md) | Contrato de un módulo (feature) del frontend |
+| [backend/README.md](./backend/README.md) | Arranque, endpoints y pruebas del backend |
