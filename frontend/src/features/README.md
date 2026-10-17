@@ -29,6 +29,7 @@ Para sumar un módulo al sistema: crear la carpeta y agregar **una línea** en
 1. Cada persona trabaja dentro de **su** carpeta (`usuarios` = F1, `vuelos` y `busqueda` = F2).
 2. Un feature **no importa archivos internos de otro**; solo su index público
    (`@/features/vuelos`). ESLint lo bloquea.
-3. Lo que usan 2+ features sube a `components/`, `services/`, `utils/` o `context/`.
+3. Lo que usan 2+ features sube a `components/`, `services/`, `utils/`, `domain/` o `context/`.
+   `domain/` guarda los catálogos y las reglas que comparten las pantallas (ciudades, estados, cupos); no es UI.
 4. Los estilos propios del feature viven en la carpeta del feature, con prefijo de clase propio
    (`us-` usuarios, `vu-` vuelos, `bu-` búsqueda) y usan SIEMPRE los tokens de `styles/tokens.css`.

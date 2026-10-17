@@ -2,7 +2,8 @@
 
 Se comparó el contrato que F1 dejó en `frontend/docs/CONTRATO_USUARIOS.md` con el backend de B1 y se
 ajustó **primero el backend** (aditivo cuando fue posible) para no tocar el código de F1.
-Verificación: 43 pruebas de backend, 162 del front y un recorrido de 19 pasos en un navegador real
+Verificación: 43 pruebas de backend, **233 del front** (la cifra creció al integrar búsqueda y vuelos, más abajo) y
+un recorrido de 19 pasos en un navegador real
 (Chromium) contra el backend real y el front con `vite`: registro con foto, perfil, cambio de correo con
 enlace, cambio de contraseña, invitación de administrador, completar registro, eliminar, matriz de roles y 403.
 
@@ -42,3 +43,15 @@ Solo se **agregó** una pantalla; no se modificó ninguna existente.
 1. `docker compose up -d` (Postgres + Mailpit) y, en `backend/`: `alembic upgrade head` y `uvicorn app.main:app --reload`.
 2. En `frontend/`: `npm ci`, copiar `.env.example` a `.env.local` y `npm run dev` → http://localhost:5173
 3. Entrar como root con `ROOT_ID`/`ROOT_PASSWORD` de `backend/.env`. Los correos se ven en http://localhost:8025.
+
+## Integración del frontend de vuelos (F2)
+
+Los módulos `features/busqueda` (HU5) y `features/vuelos` (HU18, HU19) se construyeron sobre la base de F1 y entraron
+a `master` en un PR propio. Las piezas que subieron al núcleo están en `frontend/CHANGELOG.md` (Parte 9) y el
+resultado, en `frontend/docs/ESTADO_SPRINT1.md`.
+
+**Falta la otra mitad:** la API de vuelos y ciudades (B2). Mientras no exista, esas pantallas muestran su estado de
+error con reintento y el catálogo de ciudades cae al respaldo local (`frontend/src/domain/ciudades.js`). Todo lo que el
+front espera está en `frontend/docs/CONTRATO_VUELOS.md`, con **6 preguntas por responder** en el Hito 0 / B2-00.
+
+> **Sin mocks:** se descartó la tarea F2-01 (MSW). El front no muestra datos inventados: se construyó contra el contrato.
