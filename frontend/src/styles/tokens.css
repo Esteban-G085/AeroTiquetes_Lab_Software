@@ -1,0 +1,94 @@
+/* ==========================================================================
+   Sistema visual de AeroTiquetes.
+   Los azules ORIGINALES del proyecto son las anclas de la escala (marcadas ◆);
+   todo lo demás se deriva de ellos. Es el único lugar con colores, tipografía,
+   espaciado, sombras y movimiento: cambiar la identidad = editar este archivo.
+   ========================================================================== */
+:root {
+  /* ── Marca: escala de azules ─────────────────────────────────────────── */
+  --at-blue-50:  #eef3fe;
+  --at-blue-100: #dce7fd;
+  --at-blue-200: #bcd2fb;
+  --at-blue-300: #8eb3f6;
+  --at-blue-400: #5a8cee;
+  --at-blue-500: #3b62c8;   /* ◆ azul de la barra original */
+  --at-blue-600: #244dbe;   /* ◆ azul primario original (botones, enlaces) */
+  --at-blue-700: #1d3f9a;
+  --at-blue-800: #1a336c;   /* ◆ marino original */
+  --at-blue-900: #0b1936;   /* ◆ "noche" de las tarjetas oscuras originales */
+
+  /* Acento cálido: se usa poco y con intención (etiquetas, avisos, detalles) */
+  --at-sun:      #ffb020;
+  --at-sun-soft: #fff4dc;
+  --at-sun-ink:  #7a4b00;
+
+  /* ── Superficies y texto (neutros fríos, afinados con el azul) ───────── */
+  --at-ink:      #131a2e;   /* texto y títulos  — 17,3:1 sobre blanco */
+  --at-muted:    #556079;   /* texto secundario —  6,3:1 */
+  --at-line:     #dbe2f0;   /* separadores suaves */
+  --at-line-strong: #7b87a3; /* borde de controles (≥ 3:1, WCAG 1.4.11) */
+  --at-surface:  #ffffff;
+  --at-surface-2:#f5f8fe;   /* fondo general de la app */
+  --at-night:    var(--at-blue-900);
+
+  /* ── Estados ─────────────────────────────────────────────────────────── */
+  --at-success:      #78d84f;   /* ◆ verde de la insignia original */
+  --at-success-ink:  #0f6b3a;
+  --at-success-soft: #e3f6ea;
+  --at-danger:       #b42318;
+  --at-danger-soft:  #fdecea;
+  --at-warning-soft: #fff1d6;
+  --at-warning-ink:  #7a4b00;
+
+  /* ── Tipografía ──────────────────────────────────────────────────────── */
+  --at-font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
+  --at-font-sans:    'Plus Jakarta Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --at-font-mono:    'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; /* solo códigos y números */
+
+  --at-text-xs:   .78rem;
+  --at-text-sm:   .875rem;
+  --at-text-base: 1rem;
+  --at-text-lg:   1.125rem;
+  --at-h1: clamp(1.9rem, 1.2rem + 2.4vw, 2.75rem);
+  --at-h2: clamp(1.4rem, 1.1rem + 1.2vw, 1.85rem);
+  --at-h3: 1.15rem;
+
+  /* ── Forma, elevación, espaciado ─────────────────────────────────────── */
+  --at-radius-sm: 8px;
+  --at-radius:    12px;
+  --at-radius-lg: 18px;
+  --at-radius-xl: 28px;
+  --at-radius-pill: 999px;
+
+  --at-shadow-sm: 0 1px 2px rgb(19 26 46 / 6%), 0 1px 3px rgb(19 26 46 / 8%);
+  --at-shadow-md: 0 6px 16px -6px rgb(19 26 46 / 16%), 0 2px 6px rgb(19 26 46 / 6%);
+  --at-shadow-lg: 0 22px 48px -18px rgb(11 25 54 / 38%), 0 6px 16px -8px rgb(11 25 54 / 16%);
+  --at-shadow-cta: 0 8px 18px -8px rgb(36 77 190 / 70%);
+
+  --at-header-h: 68px;
+  --at-focus: 0 0 0 3px rgb(36 77 190 / 32%);
+
+  /* ── Movimiento (se anula con prefers-reduced-motion en base.css) ────── */
+  --at-ease: cubic-bezier(.2, .7, .2, 1);
+  --at-fast: 140ms;
+  --at-med:  260ms;
+
+  /* ── Degradados de marca ─────────────────────────────────────────────── */
+  --at-grad-sky: linear-gradient(165deg, #0b1936 0%, #1a336c 38%, #244dbe 78%, #5a8cee 100%);
+  --at-grad-banner: linear-gradient(135deg, #0b1936 0%, #1a336c 45%, #3b62c8 100%);
+
+  /* ── Alias de nombres anteriores (otros módulos pueden seguir usándolos) ─ */
+  --at-blue: var(--at-blue-600);
+  --at-blue-dark: var(--at-blue-800);
+  --at-blue-bar: var(--at-blue-500);
+  --at-blue-bright: #2f6bea;
+  --at-blue-light: var(--at-blue-400);
+  --at-blue-soft: var(--at-blue-50);
+  --at-night-deep: #060e24;
+  --at-bg: var(--at-surface-2);
+  --at-warning: var(--at-warning-ink);
+  --at-radius-btn: var(--at-radius);
+  --at-bar-h: var(--at-header-h);
+  --at-grad-card: var(--at-grad-banner);
+  --at-grad-brand: var(--at-grad-sky);
+}
