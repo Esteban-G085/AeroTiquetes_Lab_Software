@@ -210,3 +210,21 @@
 .at-stepper__item--done .at-stepper__dot { border-color: var(--at-blue-600); background: var(--at-blue-50); color: var(--at-blue-600); }
 .at-stepper__item--done::after { background: var(--at-blue-600); }
 @media (max-width: 575.98px) { .at-stepper__label { display: none; } .at-stepper__item--current .at-stepper__label { display: inline; } .at-stepper__item--current { flex: 2 1 0; } }
+
+/* ═══ Piezas de viaje: ficha de vuelo (detalle HU5 / consulta HU19) ═══════ */
+.at-detail { display: grid; gap: 1.5rem; }
+.at-detail__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1rem; }
+.at-detail__flags { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.at-detail__code { margin: .2rem 0 0; font-size: 1.5rem; font-weight: 600; color: var(--at-ink); }
+.at-detail__label { margin: 0 0 .3rem; color: var(--at-muted); font-size: var(--at-text-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.at-detail__route { display: grid; gap: 1.25rem; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-bottom: 1.5rem; border-bottom: 1px dashed var(--at-line); }
+.at-detail__block { display: grid; gap: .15rem; }
+.at-detail__iata { font-size: 1.5rem; font-weight: 600; color: var(--at-blue-800); line-height: 1.1; }
+.at-detail__city { font-weight: 600; }
+.at-detail__sub { color: var(--at-muted); font-size: var(--at-text-sm); }
+.at-detail__grid { display: grid; gap: 1.25rem 1.5rem; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+.at-detail__item { display: grid; gap: .1rem; }
+.at-detail__value { margin: 0; font-weight: 600; }
+.at-detail__price { font-family: var(--at-font-display); font-size: 1.35rem; font-weight: 600; color: var(--at-blue-800); font-variant-numeric: lining-nums tabular-nums; }
+.at-detail__actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding-top: 1.25rem; border-top: 1px dashed var(--at-line); }
+@media (max-width: 575.98px) { .at-detail__route { grid-template-columns: 1fr; } }

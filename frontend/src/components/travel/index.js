@@ -1,2 +1,4 @@
 export { default as FlightCard } from './FlightCard'
 export { default as Stepper } from './Stepper'
+export { default as EstadoBadge } from './EstadoBadge'
+export { default as VueloDetalle } from './VueloDetalle'

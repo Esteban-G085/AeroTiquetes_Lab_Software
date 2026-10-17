@@ -61,9 +61,12 @@ export const Input = forwardRef(function Input(
   )
 })
 
-/** Select. options: [{ value, label }] */
+/**
+ * Select. `options: [{ value, label }]`. Para agrupar, `groups: [{ label, options }]`
+ * (los grupos se pintan como `<optgroup>`; el respaldo de ciudades los usa).
+ */
 export const Select = forwardRef(function Select(
-  { label, hint, error, required, options = [], placeholder, className, ...rest }, ref,
+  { label, hint, error, required, options = [], groups, placeholder, className, ...rest }, ref,
 ) {
   const id = useId()
   return (
@@ -76,7 +79,13 @@ export const Select = forwardRef(function Select(
         {...rest}
       >
         {placeholder && <option value="">{placeholder}</option>}
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {groups
+          ? groups.map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </optgroup>
+          ))
+          : options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </FieldShell>
   )
