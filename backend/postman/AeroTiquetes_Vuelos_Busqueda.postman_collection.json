@@ -1,0 +1,934 @@
+{
+  "info": {
+    "name": "AeroTiquetes - Vuelos y Busqueda (B2)",
+    "description": "Ciudades, busqueda publica, detalle, panel y programacion de vuelos (HU5, HU18, HU19). Orden sugerido: 0) tener datos (`python -m app.modules.vuelos.seeds`), 1) Login admin y cliente, 2) Ciudades, 3) Busqueda, 4) Administrador. El admin lo crea el root (ver coleccion de Usuarios) y completa su registro; aqui solo se loguea con adminUsuario/adminPassword.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "adminUsuario",
+      "value": "CAMBIAR_USUARIO_DEL_ADMIN"
+    },
+    {
+      "key": "adminPassword",
+      "value": "CAMBIAR_PASSWORD_DEL_ADMIN"
+    },
+    {
+      "key": "clienteUsuario",
+      "value": "anagomez"
+    },
+    {
+      "key": "clientePassword",
+      "value": "clavesegura123"
+    },
+    {
+      "key": "tokenAdmin",
+      "value": ""
+    },
+    {
+      "key": "tokenCliente",
+      "value": ""
+    },
+    {
+      "key": "idVuelo",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login administrador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Guarda {{tokenAdmin}}.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identificador\": \"{{adminUsuario}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.collectionVariables.set(\"tokenAdmin\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Guarda {{tokenCliente}}. El cliente se registra con la coleccion de Usuarios. Con este token las busquedas quedan en su historial.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identificador\": \"{{clienteUsuario}}\",\n  \"password\": \"{{clientePassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.collectionVariables.set(\"tokenCliente\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ciudades (publico)",
+      "item": [
+        {
+          "name": "Todas las ciudades",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ciudades",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ciudades"
+              ]
+            },
+            "description": "37 ciudades en orden alfabetico.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"37 ciudades\", function () { pm.expect(pm.response.json().items.length).to.eql(37); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ciudades nacionales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ciudades?uso=nacional",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ciudades"
+              ],
+              "query": [
+                {
+                  "key": "uso",
+                  "value": "nacional"
+                }
+              ]
+            },
+            "description": "Las 32 capitales de departamento.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"32 capitales\", function () { pm.expect(pm.response.json().items.length).to.eql(32); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ciudades internacionales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ciudades?uso=internacional",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ciudades"
+              ],
+              "query": [
+                {
+                  "key": "uso",
+                  "value": "internacional"
+                }
+              ]
+            },
+            "description": "Grupo colombia (5) y exterior (5).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"10 ciudades\", function () { pm.expect(pm.response.json().items.length).to.eql(10); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Busqueda (publico)",
+      "item": [
+        {
+          "name": "Buscar todos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vuelos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vuelos"
+              ]
+            },
+            "description": "Solo vuelos programados con salida futura (D16).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Forma de la pagina\", function () { pm.expect(b).to.have.all.keys(\"total\",\"pagina\",\"tamano\",\"items\"); });",
+                  "if (b.items.length) { pm.collectionVariables.set(\"idVuelo\", b.items[0].id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar por ruta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vuelos?origen=BOG&destino=MDE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vuelos"
+              ],
+              "query": [
+                {
+                  "key": "origen",
+                  "value": "BOG"
+                },
+                {
+                  "key": "destino",
+                  "value": "MDE"
+                }
+              ]
+            },
+            "description": "BOG -> MDE.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Todos son BOG-MDE\", function () { pm.response.json().items.forEach(v => { pm.expect(v.origen.codigo).to.eql(\"BOG\"); pm.expect(v.destino.codigo).to.eql(\"MDE\"); }); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar combinando filtros",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vuelos?origen=BOG&precioMin=150000&duracionMax=70&orden=precio_desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vuelos"
+              ],
+              "query": [
+                {
+                  "key": "origen",
+                  "value": "BOG"
+                },
+                {
+                  "key": "precioMin",
+                  "value": "150000"
+                },
+                {
+                  "key": "duracionMax",
+                  "value": "70"
+                },
+                {
+                  "key": "orden",
+                  "value": "precio_desc"
+                }
+              ]
+            },
+            "description": "Origen, precio y orden por precio descendente.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const c = pm.response.json().items.map(v => v.costo);",
+                  "pm.test(\"Ordenado por precio desc\", function () { pm.expect(c).to.eql([...c].sort((a,b) => b-a)); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar por dia (hora de Colombia)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vuelos?fecha=2030-01-15",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vuelos"
+              ],
+              "query": [
+                {
+                  "key": "fecha",
+                  "value": "2030-01-15"
+                }
+              ]
+            },
+            "description": "Cambia la fecha por un dia con vuelos.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtro de clase (no oculta vuelos)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vuelos?clase=economica",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vuelos"
+              ],
+              "query": [
+                {
+                  "key": "clase",
+                  "value": "economica"
+                }
+              ]
+            },
+            "description": "D13: destaca disponibilidad, no excluye.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Busqueda como cliente (guarda historial)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vuelos?origen=BOG&destino=MDE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vuelos"
+              ],
+              "query": [
+                {
+                  "key": "origen",
+                  "value": "BOG"
+                },
+                {
+                  "key": "destino",
+                  "value": "MDE"
+                }
+              ]
+            },
+            "description": "Con token de cliente se guarda origen/destino/fecha en el historial (B2-11).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Parametro invalido (422)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vuelos?orden=al_azar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vuelos"
+              ],
+              "query": [
+                {
+                  "key": "orden",
+                  "value": "al_azar"
+                }
+              ]
+            },
+            "description": "orden desconocido.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"422 con formato unico\", function () { pm.response.to.have.status(422); pm.expect(pm.response.json().error.code).to.eql(\"validacion\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalle de un vuelo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vuelos/{{idVuelo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vuelos",
+                "{{idVuelo}}"
+              ]
+            },
+            "description": "Usa el id guardado por 'Buscar todos'.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalle inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vuelos/99999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vuelos",
+                "99999999"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"404 vuelo_no_encontrado\", function () { pm.response.to.have.status(404); pm.expect(pm.response.json().error.code).to.eql(\"vuelo_no_encontrado\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Administrador",
+      "item": [
+        {
+          "name": "Listar vuelos (panel)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/vuelos?estado=programado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "vuelos"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "programado"
+                }
+              ]
+            },
+            "description": "Todos los estados, salida mas reciente primero.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar vuelo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/vuelos/{{idVuelo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "vuelos",
+                "{{idVuelo}}"
+              ]
+            },
+            "description": "Solo lectura (HU19).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Programar vuelo nacional",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/vuelos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "vuelos"
+              ]
+            },
+            "description": "Guarda el vuelo; la hora es hora de Colombia. Cambia la fecha a una futura.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"nacional\",\n  \"origen\": \"BOG\",\n  \"destino\": \"MDE\",\n  \"fecha\": \"2030-01-15\",\n  \"hora\": \"08:00\",\n  \"duracion\": 90,\n  \"costo\": 300000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 creado\", function () { pm.response.to.have.status(201); });",
+                  "const v = pm.response.json();",
+                  "pm.test(\"Lo genera el sistema\", function () { pm.expect(v.codigo).to.match(/^AT-\\d{4}$/); pm.expect(v.estado).to.eql(\"programado\"); pm.expect(v.cupos_economica + v.cupos_primera).to.eql(150); });",
+                  "pm.collectionVariables.set(\"idVuelo\", v.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Programar vuelo internacional",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/vuelos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "vuelos"
+              ]
+            },
+            "description": "Una ciudad de cada grupo, en cualquier sentido (D5).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"internacional\",\n  \"origen\": \"MAD\",\n  \"destino\": \"BOG\",\n  \"fecha\": \"2030-01-15\",\n  \"hora\": \"08:00\",\n  \"duracion\": 660,\n  \"costo\": 2600000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 creado\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"250 cupos\", function () { const v = pm.response.json(); pm.expect(v.cupos_economica + v.cupos_primera).to.eql(250); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Programar con errores (422 por campo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/vuelos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "vuelos"
+              ]
+            },
+            "description": "Origen = destino, fecha pasada y duracion invalida: llegan todos los errores juntos en error.fields.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"nacional\",\n  \"origen\": \"BOG\",\n  \"destino\": \"BOG\",\n  \"fecha\": \"2020-01-01\",\n  \"hora\": \"08:00\",\n  \"duracion\": 0,\n  \"costo\": 300000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"422 con campos\", function () { pm.response.to.have.status(422); const f = pm.response.json().error.fields; pm.expect(f).to.have.property(\"destino\"); pm.expect(f).to.have.property(\"fecha\"); pm.expect(f).to.have.property(\"duracion\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sin token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/vuelos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "vuelos"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"401\", function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Con token de cliente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/vuelos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "vuelos"
+              ]
+            },
+            "description": "Un cliente no accede al panel.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenCliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"403 permiso_denegado\", function () { pm.response.to.have.status(403); pm.expect(pm.response.json().error.code).to.eql(\"permiso_denegado\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
