@@ -46,6 +46,16 @@ export async function solicitarCambioCorreo({ correo_nuevo, password_actual }) {
   return data
 }
 
+/**
+ * HU2 / D8 — Confirmación del cambio de correo: POST /auth/verificar-correo { token }.
+ * El enlace llega al correo NUEVO, que puede no ser el de la sesión, así que el backend
+ * no exige token. Falla (400) si el token venció, ya se usó o no hay un cambio pendiente.
+ */
+export async function verificarCorreo(token) {
+  const { data } = await http.post('/auth/verificar-correo', { token })
+  return data
+}
+
 /** HU3 — PUT /me/password */
 export async function cambiarPassword({ password_actual, password_nueva }) {
   const { data } = await http.put('/me/password', { password_actual, password_nueva })

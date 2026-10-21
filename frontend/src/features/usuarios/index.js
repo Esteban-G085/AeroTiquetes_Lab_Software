@@ -17,6 +17,10 @@ export default {
     { path: '/completar-registro', layout: 'bare', title: 'Completar registro',
       Component: lazy(() => import('./pages/CompletarRegistroPage')),
       roles: [VISITANTE] },
+    // Sin `roles`: ruta pública. El enlace de verificación llega al correo NUEVO, que
+    // puede no ser el de la sesión, así que debe abrirse con o sin sesión iniciada.
+    { path: '/verificar-correo', layout: 'bare', title: 'Verificar correo',
+      Component: lazy(() => import('./pages/VerificarCorreoPage')) },
     { path: '/perfil', layout: 'bare', title: 'Mi perfil',
       Component: lazy(() => import('./pages/PerfilPage')),
       roles: [CLIENTE, ADMIN, ROOT], nav: { label: 'Mi perfil', area: 'account', order: 10 } },

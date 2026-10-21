@@ -47,6 +47,7 @@
 .us-reg__card--narrow { max-width: 30rem; text-align: center; padding-block: 2.5rem; }
 .us-reg__msg { color: var(--at-muted); margin: .75rem 0 1.5rem; }
 .us-reg__alerticon { width: 3.5rem; height: 3.5rem; border-radius: 50%; display: inline-grid; place-items: center; background: var(--at-warning-soft); color: var(--at-warning-ink); margin-bottom: 1rem; }
+.us-reg__alerticon--success { background: var(--at-success-soft); color: var(--at-success-ink); }
 .us-reg__card--narrow .us-reg__actions { gap: .75rem; }
 
 /* Selector de foto */

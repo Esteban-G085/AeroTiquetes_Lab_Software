@@ -52,6 +52,18 @@ Alinea búsqueda y vuelos con el lenguaje del rediseño (ver `docs/DISENO.md` §
 * **Documentación al día:** el `README.md` raíz, `frontend/README.md` y `docs/ESTADO_SPRINT1.md` reflejan que B2 ya
   está integrado y que el front consume la API real de usuarios, vuelos y ciudades.
 
+## Parte 12 — Pantalla de verificación de correo (HU2 / D8)
+
+* **Nueva pantalla** `features/usuarios/pages/VerificarCorreoPage.jsx`: confirma el correo nuevo desde el enlace
+  `/verificar-correo?token=…` que manda el backend. Antes el enlace no llevaba a ninguna parte: el correo quedaba
+  `pendiente` para siempre (era la pregunta abierta 6 de F1).
+* **Pública a propósito:** el enlace llega al correo NUEVO, que puede no ser el de la sesión, así que la ruta se
+  declara **sin `roles`**. Ojo: `roles: [VISITANTE]` expulsaría a quien ya tiene sesión, y aquí ese es el caso normal.
+* **`api.js`:** `verificarCorreo(token)` → `POST /auth/verificar-correo { token }`.
+* **Token de un solo uso:** el POST se dispara al abrir la página, así que se guarda en un `useRef`. Sin eso, en
+  `StrictMode` (que monta el efecto dos veces en desarrollo) se harían dos peticiones y la segunda fallaría con
+  `sin_cambio_pendiente`: la pantalla mostraría «Enlace no válido» aunque la verificación hubiera sido correcta.
+
 ## Parte 8 — Rediseño visual integral
 **Lo que otro módulo debe saber al integrar** (cambios que sí pueden notarse):
 * **Tipografía:** Fraunces (titulares) + Plus Jakarta Sans (texto) reemplazan a Roboto; Roboto Mono solo para códigos.
