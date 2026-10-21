@@ -19,12 +19,12 @@ En el **Sprint 1** se construyó la base funcional del sistema para permitir el 
 | Módulo | Equipo | Estado |
 |---|---|---|
 | Base del frontend, autenticación, cuenta y panel root (HU1–HU4, HU23, HU24) | F1 | ✅ integrado |
-| Búsqueda y administración de vuelos (HU5, HU18, HU19) | F2 | ✅ integrado en el frontend · ⏳ falta el backend B2 |
+| Búsqueda y administración de vuelos (HU5, HU18, HU19) | F2 | ✅ integrado |
 | API de usuarios (auth, perfil, root) | B1 | ✅ integrado |
-| API de vuelos y ciudades | B2 | ⏳ pendiente |
+| API de vuelos, ciudades y búsqueda | B2 | ✅ integrado |
 
-> Las pantallas de búsqueda y de vuelos ya están construidas y probadas, pero mientras B2 no publique su API
-> muestran el estado de error con reintento. Lo que el front espera del backend está en
+> El Sprint 1 está cerrado de punta a punta: el frontend ya consume la API real de usuarios, vuelos y ciudades
+> (sin mocks). El contrato de vuelos quedó acordado en
 > [`frontend/docs/CONTRATO_VUELOS.md`](./frontend/docs/CONTRATO_VUELOS.md).
 
 ### Demo a mostrar
@@ -42,16 +42,16 @@ En el **Sprint 1** se construyó la base funcional del sistema para permitir el 
 - **Frontend**: React + Vite, Bootstrap, Axios, React Router
 - **Base de datos**: PostgreSQL
 - **Correo (desarrollo)**: Mailpit (SMTP 1025, UI 8025)
-- **Pruebas**: Pytest (backend, 43 pruebas) · Vitest (frontend, 233 pruebas) · Playwright en un navegador real (`npm run e2e`, `npm run audit:ui`)
+- **Pruebas**: Pytest (backend, 170 pruebas) · Vitest (frontend, 246 pruebas) · Playwright en un navegador real (`npm run e2e`, `npm run audit:ui`)
 
-No se usan **mocks de API**: el front se construyó contra los contratos acordados, y lo que aún no existe en el
-backend (vuelos) se ve como estado de error hasta que B2 lo publique.
+No se usan **mocks de API**: el front se construyó contra los contratos acordados y ya está conectado a la API real
+de usuarios, vuelos y ciudades.
 
 ## Estructura del proyecto
 
 ```text
 Proyecto/
-├── backend/               # API FastAPI (módulo usuarios) + Alembic + pruebas + colección Postman
+├── backend/               # API FastAPI (módulos usuarios, vuelos y búsqueda) + Alembic + pruebas + colección Postman
 ├── frontend/              # SPA React + Vite (módulos usuarios, búsqueda y vuelos)
 │   ├── docs/              # sistema de diseño, contratos de API, mockups y estado del sprint
 │   └── src/features/      # un módulo por carpeta (ver src/features/README.md)
@@ -67,6 +67,7 @@ Proyecto/
 docker compose up -d          # PostgreSQL + Mailpit
 cd backend                    # alembic upgrade head
                               # uvicorn app.main:app --reload
+                              # python -m app.modules.vuelos.seeds   # 20 vuelos de ejemplo
 cd ../frontend                # npm ci
                               # cp .env.example .env.local
                               # npm run dev  →  http://localhost:5173
@@ -84,7 +85,7 @@ Los correos de desarrollo se ven en http://localhost:8025. El arranque detallado
 | [frontend/README.md](./frontend/README.md) | Arranque, comandos, estructura y convenciones del frontend |
 | [frontend/docs/DISENO.md](./frontend/docs/DISENO.md) | Sistema de diseño: tokens, componentes y reglas de experiencia |
 | [frontend/docs/CONTRATO_USUARIOS.md](./frontend/docs/CONTRATO_USUARIOS.md) | API que el front espera de B1 (acordada con el backend) |
-| [frontend/docs/CONTRATO_VUELOS.md](./frontend/docs/CONTRATO_VUELOS.md) | API que el front espera de B2 (por acordar; incluye preguntas abiertas) |
+| [frontend/docs/CONTRATO_VUELOS.md](./frontend/docs/CONTRATO_VUELOS.md) | API de vuelos, ciudades y búsqueda acordada con B2 (ya implementada) |
 | [frontend/docs/ESTADO_SPRINT1.md](./frontend/docs/ESTADO_SPRINT1.md) | Estado del sprint y checklist de terminado por historia |
 | [frontend/docs/MOCKUPS.md](./frontend/docs/MOCKUPS.md) | Comparación entre los mockups de las historias y lo implementado |
 | [frontend/src/features/README.md](./frontend/src/features/README.md) | Contrato de un módulo (feature) del frontend |

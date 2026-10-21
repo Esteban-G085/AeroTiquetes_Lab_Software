@@ -35,7 +35,6 @@ En desarrollo, **`/dev/ui`** muestra el catálogo de componentes base.
 |---|---|
 | `VITE_API_URL` | URL del backend FastAPI (por defecto `http://localhost:8000`) |
 | `VITE_IDLE_MINUTES` | Minutos de inactividad antes de cerrar sesión (por defecto 30, RNF06) |
-| `VITE_USE_MOCKS` | Reservada: existe la variable, pero ningún módulo la consulta (el proyecto **no usa MSW**; ver `features/README.md` y el plan) |
 
 Se leen **solo** desde `src/config/env.js`. Nadie más lee `import.meta.env`.
 
@@ -111,5 +110,5 @@ Formato acordado: `{ "error": { "code", "message", "fields" } }`; `fields` se ma
 * `docs/ESTADO_SPRINT1.md` — estado del sprint y checklist de terminado por historia.
 * `docs/MOCKUPS.md` — comparación entre los mockups de las historias y lo implementado.
 * `docs/CONTRATO_USUARIOS.md` — API que el front espera de B1 (acordada).
-* `docs/CONTRATO_VUELOS.md` — API que el front espera de B2 (por acordar).
+* `docs/CONTRATO_VUELOS.md` — API de vuelos, ciudades y búsqueda acordada con B2 (ya implementada).
 * `src/features/README.md` — contrato de un módulo (feature).

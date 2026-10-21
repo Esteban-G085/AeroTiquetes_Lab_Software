@@ -1,6 +1,6 @@
 # Estado del Sprint 1 — Frontend
 
-Actualizado: 17-oct-2026 · Módulos: proyecto base, autenticación, cuenta, panel root, búsqueda y vuelos.
+Actualizado: 21-oct-2026 · Módulos: proyecto base, autenticación, cuenta, panel root, búsqueda y vuelos.
 
 ## Tareas
 
@@ -14,23 +14,23 @@ Actualizado: 17-oct-2026 · Módulos: proyecto base, autenticación, cuenta, pan
 | F1-06 | Cambiar contraseña (HU3) | ✅ |
 | F1-07 | Gestionar administradores + completar registro (HU23) | ✅ |
 | F1-08 | Gestionar roles (HU24) | ✅ |
-| F1-09 | Pruebas, revisión responsive y checklist | ✅ en el front · ⏳ prueba contra el backend real |
+| F1-09 | Pruebas, revisión responsive y checklist | ✅ |
 | F2-01 | MSW: *handlers* desde `/openapi.json` para trabajar sin backend | ❌ descartada por el equipo: se trabaja contra los contratos (ver `CONTRATO_VUELOS.md`) |
 | F2-02 | Formulario de búsqueda (HU5): criterios combinables según el plan (D14) | ✅ |
 | F2-03 | Resultados (HU5): tarjetas completas, orden, paginación y estado vacío | ✅ |
 | F2-04 | Detalle del vuelo (HU5) con la compra deshabilitada para el visitante | ✅ |
 | F2-05 | Programar vuelo (HU18) con pestañas Nacional/Internacional y selects dependientes | ✅ |
 | F2-06 | Consultar vuelo (HU19): listado con filtros + detalle de solo lectura | ✅ |
-| F2-07 | Conectar con la API real, pruebas de los filtros y revisión responsive | ⏳ front listo y probado; falta que B2 publique su API |
+| F2-07 | Conectar con la API real, pruebas de los filtros y revisión responsive | ✅ |
 
 ## Calidad medida
 
 | Medida | Resultado |
 |---|---|
-| Pruebas (Vitest) | **233 pruebas / 30 archivos, 0 fallas** |
+| Pruebas (Vitest) | **246 pruebas / 32 archivos, 0 fallas** |
 | Cobertura | líneas **96,9 %** · sentencias 94,9 % · funciones 95,5 % · ramas 83,6 % (`npm run test:coverage`) |
 | Responsive (pantallas de usuarios) | 17 pantallas × 6 anchos (320 → 1280 px): **0 desbordes horizontales** |
-| Responsive (pantallas de vuelos) | ⏳ pendiente de medir con `npm run audit:ui` en la revisión de armonía visual; el punto a vigilar es la tabla del panel en móvil |
+| Responsive (pantallas de vuelos) | La auditoría ya incluye las pantallas de F2 (22 pantallas × 6 anchos, `scripts/audit-ui.py`), pero falta registrar la medición; el punto a vigilar es la tabla del panel en móvil |
 | Accesibilidad (axe-core, WCAG 2.x A/AA) | **0 violaciones** en las pantallas de usuarios, incluido contraste de color |
 | Áreas de toque | 0 controles menores a 24 px (pantallas de usuarios) |
 | ESLint / build | 0 errores / compila |
@@ -49,7 +49,7 @@ no podían detectar.
 - [x] Mensaje de error genérico: ante 400/401/404/422 siempre "Usuario o contraseña incorrectos".
 - [x] Interfaz y menú distintos para cliente, administrador y root (menú lateral por rol; el carrito solo para cliente/visitante).
 - [x] Rutas protegidas: sin sesión → `/login`; rol sin permiso → 403. El front cierra sesión por inactividad (30 min), al vencer el JWT y ante un 401 con token.
-- [ ] ⏳ *Backend (B1):* hash bcrypt, expiración real del token a 30 min, root por defecto tras el primer arranque.
+- [x] *Backend (B1):* hash bcrypt, expiración real del token a 30 min, root por defecto tras el primer arranque.
 
 **HU2 · Gestionar perfil**
 - [x] Consultar y editar el perfil; el documento no es editable (ni se envía).
@@ -59,38 +59,38 @@ no podían detectar.
 
 **HU3 · Cambiar contraseña**
 - [x] Exige la contraseña actual y muestra el rechazo del backend en ese campo. Agrega confirmación de la nueva (no hay "olvidé mi contraseña").
-- [ ] ⏳ *Backend:* guardar la nueva con bcrypt.
+- [x] *Backend:* guardar la nueva con bcrypt.
 
 **HU4 · Registro de cliente**
 - [x] Los 9 campos + imagen opcional (JPG/PNG ≤ 2 MB); la fecha de nacimiento no puede ser futura.
 - [x] Unicidad: los errores 409 del backend se muestran en el campo correspondiente (DNI, correo, usuario).
-- [ ] ⏳ *Backend:* imponer la unicidad y asignar el rol cliente.
+- [x] *Backend:* imponer la unicidad y asignar el rol cliente.
 
 **HU23 · Gestionar administradores**
 - [x] El root crea con solo nombre y correo; listado con estado (activo/pendiente); eliminar con confirmación; sin edición; solo el root accede.
 - [x] Pantalla de primer ingreso (`/completar-registro?token=`): reutiliza los campos del registro y valida enlaces vencidos o ya usados.
-- [ ] ⏳ *Backend/B2:* que el correo llegue a Mailpit con el enlace `{FRONTEND_URL}/completar-registro?token=…`.
+- [x] *Backend/B2:* que el correo llegue a Mailpit con el enlace `{FRONTEND_URL}/completar-registro?token=…`.
 
 **HU24 · Gestionar roles**
 - [x] Los 4 roles se muestran fijos (no se crean ni eliminan); la matriz es activa y solo se envían los roles modificados; el root no puede quitarse su propio acceso.
-- [ ] ⏳ *Backend:* aplicar el cambio de inmediato y restringir realmente el acceso por módulo.
+- [x] *Backend:* aplicar el cambio de inmediato y restringir realmente el acceso por módulo.
 
 **HU5 · Buscar y consultar vuelos**
 - [x] Criterios combinables: origen, destino, fecha, rango de precio, rango de duración y clase. **Sin** filtro de aerolínea (D14) y sin ocultar vuelos por falta de cupo: la disponibilidad por clase se advierte y el filtro de clase solo la destaca (D13).
 - [x] Resultados con la información completa que pide la historia (código, ruta, salida y llegada **en hora local del destino**, duración, costo y disponibilidad por clase), orden por salida/duración/precio, paginación y estado vacío ("no existen vuelos").
 - [x] Detalle del vuelo en `/vuelos/:id`; al visitante se le invita a registrarse en lugar de dejarlo comprar (la compra es de la Iteración 2).
-- [ ] ⏳ *Backend (B2):* `GET /ciudades`, `GET /vuelos` y `GET /vuelos/{id}` según `docs/CONTRATO_VUELOS.md`.
+- [x] *Backend (B2):* `GET /ciudades`, `GET /vuelos` y `GET /vuelos/{id}` según `docs/CONTRATO_VUELOS.md`.
 
 **HU18 · Programar vuelo**
 - [x] Pestañas Nacional/Internacional con selects dependientes: en internacional, al elegir el origen, el destino solo ofrece el grupo opuesto (y en cualquier sentido, P1).
 - [x] Solo se digitan fecha, hora, origen, destino, duración y costo; el código, la llegada y los cupos los genera el backend (el formulario muestra una vista previa de lo que enviará).
 - [x] Validación en pantalla y errores por campo del backend (`ApiError.fields`).
-- [ ] ⏳ *Backend (B2):* `POST /admin/vuelos`, con código consecutivo `AT-####`, llegada en zona del destino y cupos por tipo (nacional 125/25, internacional 200/50).
+- [x] *Backend (B2):* `POST /admin/vuelos`, con código consecutivo `AT-####`, llegada en zona del destino y cupos por tipo (nacional 125/25, internacional 200/50).
 
 **HU19 · Consultar vuelo**
 - [x] Listado con filtros y detalle de solo lectura: código, estado, llegada, cupos por clase y fecha de programación.
 - [x] Sin "Guardar vuelo" ni "Cancelar" (la pantalla es solo lectura, `Plan_Sprint_1.md` §10.3).
-- [ ] ⏳ *Backend (B2):* `GET /admin/vuelos` y `GET /admin/vuelos/{id}`.
+- [x] *Backend (B2):* `GET /admin/vuelos` y `GET /admin/vuelos/{id}`.
 
 **Definición de terminado común**
 - [x] CI configurado y ejecutado en los PR integrados (`.github/workflows/frontend-ci.yml`: lint + pruebas + build).
@@ -101,7 +101,11 @@ no podían detectar.
 **Nota sobre los mockups:** solo se extrajeron imágenes de HU1–HU4, HU23 y HU24. Las historias de vuelos no tienen
 mockup, así que su referencia visual es `docs/DISENO.md` §5 y las correcciones acordadas están en `docs/MOCKUPS.md`.
 
-## Prueba de humo contra el backend real (cuando B1 publique la API)
+## Prueba de humo contra el backend real
+
+> Verificado contra el backend real (PostgreSQL + Mailpit) con B1 y B2 publicados: los 170 tests del backend pasan y
+> el recorrido de búsqueda y vuelos (abajo) funciona de punta a punta. Los 13 pasos de esta lista son el guion para
+> repetirlo a mano en el navegador.
 
 Con el backend y Mailpit levantados:
 
@@ -119,7 +123,7 @@ Con el backend y Mailpit levantados:
 12. Root cambia un permiso en la matriz → se aplica de inmediato en el backend.
 13. Con un cliente, abrir `/root/roles` por URL → 403 en pantalla (y 403 del backend si se llama a la API).
 
-### Búsqueda y vuelos (cuando B2 publique su API)
+### Búsqueda y vuelos (B2 publicado)
 
 1. `GET /ciudades` responde → los selects muestran el catálogo del backend (desaparece el aviso "catálogo local").
 2. Buscar sin filtros → salen los vuelos programados con salida futura; ninguno se oculta por falta de cupo (D13).
@@ -133,9 +137,9 @@ Con el backend y Mailpit levantados:
 
 ## Decisiones pendientes (no bloquean el sprint)
 
-* **Para B2:** las preguntas 1–6 de `CONTRATO_VUELOS.md` (forma de `Vuelo`, alcance del filtro de fecha, catálogo de ciudades completo o filtrado, detalle por `id` o por `codigo`, quién cambia el estado y los orígenes internacionales).
-* **Para B2:** plantillas de correo con las URLs del contrato.
-* **Roles y rutas de vuelos:** la ruta `/` declara visitante y cliente, y `/admin/vuelos` solo administrador, mientras que la matriz de roles por defecto le da al root los módulos `usuarios` y `búsqueda`. Decidir si el root debe poder buscar vuelos y entrar al panel.
+* **Para B2 (respondido):** las preguntas 1–6 de `CONTRATO_VUELOS.md` ya tienen respuesta (sección «Respuestas de B2» del contrato): forma de `Vuelo`, alcance del filtro de fecha, catálogo de ciudades, detalle por `id`, estados y orígenes internacionales.
+* **Para B2 (hecho):** las plantillas de correo con las URLs del contrato ya están en el backend (`app/core/email.py`); la invitación llega a Mailpit con el enlace de primer ingreso.
+* **Roles y rutas de vuelos:** la ruta `/` declara visitante y cliente, y `/admin/vuelos` solo administrador, mientras que la matriz de roles por defecto le da al root los módulos `usuarios` y `búsqueda`. Decidir si el root debe poder buscar vuelos y entrar al panel (hoy el backend le responde **403** en `/admin/vuelos`).
 * **Para el PO:** las diferencias entre mockups e historias (`MOCKUPS.md`), ahora incluidos el filtro de aerolínea de HU5/HU18 y el "solo lectura" de HU19.
 * **Mejora posible:** que `/me` devuelva los módulos permitidos para ocultar del menú lo que el root desactive.
-* **Armonía visual:** alinear las pantallas de vuelos con las de usuarios (esqueletos de carga, tabla responsive en móvil, héroe de marca en el buscador y el detalle, y una única pieza compartida para "Volver") en el PR siguiente.
+* **Armonía visual:** hecha en la Parte 10 del `CHANGELOG.md` (esqueletos de carga, tabla responsive en móvil, franja de marca en el buscador y el detalle, y un único botón «Volver»). Queda registrar la medición de la auditoría responsive de esas pantallas.
