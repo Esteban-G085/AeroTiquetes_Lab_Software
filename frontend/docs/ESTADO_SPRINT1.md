@@ -27,7 +27,7 @@ Actualizado: 21-oct-2026 · Módulos: proyecto base, autenticación, cuenta, pan
 
 | Medida | Resultado |
 |---|---|
-| Pruebas (Vitest) | **246 pruebas / 32 archivos, 0 fallas** |
+| Pruebas (Vitest) | **255 pruebas / 33 archivos, 0 fallas** |
 | Cobertura | líneas **96,9 %** · sentencias 94,9 % · funciones 95,5 % · ramas 83,6 % (`npm run test:coverage`) |
 | Responsive (pantallas de usuarios) | 17 pantallas × 6 anchos (320 → 1280 px): **0 desbordes horizontales** |
 | Responsive (pantallas de vuelos) | La auditoría ya incluye las pantallas de F2 (22 pantallas × 6 anchos, `scripts/audit-ui.py`), pero falta registrar la medición; el punto a vigilar es la tabla del panel en móvil |

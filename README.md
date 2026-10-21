@@ -42,7 +42,7 @@ En el **Sprint 1** se construyó la base funcional del sistema para permitir el 
 - **Frontend**: React + Vite, Bootstrap, Axios, React Router
 - **Base de datos**: PostgreSQL
 - **Correo (desarrollo)**: Mailpit (SMTP 1025, UI 8025)
-- **Pruebas**: Pytest (backend, 170 pruebas) · Vitest (frontend, 246 pruebas) · Playwright en un navegador real (`npm run e2e`, `npm run audit:ui`)
+- **Pruebas**: Pytest (backend, 170 pruebas) · Vitest (frontend, 255 pruebas) · Playwright en un navegador real (`npm run e2e`, `npm run audit:ui`)
 
 No se usan **mocks de API**: el front se construyó contra los contratos acordados y ya está conectado a la API real
 de usuarios, vuelos y ciudades.

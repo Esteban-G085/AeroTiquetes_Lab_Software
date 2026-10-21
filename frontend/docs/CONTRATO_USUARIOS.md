@@ -130,9 +130,10 @@ La verificación del cambio de correo (D8) y las preguntas de abajo. El resto de
 3. ~~¿Cómo recibe el administrador el acceso?~~ Propuesta cerrada arriba: enlace al front con `?token=`. **Confirmar** y que B2 use esa URL en la plantilla.
 4. ~~¿Estructura de la matriz de roles?~~ Propuesta cerrada arriba (roles × módulos). **Confirmar** los `id` de módulos y qué `require_roles` consulta. El mockup mostraba columnas "Crear/editar" y "Estado": no se implementaron (ver `MOCKUPS.md`).
 5. ¿Las imágenes se sirven como URL absoluta (`imagen_url`) o hay que anteponer la base URL? (el front soporta ambas)
-6. **Enlace de verificación de correo (D8):** ¿a dónde apunta? Propuesta: a una pantalla del front
-   (`/verificar-correo?token=…`) que llama a `POST /me/correo/confirmar { token }`. Necesita decisión de B1 y B2 (plantilla del correo, B2-03);
-   F1 construye la pantalla cuando se acuerde.
+6. ~~¿Enlace de verificación de correo (D8): a dónde apunta?~~ **Cerrado:** el correo apunta a
+   `/verificar-correo?token=…` (pantalla pública del front) y B1 lo implementó como `POST /auth/verificar-correo { token }`,
+   no `POST /me/correo/confirmar`. El token es de un solo uso: al confirmarlo, el backend responde
+   `sin_cambio_pendiente` si se reutiliza.
 7. ¿El enlace del administrador (D6) apunta a `/completar-registro?token=…` en el front? (la ruta ya existe como pantalla provisional)
 8. **Menú vs. matriz:** si el root desactiva un módulo para un rol, el backend responde 403, pero el front sigue mostrando la entrada de menú
    (las rutas se protegen con el rol, no con la matriz). Propuesta: que `/me` (o el login) devuelva `modulos: ["vuelos", ...]` permitidos
