@@ -24,8 +24,8 @@ compartir subió al núcleo: **`features/usuarios` no tuvo que cambiar nada**.
 
 **Descartado del plan**
 * **F2-01 (MSW):** no se usa. El front se construyó contra los contratos acordados (`docs/CONTRATO_USUARIOS.md` y
-  `docs/CONTRATO_VUELOS.md`) y las pantallas de vuelos muestran `ErrorState` hasta que B2 publique su API.
-  `VITE_USE_MOCKS` queda reservada y `src/mocks/` vacío.
+  `docs/CONTRATO_VUELOS.md`). Cuando B2 publicó su API (PR #5) las pantallas de vuelos dejaron de mostrar `ErrorState`
+  y pasaron a consumir la API real. `src/mocks/` sigue vacío.
 
 ## Parte 10 — Armonía visual de las pantallas de vuelos (F2)
 Alinea búsqueda y vuelos con el lenguaje del rediseño (ver `docs/DISENO.md` §7). Lo que otro módulo puede notar:
@@ -43,6 +43,14 @@ Alinea búsqueda y vuelos con el lenguaje del rediseño (ver `docs/DISENO.md` §
 * **Jerarquía:** «Ver detalle» en los resultados de búsqueda pasa a `outline-primary` (una sola acción primaria por
   pantalla) y las pantallas de vuelos se escalonan con `at-enter-2` / `at-enter-3`, como los paneles de F1.
 * Los estados de carga de estas pantallas **ya no usan `LoadingState`**: usan esqueletos con la forma del contenido.
+
+## Parte 11 — Cierre del Sprint 1 tras integrar B2 (vuelos y búsqueda)
+
+* **`config/env.js`:** se eliminó el flag `useMocks` y la variable `VITE_USE_MOCKS` (también de `.env.example`).
+  MSW fue descartado (F2-01) y ningún módulo leía ese valor: era código muerto que además sugería que el proyecto
+  usaba mocks. Quien tenga un `.env.local` viejo puede borrar la línea; el comportamiento no cambia.
+* **Documentación al día:** el `README.md` raíz, `frontend/README.md` y `docs/ESTADO_SPRINT1.md` reflejan que B2 ya
+  está integrado y que el front consume la API real de usuarios, vuelos y ciudades.
 
 ## Parte 8 — Rediseño visual integral
 **Lo que otro módulo debe saber al integrar** (cambios que sí pueden notarse):
