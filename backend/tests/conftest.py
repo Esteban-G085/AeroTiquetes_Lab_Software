@@ -25,6 +25,7 @@ from app.core.db import Base, get_db  # noqa: E402
 # primera prueba de toda la corrida (antes de que app.main importe los
 # modelos de forma transitiva) creara una BD sin tablas.
 from app.modules.usuarios import models as _usuarios_models  # noqa: E402,F401
+from app.modules.vuelos import models as _vuelos_models  # noqa: E402,F401
 
 get_settings.cache_clear()
 

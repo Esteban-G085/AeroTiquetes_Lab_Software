@@ -1,0 +1,24 @@
+# CI del backend (B1 usuarios + B2 vuelos/busqueda).
+# Los tests usan SQLite temporal (ver tests/conftest.py), asi que no necesitan servicios.
+name: Backend CI
+on:
+  pull_request:
+    paths: ['backend/**', '.github/workflows/backend-ci.yml']
+  push:
+    branches: [master]
+    paths: ['backend/**']
+defaults:
+  run:
+    working-directory: backend
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: pytest -q
