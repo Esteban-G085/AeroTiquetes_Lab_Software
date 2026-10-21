@@ -35,7 +35,10 @@ class Settings(BaseSettings):
 
     # --- Integracion con el frontend ---
     FRONTEND_URL: str = "http://localhost:5173"
-    CORS_ORIGINS: List[str] = ["http://localhost:5173"]
+    # El preflight CORS compara el origen de forma exacta: si el front se abre en
+    # `http://127.0.0.1:5173` (la URL de red que muestra Vite) y no esta aqui, el
+    # navegador recibe un 400 y bloquea todas las llamadas a la API.
+    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     # --- Admin: vencimiento del enlace de primer ingreso (D6) ---
     ADMIN_INVITE_EXPIRE_HOURS: int = 48

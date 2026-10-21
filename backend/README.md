@@ -89,4 +89,4 @@ en `../frontend/docs/CONTRATO_VUELOS.md`; las colecciones Postman en `postman/`.
 - **Nuevo modulo:** crear `app/modules/<x>/`, importar sus modelos en `alembic/env.py` y en `tests/conftest.py`, y montar el router en `app/main.py`.
 - **Migraciones:** encadenar despues de `005_busquedas` (ver seccion 5.4 del plan); nunca editar una migracion ya mergeada.
 - **Fechas:** se guardan en UTC con `FechaUTC` (`app/core/tipos.py`) y se muestran en la zona de cada ciudad.
-- **CORS:** configurado para `http://localhost:5173` (`CORS_ORIGINS`).
+- **CORS:** configurado para `http://localhost:5173` y `http://127.0.0.1:5173` (`CORS_ORIGINS`). La comparación es exacta: si el front se abre con otra URL (por ejemplo la de red que muestra Vite), hay que añadir ese origen.
