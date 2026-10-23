@@ -27,10 +27,27 @@ def _enviar(destinatario: str, asunto: str, cuerpo_html: str) -> None:
     msg.add_alternative(cuerpo_html, subtype="html")
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=5) as smtp:
+        # Puerto 465: SSL directo. Puerto 587 (Gmail, Brevo, etc.): STARTTLS.
+        if settings.SMTP_PORT == 465:
+            with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+                if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                    smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                smtp.send_message(msg)
+            logger.info("Correo enviado a %s (SMTP_SSL 465)", destinatario)
+            return
+
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+            smtp.ehlo()
+            # Mailpit local no negocia TLS: si el servidor no lo soporta se sigue en claro.
+            try:
+                smtp.starttls()
+                smtp.ehlo()
+            except (OSError, smtplib.SMTPException) as exc:
+                logger.debug("starttls no aplicado en %s:%s (%s)", settings.SMTP_HOST, settings.SMTP_PORT, exc)
             if settings.SMTP_USER and settings.SMTP_PASSWORD:
                 smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             smtp.send_message(msg)
+        logger.info("Correo enviado a %s (STARTTLS %s)", destinatario, settings.SMTP_PORT)
     except (OSError, smtplib.SMTPException) as exc:
         # No tumbamos la peticion HTTP por un fallo de correo; solo se registra.
         logger.warning("No se pudo enviar el correo a %s: %s", destinatario, exc)
