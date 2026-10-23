@@ -17,6 +17,7 @@ const save = () => userEvent.click(screen.getByRole('button', { name: 'Guardar c
 beforeEach(() => {
   seedSession({ rol: 'cliente' })
   api.obtenerPerfil.mockResolvedValue(PERFIL_CLIENTE)
+  api.listarPaises.mockResolvedValue([{ id: 1, nombre: 'Colombia' }, { id: 2, nombre: 'Perú' }])
 })
 
 describe('CambiarPasswordPage (HU3)', () => {

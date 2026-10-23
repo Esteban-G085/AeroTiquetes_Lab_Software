@@ -19,6 +19,15 @@ export function buildFormData(values, imagen) {
 }
 export const buildPersonalDataFormData = buildFormData
 
+/**
+ * Catálogo de países habilitados para `lugar_nacimiento` (HU4 / HU23).
+ * El backend es la autoridad: rechaza cualquier valor que no esté en esta lista.
+ */
+export async function listarPaises() {
+  const { data } = await http.get('/catalogos/paises')
+  return Array.isArray(data) ? data : []
+}
+
 /** HU4 — POST /auth/registro */
 export async function registrarCliente(values, imagen) {
   const { data } = await http.post('/auth/registro', buildFormData(values, imagen))

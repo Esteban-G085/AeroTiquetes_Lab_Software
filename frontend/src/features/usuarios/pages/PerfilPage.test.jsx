@@ -15,6 +15,7 @@ const open = async (route = '/perfil') => {
 beforeEach(() => {
   seedSession({ rol: 'cliente' })
   api.obtenerPerfil.mockResolvedValue(PERFIL_CLIENTE)
+  api.listarPaises.mockResolvedValue([{ id: 1, nombre: 'Colombia' }, { id: 2, nombre: 'Perú' }])
 })
 
 describe('PerfilPage (HU2) — cliente', () => {

@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Input, Notice, Select } from '@/components/ui'
 import { Wordmark } from '@/components/brand'
 import { ApiError } from '@/services/apiError'
 import FotoPerfilPicker from './FotoPerfilPicker'
+import { listarPaises } from '../api'
 import {
   EMPTY_PERSONAL_DATA, GENEROS, todayISO, validateImagen, validatePersonalData,
 } from '../validators'
@@ -31,6 +32,16 @@ export default function RegistroForm({
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [paises, setPaises] = useState([])
+
+  // Lugar de nacimiento: solo países del catálogo (el backend rechaza el resto).
+  useEffect(() => {
+    let vigente = true
+    listarPaises()
+      .then((lista) => { if (vigente) setPaises(lista) })
+      .catch(() => { if (vigente) setPaises([]) })
+    return () => { vigente = false }
+  }, [])
 
   const onChange = (e) => {
     const { name, value } = e.target
@@ -103,7 +114,14 @@ export default function RegistroForm({
             {field('apellidos', 'Apellidos', { autoComplete: 'family-name' })}
             {field('dni', 'Documento (DNI)', { inputMode: 'numeric', autoComplete: 'off' })}
             {field('fecha_nacimiento', 'Fecha de nacimiento', { type: 'date', max: todayISO(), autoComplete: 'bday' })}
-            {field('lugar_nacimiento', 'Lugar de nacimiento')}
+            <div className="us-reg__cell us-reg__cell--lugar_nacimiento">
+              <Select
+                label="Lugar de nacimiento" name="lugar_nacimiento"
+                value={values.lugar_nacimiento} onChange={onChange}
+                error={errors.lugar_nacimiento} placeholder="Selecciona un país"
+                options={paises.map((p) => ({ value: p.nombre, label: p.nombre }))}
+              />
+            </div>
             <div className="us-reg__cell us-reg__cell--genero">
               <Select
                 label="Género" name="genero" value={values.genero} onChange={onChange}

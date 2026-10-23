@@ -22,6 +22,7 @@ from app.core.security import (
     verify_password,
 )
 from app.core.security import TokenError
+from app.modules.catalogos.service import obtener_pais_canonico
 from app.modules.usuarios.models import (
     MODULOS_NOMBRES,
     MODULOS_SISTEMA,
@@ -213,6 +214,15 @@ def guardar_imagen_perfil(imagen: UploadFile | None, contenido: bytes | None) ->
 def registrar_cliente(db: Session, datos: dict, ruta_imagen: str | None) -> Usuario:
     _validar_unicidad(db, dni=datos["dni"], correo=datos["correo"], nombre_usuario=datos["usuario"])
 
+    pais = obtener_pais_canonico(db, datos.get("lugar_nacimiento") or "")
+    if pais is None:
+        raise AppError(
+            "El lugar de nacimiento no es válido. Debes seleccionarlo de la lista de países.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="lugar_nacimiento_invalido",
+            fields={"lugar_nacimiento": "No es un país válido o no está habilitado."},
+        )
+
     usuario = Usuario(
         rol=RolNombre.CLIENTE,
         usuario=datos["usuario"],
@@ -222,7 +232,7 @@ def registrar_cliente(db: Session, datos: dict, ruta_imagen: str | None) -> Usua
         nombres=datos["nombres"],
         apellidos=datos["apellidos"],
         fecha_nacimiento=datos["fecha_nacimiento"],
-        lugar_nacimiento=datos["lugar_nacimiento"],
+        lugar_nacimiento=pais.nombre,
         direccion_facturacion=datos["direccion_facturacion"],
         genero=datos["genero"],
         telefono=datos.get("telefono"),
@@ -245,8 +255,20 @@ def actualizar_perfil(db: Session, usuario: Usuario, cambios: dict, ruta_imagen:
     # El documento nunca se toca aqui (ya lo garantiza el schema PerfilUpdate,
     # que no expone ese campo); el correo tampoco (ver solicitar_cambio_correo).
     for campo, valor in cambios.items():
-        if valor is not None:
-            setattr(usuario, campo, valor)
+        if valor is None:
+            continue
+        if campo == "lugar_nacimiento":
+            pais = obtener_pais_canonico(db, valor)
+            if pais is None:
+                raise AppError(
+                    "El lugar de nacimiento no es válido. Debes seleccionarlo de la lista de países.",
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    code="lugar_nacimiento_invalido",
+                    fields={"lugar_nacimiento": "No es un país válido o no está habilitado."},
+                )
+            setattr(usuario, campo, pais.nombre)
+            continue
+        setattr(usuario, campo, valor)
     if ruta_imagen:
         usuario.imagen_perfil = ruta_imagen
     db.commit()
@@ -417,13 +439,22 @@ def completar_registro_administrador(db: Session, datos: dict, ruta_imagen: str 
     # de nuevo en el formulario pero se valida que coincida con esa cuenta.
     _validar_unicidad(db, dni=datos["dni"], correo=usuario.correo, nombre_usuario=datos["usuario"], excluir_id=usuario.id)
 
+    pais = obtener_pais_canonico(db, datos.get("lugar_nacimiento") or "")
+    if pais is None:
+        raise AppError(
+            "El lugar de nacimiento no es válido. Debes seleccionarlo de la lista de países.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="lugar_nacimiento_invalido",
+            fields={"lugar_nacimiento": "No es un país válido o no está habilitado."},
+        )
+
     usuario.usuario = datos["usuario"]
     usuario.password_hash = hash_password(datos["password"])
     usuario.dni = datos["dni"]
     usuario.nombres = datos["nombres"]
     usuario.apellidos = datos["apellidos"]
     usuario.fecha_nacimiento = datos["fecha_nacimiento"]
-    usuario.lugar_nacimiento = datos["lugar_nacimiento"]
+    usuario.lugar_nacimiento = pais.nombre
     usuario.direccion_facturacion = datos["direccion_facturacion"]
     usuario.genero = datos["genero"]
     usuario.telefono = datos.get("telefono")

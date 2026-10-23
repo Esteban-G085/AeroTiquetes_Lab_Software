@@ -28,7 +28,7 @@ def test_actualizar_perfil_cambia_campos_permitidos(client):
     assert resp.json()["nombres"] == "Ana Maria"
     assert resp.json()["telefono"] == "3001234567"
     assert resp.json()["fecha_nacimiento"] == "1996-01-02"
-    assert resp.json()["lugar_nacimiento"] == "Pereira"  # campo vacio = sin cambio
+    assert resp.json()["lugar_nacimiento"] == "Colombia"  # campo vacio = sin cambio
 
 
 def test_actualizar_perfil_rechaza_fecha_futura(client):
@@ -93,10 +93,10 @@ def test_cambiar_password_falla_si_la_actual_no_coincide(client):
     assert resp.json()["error"]["code"] == "password_incorrecta"
 
 
-def test_solicitar_cambio_de_correo_y_verificarlo(client, db_session):
-    from app.core.security import create_invite_token
+def test_solicitar_cambio_de_correo_y_verificarlo(client, db_session, correos):
     from app.modules.usuarios.models import Usuario
 
+    correos.clear()
     token = _registrar_y_loguear(client)
 
     resp = client.post(
@@ -106,13 +106,17 @@ def test_solicitar_cambio_de_correo_y_verificarlo(client, db_session):
     )
     assert resp.status_code == 202, resp.text
 
-    # El correo real lo recibiria Mailpit; en la prueba se reconstruye el
-    # token tal como lo haria ese correo, para validar la verificacion.
     usuario = db_session.query(Usuario).filter_by(usuario="anagomez").one()
     assert usuario.correo_pendiente == "ana.nueva@example.com"
     assert usuario.correo == "ana.gomez@example.com"  # aun no cambia
 
-    token_verificacion = create_invite_token(administrador_id=usuario.id, expire_hours=48)
+    # El correo se captura en memoria (fixture `correos`), nunca sale por SMTP:
+    # se usa el token del enlace real que recibiria el usuario.
+    enviados = [c for c in correos if c["destinatario"] == "ana.nueva@example.com"]
+    assert len(enviados) == 1
+    assert "/verificar-correo?token=" in enviados[0]["cuerpo"]
+    token_verificacion = enviados[0]["cuerpo"].split("/verificar-correo?token=")[1].split('"')[0]
+
     resp_verificar = client.post("/auth/verificar-correo", json={"token": token_verificacion})
     assert resp_verificar.status_code == 200, resp_verificar.text
     assert resp_verificar.json()["correo"] == "ana.nueva@example.com"

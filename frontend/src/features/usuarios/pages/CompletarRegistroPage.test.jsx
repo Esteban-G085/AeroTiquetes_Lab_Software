@@ -10,6 +10,10 @@ vi.mock('../api')
 const open = (route = '/completar-registro?token=tok123') => renderWithProviders(<AppRouter />, { route })
 const type = (label, v) => userEvent.type(screen.getByLabelText(label), v)
 
+beforeEach(() => {
+  api.listarPaises.mockResolvedValue([{ id: 1, nombre: 'Colombia' }, { id: 2, nombre: 'Perú' }])
+})
+
 describe('CompletarRegistroPage (HU23 / D6)', () => {
   it('con enlace válido: precarga correo (bloqueado) y nombre, y reutiliza el formulario de registro', async () => {
     api.validarInvitacion.mockResolvedValue({ correo: 'camila@123.com', nombre: 'Camila' })
@@ -41,7 +45,7 @@ describe('CompletarRegistroPage (HU23 / D6)', () => {
     await type('Apellidos', 'Torres')
     await type('Documento (DNI)', '1088123456')
     fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '1995-03-02' } })
-    await type('Lugar de nacimiento', 'Pereira')
+    await userEvent.selectOptions(screen.getByLabelText('Lugar de nacimiento'), 'Colombia')
     await type('Dirección de facturación', 'Cra 8 # 20-15')
     await userEvent.selectOptions(screen.getByLabelText('Género'), 'femenino')
     await type('Usuario', 'camila.t')
@@ -86,7 +90,7 @@ describe('CompletarRegistroPage (HU23 / D6)', () => {
     await type('Apellidos', 'Torres')
     await type('Documento (DNI)', '1088123456')
     fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '1995-03-02' } })
-    await type('Lugar de nacimiento', 'Pereira')
+    await userEvent.selectOptions(screen.getByLabelText('Lugar de nacimiento'), 'Colombia')
     await type('Dirección de facturación', 'Cra 8')
     await userEvent.selectOptions(screen.getByLabelText('Género'), 'otro')
     await type('Usuario', 'camila.t')

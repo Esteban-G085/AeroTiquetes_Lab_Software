@@ -57,7 +57,7 @@ def test_completar_registro_de_administrador_y_login(client, db_session):
             "nombres": "Carlos",
             "apellidos": "Perez",
             "fecha_nacimiento": "1988-03-15",
-            "lugar_nacimiento": "Bogota",
+            "lugar_nacimiento": "Colombia",
             "direccion_facturacion": "Carrera 7 # 1-20",
             "genero": "masculino",
             "correo": "nuevo.admin@example.com",
@@ -70,6 +70,40 @@ def test_completar_registro_de_administrador_y_login(client, db_session):
 
     resp_login = client.post("/auth/login", json={"identificador": "carlosperez", "password": "claveAdmin123"})
     assert resp_login.status_code == 200, resp_login.text
+
+
+def test_completar_registro_rechaza_pais_inventado(client, db_session):
+    from app.modules.usuarios.models import Administrador
+
+    token_root = _login_root(client)
+    resp = client.post(
+        "/root/administradores",
+        json={"correo": "nuevo.admin@example.com", "nombre": "Carlos Perez"},
+        headers=auth_headers(token_root),
+    )
+    invite_token = db_session.get(Administrador, resp.json()["id"]).token_invitacion
+
+    resp_completar = client.post(
+        "/auth/completar-registro",
+        data={
+            "token": invite_token,
+            "dni": "2000000001",
+            "nombres": "Carlos",
+            "apellidos": "Perez",
+            "fecha_nacimiento": "1988-03-15",
+            "lugar_nacimiento": "País de las Maravillas",
+            "direccion_facturacion": "Carrera 7 # 1-20",
+            "genero": "masculino",
+            "correo": "nuevo.admin@example.com",
+            "usuario": "carlosperez",
+            "password": "claveAdmin123",
+        },
+    )
+    assert resp_completar.status_code == 422
+    assert resp_completar.json()["error"]["code"] == "lugar_nacimiento_invalido"
+
+    # La invitacion sigue pendiente: se puede reintentar con un pais valido.
+    assert db_session.get(Administrador, resp.json()["id"]).estado.value == "pendiente"
 
 
 def test_completar_registro_con_token_usado_dos_veces_falla(client, db_session):
@@ -90,7 +124,7 @@ def test_completar_registro_con_token_usado_dos_veces_falla(client, db_session):
         "nombres": "Carlos",
         "apellidos": "Perez",
         "fecha_nacimiento": "1988-03-15",
-        "lugar_nacimiento": "Bogota",
+        "lugar_nacimiento": "Colombia",
         "direccion_facturacion": "Carrera 7 # 1-20",
         "genero": "masculino",
         "correo": "nuevo.admin@example.com",
@@ -163,3 +197,23 @@ def test_validar_invitacion_con_token_malo_da_410(client):
     r = client.get("/auth/completar-registro", params={"token": "basura"})
     assert r.status_code == 410
     assert r.json()["error"]["code"] == "invitacion_vencida"
+
+
+def test_la_invitacion_se_registra_sin_enviar_correo_real(client, db_session, correos):
+    """El correo de invitacion se "envia" (se captura), nunca sale por SMTP."""
+    from app.modules.usuarios.models import Administrador
+
+    correos.clear()
+    token_root = _login_root(client)
+    resp = client.post(
+        "/root/administradores",
+        json={"correo": "nuevo.admin@example.com", "nombre": "Carlos Perez"},
+        headers=auth_headers(token_root),
+    )
+    assert resp.status_code == 201
+
+    token_invitacion = db_session.get(Administrador, resp.json()["id"]).token_invitacion
+    invitaciones = [c for c in correos if c["destinatario"] == "nuevo.admin@example.com"]
+    assert len(invitaciones) == 1
+    assert "Invitacion a AeroTiquetes" in invitaciones[0]["asunto"]
+    assert f"/completar-registro?token={token_invitacion}" in invitaciones[0]["cuerpo"]

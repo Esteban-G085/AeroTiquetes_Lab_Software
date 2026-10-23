@@ -48,7 +48,7 @@ def token_admin(client, db_session):
         "/auth/completar-registro",
         data={
             "token": invitacion, "dni": "2000000009", "nombres": "Admin", "apellidos": "Vuelos",
-            "fecha_nacimiento": "1988-03-15", "lugar_nacimiento": "Bogota",
+            "fecha_nacimiento": "1988-03-15", "lugar_nacimiento": "Colombia",
             "direccion_facturacion": "Carrera 7 # 1-20", "genero": "masculino",
             "correo": "admin.vuelos@example.com", "usuario": "adminvuelos", "password": "claveAdmin123",
         },

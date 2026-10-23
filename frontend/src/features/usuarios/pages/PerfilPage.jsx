@@ -10,7 +10,7 @@ import PerfilShell, { PerfilAvatar } from '../components/PerfilShell'
 import PerfilSection from '../components/PerfilSection'
 import CorreoDialog from '../components/CorreoDialog'
 import { usePerfil } from '../hooks/usePerfil'
-import { actualizarPerfil } from '../api'
+import { actualizarPerfil, listarPaises } from '../api'
 import { GENEROS, PROFILE_EDITABLE, todayISO, validateImagen, validateProfile } from '../validators'
 import '../usuarios.css'
 
@@ -64,6 +64,16 @@ export default function PerfilPage() {
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
   const [correoOpen, setCorreoOpen] = useState(false)
+  const [paises, setPaises] = useState([])
+
+  // El backend solo acepta países del catálogo como lugar de nacimiento.
+  useEffect(() => {
+    let vigente = true
+    listarPaises()
+      .then((lista) => { if (vigente) setPaises(lista) })
+      .catch(() => { if (vigente) setPaises([]) })
+    return () => { vigente = false }
+  }, [])
 
   const preview = useMemo(() => (imagen ? URL.createObjectURL(imagen) : null), [imagen])
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
@@ -165,8 +175,18 @@ export default function PerfilPage() {
                 <Input label="Apellidos" name="apellidos" value={values.apellidos} onChange={onChange} error={errors.apellidos} />
                 <Input label="Fecha de nacimiento" name="fecha_nacimiento" type="date" max={todayISO()}
                   value={values.fecha_nacimiento} onChange={onChange} error={errors.fecha_nacimiento} />
-                <Input label="Lugar de nacimiento" name="lugar_nacimiento" value={values.lugar_nacimiento}
-                  onChange={onChange} error={errors.lugar_nacimiento} />
+                <Select label="Lugar de nacimiento" name="lugar_nacimiento" value={values.lugar_nacimiento}
+                  onChange={onChange} error={errors.lugar_nacimiento} placeholder="Selecciona un país"
+                  options={(() => {
+                    // Si el valor guardado no está en el catálogo (dato antiguo), se
+                    // muestra igual para no perderlo sin avisar.
+                    const opciones = paises.map((p) => ({ value: p.nombre, label: p.nombre }))
+                    const actual = values.lugar_nacimiento
+                    if (actual && !opciones.some((o) => o.value === actual)) {
+                      opciones.unshift({ value: actual, label: actual })
+                    }
+                    return opciones
+                  })()} />
                 <Input label="Dirección de facturación" name="direccion_facturacion" value={values.direccion_facturacion}
                   onChange={onChange} error={errors.direccion_facturacion} />
                 <Select label="Género" name="genero" value={values.genero} onChange={onChange}

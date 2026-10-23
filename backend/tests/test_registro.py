@@ -17,6 +17,33 @@ def test_registro_rechaza_fecha_de_nacimiento_futura(client):
     assert resp.json()["error"]["code"] == "validacion"
 
 
+def test_registro_rechaza_lugar_de_nacimiento_inventado(client):
+    resp = client.post("/auth/registro", data=datos_registro_cliente(lugar_nacimiento="País de las Maravillas"))
+    assert resp.status_code == 422
+    body = resp.json()
+    assert body["error"]["code"] == "lugar_nacimiento_invalido"
+    assert "lugar_nacimiento" in body["error"]["fields"]
+
+
+def test_registro_normaliza_el_pais_al_nombre_canonico(client, db_session):
+    from app.modules.usuarios.models import Usuario
+
+    resp = client.post("/auth/registro", data=datos_registro_cliente(lugar_nacimiento="  colombia  "))
+    assert resp.status_code == 201, resp.text
+    usuario = db_session.query(Usuario).filter_by(usuario="anagomez").one()
+    assert usuario.lugar_nacimiento == "Colombia"
+
+
+def test_catalogo_de_paises_devuelve_los_activos(client):
+    resp = client.get("/catalogos/paises")
+    assert resp.status_code == 200
+    paises = resp.json()
+    assert len(paises) >= 50
+    nombres = [p["nombre"] for p in paises]
+    assert "Colombia" in nombres
+    assert "País de las Maravillas" not in nombres
+
+
 def test_registro_rechaza_correo_duplicado(client):
     resp1 = client.post("/auth/registro", data=datos_registro_cliente())
     assert resp1.status_code == 201

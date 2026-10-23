@@ -13,12 +13,16 @@ const open = async () => {
 }
 const type = (label, value) => userEvent.type(screen.getByLabelText(label), value)
 
+beforeEach(() => {
+  api.listarPaises.mockResolvedValue([{ id: 1, nombre: 'Colombia' }, { id: 2, nombre: 'Perú' }])
+})
+
 async function fillValid() {
   await type('Nombres', 'María José')
   await type('Apellidos', 'Gómez')
   await type('Documento (DNI)', '1088123456')
   fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '1998-05-10' } })
-  await type('Lugar de nacimiento', 'Pereira')
+  await userEvent.selectOptions(screen.getByLabelText('Lugar de nacimiento'), 'Colombia')
   await type('Dirección de facturación', 'Cra 8 # 20-15')
   await userEvent.selectOptions(screen.getByLabelText('Género'), 'femenino')
   await type('Correo', 'maria@correo.com')
@@ -77,7 +81,10 @@ describe('RegistroPage (HU4)', () => {
     expect(await screen.findByRole('heading', { name: 'Iniciar sesión' })).toBeInTheDocument()
     expect(screen.getByText(/Cuenta creada/)).toBeInTheDocument()
     expect(api.registrarCliente).toHaveBeenCalledWith(
-      expect.objectContaining({ dni: '1088123456', correo: 'maria@correo.com', genero: 'femenino', password: 'Clave1234' }),
+      expect.objectContaining({
+        dni: '1088123456', correo: 'maria@correo.com', genero: 'femenino', password: 'Clave1234',
+        lugar_nacimiento: 'Colombia',
+      }),
       null,
     )
   })

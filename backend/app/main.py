@@ -8,6 +8,7 @@ perfil) y, al arrancar, sembrar el root por defecto y la matriz de roles
 
 Para correr en desarrollo:  uvicorn app.main:app --reload --port 8000
 """
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -18,12 +19,19 @@ from app.core.config import get_settings
 from app.core.db import session_scope
 from app.core.errors import register_error_handlers
 from app.modules.busqueda.router import router as busqueda_router
+from app.modules.catalogos import models as _catalogos_models  # noqa: F401
+from app.modules.catalogos.router import router as catalogos_router
+from app.modules.catalogos.seeds import asegurar_paises
 from app.modules.usuarios.router import router as usuarios_router
 from app.modules.usuarios.service import asegurar_root_por_defecto, asegurar_roles_y_matriz
 from app.modules.vuelos.router import router as vuelos_router
 from app.modules.vuelos.seeds import asegurar_ciudades
 
 settings = get_settings()
+
+# Logs de la aplicacion visibles en la terminal (por ejemplo, si un correo no se
+# pudo enviar). Sin esto, los INFO de `aerotiquetes.email` no se muestran.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 
 @asynccontextmanager
@@ -34,6 +42,7 @@ async def lifespan(app: FastAPI):
         asegurar_root_por_defecto(db)
         asegurar_roles_y_matriz(db)
         asegurar_ciudades(db)  # catalogo de ciudades (B2-04), idempotente
+        asegurar_paises(db)  # catalogo de paises para lugar de nacimiento
     yield
 
 
@@ -64,6 +73,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(usuarios_router)
 app.include_router(vuelos_router)
 app.include_router(busqueda_router)
+app.include_router(catalogos_router)
 
 
 @app.get("/salud", tags=["Sistema"])

@@ -35,7 +35,7 @@ Respuesta 200 (**supuesto actual**):
 | `dni` | solo dígitos, 5–15 |
 | `nombres`, `apellidos` | letras (tildes, espacios, `'`, `-`), máx. 60 |
 | `fecha_nacimiento` | `YYYY-MM-DD`, no futura, ≥ 1900-01-01 |
-| `lugar_nacimiento` | máx. 80 |
+| `lugar_nacimiento` | **un país del catálogo** `GET /catalogos/paises` (no texto libre). Se guarda el nombre canónico |
 | `direccion_facturacion` | máx. 150 |
 | `genero` | `femenino` \| `masculino` \| `otro` ← **confirmar el enum** |
 | `correo` | email válido, máx. 120 |
@@ -47,6 +47,17 @@ Respuesta 200 (**supuesto actual**):
 * Duplicados: **409** con `error.fields`, p. ej. `{ "correo": "Este correo ya está registrado", "usuario": "Ese usuario ya existe", "dni": "..." }`.
 * Validación: **422** con el mismo formato (`fields`). El front entiende también el 422 nativo de FastAPI como respaldo.
 * Las reglas del front son espejo: **el backend es la autoridad** y puede ser más estricto.
+
+## ✅ GET `/catalogos/paises` — catálogo para `lugar_nacimiento` (`features/usuarios/api.js`)
+Público (sin token). Devuelve solo países activos, ordenados:
+```json
+[ { "id": 1, "codigo_iso2": "AF", "nombre": "Afganistán" },
+  { "id": 18, "codigo_iso2": "CO", "nombre": "Colombia" } ]
+```
+* El front pinta un `<select>` con `nombre`; el valor enviado es el `nombre`.
+* El backend valida contra la tabla `pais` (case-insensitive y sin espacios extra) y guarda el **nombre canónico**.
+  Un valor fuera del catálogo → **422** `error.code = "lugar_nacimiento_invalido"` con `fields.lugar_nacimiento`.
+* Se usa en registro (HU4), completar registro de administrador (HU23) y edición de perfil (HU2).
 
 ## ✅ GET `/me` — HU2 (`features/usuarios/api.js`)
 Autenticado. Respuesta (**supuesto actual**):
