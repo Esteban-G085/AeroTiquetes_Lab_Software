@@ -30,6 +30,38 @@ uvicorn app.main:app --reload --port 8000
 - Al arrancar se crea el **root por defecto** (`ROOT_ID` / `ROOT_PASSWORD` del `.env`), se siembran los 4 roles con su matriz de modulos y el **catalogo de 37 ciudades** (idempotente).
 - Migraciones: `001_usuarios` -> `002_roles` -> `003_ciudades` -> `004_vuelos` -> `005_busquedas`.
 
+## Correo electrónico (invitaciones de administrador)
+
+El sistema envía correos para:
+- Invitación de administrador (HU23) — `POST /root/administradores`
+- Verificación de cambio de correo (HU2) — `POST /me/correo`
+
+### Opción A: Mailpit (recomendado para desarrollo/local)
+Por defecto, el proyecto viene configurado para usar **Mailpit**. Este es el método recomendado para la demo del Sprint 1, ya que no requiere internet ni credenciales de correo.
+
+1. Desde la raíz del repositorio, levanta los servicios:
+```bash
+docker compose up -d
+```
+2. Con la configuración por defecto de `backend/.env.example`, los correos se enviarán a Mailpit vía SMTP en `localhost:1025`.
+3. Puedes visualizar todos los correos enviados en [http://localhost:8025](http://localhost:8025).
+
+### Opción B: SMTP real (Gmail, etc.)
+Si deseas que los correos lleguen a una bandeja real, puedes configurar un servidor SMTP propio editando `backend/.env`.
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tu_correo@gmail.com
+SMTP_PASSWORD=tu_contraseña_de_aplicación  # NO tu contraseña normal
+SMTP_FROM=tu_correo@gmail.com
+```
+
+> **Notas importantes:**
+> - **Gmail:** Requiere tener la verificación en 2 pasos activada y generar una [contraseña de aplicación](https://myaccount.google.com/apppasswords).
+> - **¿Dónde leer las variables?** El backend lee la configuración desde `backend/.env` usando `pydantic-settings` (`app/core/config.py`). Si las defines solo como variables de entorno del sistema, pueden no tener efecto si existe un archivo `.env`. Para mayor fiabilidad, **configúralas directamente en `backend/.env`**.
+> - **Tolerante a fallos:** Si el envío de correo falla (credenciales incorrectas, sin conexión, etc.), el backend solo registrará un `warning` en los logs de `uvicorn` y **no interrumpirá el flujo de la aplicación**. Esto es intencional para facilitar el desarrollo.
+
 ## Datos de ejemplo (vuelos)
 
 ```bash
