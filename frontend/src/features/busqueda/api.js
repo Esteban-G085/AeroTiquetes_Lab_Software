@@ -18,8 +18,23 @@ export const FILTROS_VACIOS = Object.freeze({
   orden: 'fecha_asc',
 })
 
-const sinVaciar = (obj) =>
-  Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== '' && v !== null && v !== undefined))
+const soloDigitos = (v) => {
+  if (v === '' || v === null || v === undefined) return false
+  const s = String(v).trim()
+  return /^\d+$/.test(s)
+}
+
+const sinVaciar = (obj) => {
+  const limpio = {}
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (v === '' || v === null || v === undefined) continue
+    if (['precioMin', 'precioMax', 'duracionMin', 'duracionMax'].includes(k)) {
+      if (!soloDigitos(v)) continue
+    }
+    limpio[k] = v
+  }
+  return limpio
+}
 
 /**
  * HU5 — Buscar vuelos combinando criterios.

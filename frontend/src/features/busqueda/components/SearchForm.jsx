@@ -54,14 +54,82 @@ export default function SearchForm({ ciudades = [], valoresIniciales = {}, onBus
         <Input label="Fecha de salida" type="date" min={todayISO()} value={filtros.fecha} onChange={set('fecha')} />
         <Select label="Clase" value={filtros.clase} onChange={set('clase')} options={CLASE_OPCIONES} placeholder="Cualquiera" />
 
-        <Input label="Precio mínimo (COP)" type="number" min="0" step="10000" placeholder="0"
-          value={filtros.precioMin} onChange={set('precioMin')} />
-        <Input label="Precio máximo (COP)" type="number" min="0" step="10000" placeholder="Sin límite"
-          value={filtros.precioMax} onChange={set('precioMax')} />
-        <Input label="Duración mín. (min)" type="number" min="0" step="15" placeholder="0"
-          value={filtros.duracionMin} onChange={set('duracionMin')} />
-        <Input label="Duración máx. (min)" type="number" min="0" step="15" placeholder="Sin límite"
-          value={filtros.duracionMax} onChange={set('duracionMax')} />
+        <Input
+          label="Precio mínimo (COP)"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="off"
+          placeholder="0"
+          value={filtros.precioMin}
+          onChange={(e) => {
+            const sanitized = e.target.value.replace(/[^0-9]/g, '')
+            setFiltros((f) => ({ ...f, precioMin: sanitized }))
+          }}
+          onPaste={(e) => {
+            e.preventDefault()
+            const text = (e.clipboardData || window.clipboardData).getData('text')
+            const sanitized = String(text || '').replace(/[^0-9]/g, '')
+            setFiltros((f) => ({ ...f, precioMin: sanitized }))
+          }}
+        />
+        <Input
+          label="Precio máximo (COP)"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="off"
+          placeholder="Sin límite"
+          value={filtros.precioMax}
+          onChange={(e) => {
+            const sanitized = e.target.value.replace(/[^0-9]/g, '')
+            setFiltros((f) => ({ ...f, precioMax: sanitized }))
+          }}
+          onPaste={(e) => {
+            e.preventDefault()
+            const text = (e.clipboardData || window.clipboardData).getData('text')
+            const sanitized = String(text || '').replace(/[^0-9]/g, '')
+            setFiltros((f) => ({ ...f, precioMax: sanitized }))
+          }}
+        />
+        <Input
+          label="Duración mín. (min)"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="off"
+          placeholder="0"
+          value={filtros.duracionMin}
+          onChange={(e) => {
+            const sanitized = e.target.value.replace(/[^0-9]/g, '')
+            setFiltros((f) => ({ ...f, duracionMin: sanitized }))
+          }}
+          onPaste={(e) => {
+            e.preventDefault()
+            const text = (e.clipboardData || window.clipboardData).getData('text')
+            const sanitized = String(text || '').replace(/[^0-9]/g, '')
+            setFiltros((f) => ({ ...f, duracionMin: sanitized }))
+          }}
+        />
+        <Input
+          label="Duración máx. (min)"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="off"
+          placeholder="Sin límite"
+          value={filtros.duracionMax}
+          onChange={(e) => {
+            const sanitized = e.target.value.replace(/[^0-9]/g, '')
+            setFiltros((f) => ({ ...f, duracionMax: sanitized }))
+          }}
+          onPaste={(e) => {
+            e.preventDefault()
+            const text = (e.clipboardData || window.clipboardData).getData('text')
+            const sanitized = String(text || '').replace(/[^0-9]/g, '')
+            setFiltros((f) => ({ ...f, duracionMax: sanitized }))
+          }}
+        />
         <Select label="Ordenar por" value={filtros.orden} onChange={set('orden')} options={ORDEN_BUSQUEDA} />
       </div>
 

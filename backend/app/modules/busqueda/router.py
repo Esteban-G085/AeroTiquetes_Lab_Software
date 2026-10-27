@@ -12,14 +12,21 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import BeforeValidator
 
 from app.core.deps import DbSession, bearer_scheme
 from app.core.errors import AppError
 from app.core.security import TokenError, decode_access_token
+from app.core.validators import clean_positive_int
 from app.modules.vuelos import service
 from app.modules.vuelos.schemas import ClaseVuelo, OrdenVuelos, PaginaVuelos, VueloOut
 
 router = APIRouter(tags=["Busqueda de vuelos"])
+
+PrecioQuery = Annotated[int | None, BeforeValidator(clean_positive_int), Query(alias="precioMin")]
+DuracionQuery = Annotated[int | None, BeforeValidator(clean_positive_int), Query(alias="duracionMin")]
+DuracionQueryMax = Annotated[int | None, BeforeValidator(clean_positive_int), Query(alias="duracionMax")]
+PrecioQueryMax = Annotated[int | None, BeforeValidator(clean_positive_int), Query(alias="precioMax")]
 
 
 def cliente_opcional(
@@ -48,10 +55,10 @@ def buscar_vuelos(
     origen: str | None = Query(None, description="Codigo de ciudad, ej. BOG"),
     destino: str | None = Query(None, description="Codigo de ciudad, ej. MDE"),
     fecha: date | None = Query(None, description="Dia de salida (YYYY-MM-DD) en hora de Colombia"),
-    precio_min: int | None = Query(None, alias="precioMin", ge=0),
-    precio_max: int | None = Query(None, alias="precioMax", ge=0),
-    duracion_min: int | None = Query(None, alias="duracionMin", ge=0, description="Minutos"),
-    duracion_max: int | None = Query(None, alias="duracionMax", ge=0, description="Minutos"),
+    precio_min: PrecioQuery = None,
+    precio_max: PrecioQueryMax = None,
+    duracion_min: DuracionQuery = None,
+    duracion_max: DuracionQueryMax = None,
     clase: ClaseVuelo | None = Query(
         None, description="NO oculta vuelos (D13): la pantalla destaca la disponibilidad de esa clase."
     ),
