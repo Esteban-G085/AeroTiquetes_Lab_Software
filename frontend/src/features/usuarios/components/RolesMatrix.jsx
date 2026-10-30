@@ -1,11 +1,8 @@
-import { Switch } from '@/components/ui'
-
 /**
- * Matriz activa roles × módulos (P2). Las columnas salen de lo que devuelva el backend,
+ * Matriz de solo lectura roles × módulos. Las columnas salen de lo que devuelva el backend,
  * así un módulo nuevo aparece sin tocar el front. En móvil la misma tabla se transforma en tarjetas (CSS).
- * Los roles con `editable: false` (root) se muestran bloqueados para que nadie pierda su propio acceso.
  */
-export default function RolesMatrix({ modulos, roles, isChecked, onToggle }) {
+export default function RolesMatrix({ modulos, roles }) {
   return (
     <div className="us-roles__scroll">
       <table className="us-roles__table" role="table">
@@ -22,16 +19,14 @@ export default function RolesMatrix({ modulos, roles, isChecked, onToggle }) {
               <th scope="row" role="rowheader" className="us-roles__role">
                 <span className="us-roles__name">{r.nombre}</span>
                 {r.descripcion && <span className="us-roles__desc">{r.descripcion}</span>}
-                {!r.editable && <span className="us-roles__lock">No editable</span>}
               </th>
               {modulos.map((m) => (
                 <td key={m.id} role="cell" data-label={m.nombre}>
-                  <Switch
-                    label={`${r.nombre}: ${m.nombre}`}
-                    checked={isChecked(r, m.id)}
-                    disabled={!r.editable}
-                    onChange={(value) => onToggle(r.id, m.id, value)}
-                  />
+                  {r.modulos[m.id] ? (
+                    <span className="us-roles__enabled" title="Habilitado">✓</span>
+                  ) : (
+                    <span className="us-roles__disabled" title="Deshabilitado">✗</span>
+                  )}
                 </td>
               ))}
             </tr>

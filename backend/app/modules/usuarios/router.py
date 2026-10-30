@@ -26,7 +26,6 @@ from app.modules.usuarios.schemas import (
     PerfilUpdate,
     RegistroClienteRequest,
     RolesMatrizResponse,
-    RolesMatrizUpdate,
     TokenResponse,
     UsuarioPublico,
     VerificarCorreoRequest,
@@ -297,15 +296,3 @@ def eliminar_administrador(administrador_id: int, db: DbSession):
 )
 def obtener_matriz_roles(db: DbSession):
     return RolesMatrizResponse(**service.obtener_matriz_roles(db))
-
-
-@router.put(
-    "/root/roles",
-    response_model=RolesMatrizResponse,
-    tags=["Root"],
-    dependencies=[Depends(require_roles(RolNombre.ROOT.value))],
-)
-def actualizar_matriz_roles(payload: RolesMatrizUpdate, db: DbSession):
-    """Recibe solo los roles que cambiaron, cada uno con su mapa completo
-    {modulo: permitido}. Se aplica de inmediato en require_roles(modulo=...)."""
-    return RolesMatrizResponse(**service.actualizar_matriz_roles(db, [c.model_dump() for c in payload.roles]))

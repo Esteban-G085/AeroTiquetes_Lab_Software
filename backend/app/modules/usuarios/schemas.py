@@ -227,12 +227,3 @@ class RolItem(BaseModel):
 class RolesMatrizResponse(BaseModel):
     modulos: list[ModuloItem]
     roles: list[RolItem]
-
-
-class RolCambio(BaseModel):
-    id: RolNombre
-    modulos: dict[str, bool]
-
-
-class RolesMatrizUpdate(BaseModel):
-    roles: list[RolCambio] = Field(..., min_length=1)

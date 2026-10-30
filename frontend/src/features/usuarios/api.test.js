@@ -1,7 +1,7 @@
 import { http } from '@/services/http'
 import {
   registrarCliente, buildPersonalDataFormData, obtenerPerfil, actualizarPerfil, solicitarCambioCorreo, cambiarPassword,
-  listarAdministradores, crearAdministrador, eliminarAdministrador, validarInvitacion, completarRegistro, obtenerRoles, guardarRoles,
+  listarAdministradores, crearAdministrador, eliminarAdministrador, validarInvitacion, completarRegistro, obtenerRoles,
 } from './api'
 
 const values = {
@@ -110,13 +110,5 @@ describe('API de administradores, invitación y roles', () => {
     expect(seen.data.get('token')).toBe('tok123')
     expect(seen.data.get('nombres')).toBe('Ana')
     expect(seen.data.get('password')).toBe(' Clave 1 ')
-  })
-
-  it('obtenerRoles normaliza; guardarRoles -> PUT /root/roles', async () => {
-    reply({})
-    await expect(obtenerRoles()).resolves.toEqual({ modulos: [], roles: [] })
-    await guardarRoles([{ id: 'cliente', modulos: { a: true } }])
-    expect(seen.method).toBe('put'); expect(seen.url).toBe('/root/roles')
-    expect(JSON.parse(seen.data)).toEqual({ roles: [{ id: 'cliente', modulos: { a: true } }] })
   })
 })

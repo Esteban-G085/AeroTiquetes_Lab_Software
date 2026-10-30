@@ -340,23 +340,6 @@ def test_admin_vuelos_con_root_da_403(client):
     assert client.get("/admin/vuelos", headers=auth_headers(token_root)).status_code == 403
 
 
-def test_si_root_desactiva_el_modulo_el_administrador_pierde_el_acceso(client, token_admin):
-    assert client.get("/admin/vuelos", headers=auth_headers(token_admin)).status_code == 200
-
-    settings = get_settings()
-    token_root = login(client, settings.ROOT_ID, settings.ROOT_PASSWORD)
-    resp = client.put(
-        "/root/roles",
-        json={"roles": [{"id": "administrador", "modulos": {"administracion_vuelos": False}}]},
-        headers=auth_headers(token_root),
-    )
-    assert resp.status_code == 200, resp.text
-
-    bloqueada = client.get("/admin/vuelos", headers=auth_headers(token_admin))
-    assert bloqueada.status_code == 403
-    assert bloqueada.json()["error"]["code"] == "modulo_desactivado"
-
-
 # --------------------------------------------------------------------------- /admin/vuelos: lectura
 def test_admin_lista_todos_los_estados_el_mas_reciente_primero(client, token_admin, vuelos):
     resp = client.get("/admin/vuelos", headers=auth_headers(token_admin))

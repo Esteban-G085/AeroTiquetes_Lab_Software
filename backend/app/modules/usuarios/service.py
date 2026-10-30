@@ -308,7 +308,7 @@ def solicitar_cambio_correo(db: Session, usuario: Usuario, correo_nuevo: str, pa
     db.commit()
 
     token = create_invite_token(administrador_id=usuario.id, expire_hours=48)
-    enviar_verificacion_cambio_correo(correo_nuevo=correo_nuevo, token=token)
+    email.enviar_verificacion_cambio_correo(correo_nuevo=correo_nuevo, token=token)
 
 
 def verificar_cambio_correo(db: Session, token: str) -> Usuario:
@@ -497,8 +497,8 @@ def obtener_matriz_roles(db: Session) -> dict:
                 "id": rol,
                 "nombre": _ROLES_INFO[rol][0],
                 "descripcion": _ROLES_INFO[rol][1],
-                # Root no puede quitarse su propio acceso (el front lo bloquea y aqui tambien).
-                "editable": rol != RolNombre.ROOT,
+                # Las funciones ya están definidas: nada es editable desde aquí.
+                "editable": False,
                 "modulos": {m: por_rol[rol].get(m, False) for m in MODULOS_SISTEMA},
             }
             for rol in RolNombre
@@ -506,24 +506,3 @@ def obtener_matriz_roles(db: Session) -> dict:
     }
 
 
-def actualizar_matriz_roles(db: Session, roles: list[dict]) -> dict:
-    """Aplica solo los roles enviados: cada uno con su mapa {modulo: permitido}."""
-    for cambio in roles:
-        rol_nombre = cambio["id"]
-        if rol_nombre == RolNombre.ROOT:
-            raise AppError(
-                "El rol root no es editable: no puede quitarse su propio acceso.",
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="rol_no_editable",
-            )
-        for modulo, permitido in cambio["modulos"].items():
-            fila = db.scalar(select(RolModulo).join(Rol).where(Rol.nombre == rol_nombre, RolModulo.modulo == modulo))
-            if fila is None:
-                raise AppError(
-                    f"Combinacion rol/modulo desconocida: {rol_nombre.value}/{modulo}",
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    code="modulo_desconocido",
-                )
-            fila.permitido = permitido
-    db.commit()
-    return obtener_matriz_roles(db)

@@ -119,9 +119,3 @@ export async function obtenerRoles() {
   const { data } = await http.get('/root/roles')
   return { modulos: data?.modulos ?? [], roles: data?.roles ?? [] }
 }
-
-/** PUT /root/roles { roles: [{ id, modulos: { [moduloId]: boolean } }] } — solo los roles que cambiaron. */
-export async function guardarRoles(roles) {
-  const { data } = await http.put('/root/roles', { roles })
-  return data
-}
