@@ -15,10 +15,15 @@ from app.core.config import get_settings
 
 logger = logging.getLogger("aerotiquetes.email")
 
-settings = get_settings()
+
+def _get_settings():
+    # Leer configuración fresca en cada envío para recoger cambios en .env sin reiniciar.
+    get_settings.cache_clear()
+    return get_settings()
 
 
 def _enviar(destinatario: str, asunto: str, cuerpo_html: str) -> None:
+    settings = _get_settings()
     msg = EmailMessage()
     msg["Subject"] = asunto
     msg["From"] = settings.SMTP_FROM
@@ -74,6 +79,7 @@ def _plantilla(titulo: str, mensaje_html: str, boton_texto: str, boton_url: str)
 
 
 def enviar_invitacion_administrador(*, correo: str, nombre: str, token: str, horas_vencimiento: int) -> None:
+    settings = _get_settings()
     url = f"{settings.FRONTEND_URL}/completar-registro?token={token}"
     cuerpo = _plantilla(
         titulo="Invitacion a AeroTiquetes",
@@ -90,6 +96,7 @@ def enviar_invitacion_administrador(*, correo: str, nombre: str, token: str, hor
 
 
 def enviar_verificacion_cambio_correo(*, correo_nuevo: str, token: str) -> None:
+    settings = _get_settings()
     url = f"{settings.FRONTEND_URL}/verificar-correo?token={token}"
     cuerpo = _plantilla(
         titulo="Confirma tu nuevo correo",

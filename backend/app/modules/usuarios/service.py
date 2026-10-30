@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.email import enviar_invitacion_administrador, enviar_verificacion_cambio_correo
+from app.core import email
 from app.core.errors import AppError
 from app.core.security import (
     create_access_token,
@@ -367,7 +367,7 @@ def crear_administrador(db: Session, root: Usuario, correo: str, nombre: str) ->
     db.commit()
     db.refresh(usuario)
 
-    enviar_invitacion_administrador(
+    email.enviar_invitacion_administrador(
         correo=correo, nombre=nombre, token=token, horas_vencimiento=settings.ADMIN_INVITE_EXPIRE_HOURS
     )
     return usuario
