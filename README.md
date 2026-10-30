@@ -27,6 +27,17 @@ En el **Sprint 1** se construyó la base funcional del sistema para permitir el 
 > (sin mocks). El contrato de vuelos quedó acordado en
 > [`frontend/docs/CONTRATO_VUELOS.md`](./frontend/docs/CONTRATO_VUELOS.md).
 
+### Cambios realizados tras el cierre del Sprint 1 (entrega final)
+
+Estos ajustes se hicieron sobre la base ya integrada del Sprint 1 y se incluyeron en la entrega final:
+
+| Cambio | Detalle |
+|---|---|
+| **Correo real por Gmail SMTP** | El backend soporta ahora envío real mediante Gmail SMTP (`smtp.gmail.com:587` con STARTTLS, o `465` con SSL directo) usando contraseña de aplicación. Se configura con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` y `SMTP_FROM` en `backend/.env`. Mailpit sigue disponible para desarrollo local (`localhost:1025`) y el envío falla silenciosamente (solo log) si el servidor de correo no responde, sin romper la respuesta HTTP. |
+| **Validación de lugar de nacimiento (Opción B)** | `lugar_nacimiento` ya no es texto libre. Se creó el módulo `catalogos` con la tabla `pais` (migración `006_paises`, 60 países activos, seed idempotente) y el endpoint público `GET /catalogos/paises`. El backend valida en `usuarios/service.py` que el valor sea un país activo (case-insensitive) y guarda el nombre canónico; valores inválidos responden `422` con `code: "lugar_nacimiento_invalido"`. El frontend reemplazó el `<input>` por un `<select>` de países en registro, completar registro de administrador y edición de perfil. |
+| **Pruebas** | Backend: 175 pruebas pasando. Frontend: 255 pruebas pasando. Ninguna prueba envía correos reales (stub global de `_enviar`). |
+| **Seguridad** | `.env` y `.gitignore` siguen sin credenciales en Git; se verificó con `git ls-files` que no hay coincidencias de secretos. |
+
 ### Demo a mostrar
 
 1. El sistema crea el Root por defecto. El Root inicia sesión y crea un Administrador (se envía correo a Mailpit).
