@@ -12,5 +12,7 @@ export default {
       roles: [ROLES.ADMIN] },
     { path: '/admin/vuelos/:id', title: 'Consultar vuelo', Component: lazy(() => import('./pages/ConsultarVueloPage')),
       roles: [ROLES.ADMIN] },
+    { path: '/admin/vuelos/:id/editar', title: 'Editar vuelo', Component: lazy(() => import('./pages/EditarVueloPage')),
+      roles: [ROLES.ADMIN] },
   ],
 }

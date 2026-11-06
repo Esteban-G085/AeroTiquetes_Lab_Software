@@ -5,6 +5,7 @@ import { http } from '@/services/http'
 //   GET  /admin/vuelos?estado&origen&destino&pagina   → { total, items }
 //   POST /admin/vuelos  { tipo, origen, destino, fecha, hora, duracion, costo }
 //   GET  /admin/vuelos/{id}
+//   PUT  /admin/vuelos/{id}  { tipo, origen, destino, fecha, hora, duracion, costo }
 // El backend genera el código consecutivo, la hora de llegada y los cupos por clase (D3, D4).
 
 const sinVaciar = (obj) =>
@@ -26,5 +27,11 @@ export async function crearVuelo(payload) {
 /** HU19 — Consultar un vuelo programado. */
 export async function obtenerVueloAdmin(id) {
   const { data } = await http.get(`/admin/vuelos/${encodeURIComponent(id)}`)
+  return data
+}
+
+/** HU12 — Editar un vuelo programado. Devuelve el vuelo actualizado. */
+export async function actualizarVuelo(id, payload) {
+  const { data } = await http.put(`/admin/vuelos/${encodeURIComponent(id)}`, payload)
   return data
 }

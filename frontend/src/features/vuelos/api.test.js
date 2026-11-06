@@ -1,5 +1,5 @@
 import { http } from '@/services/http'
-import { crearVuelo, listarVuelos, obtenerVueloAdmin } from './api'
+import { crearVuelo, listarVuelos, obtenerVueloAdmin, actualizarVuelo } from './api'
 
 let seen
 const reply = (data, status = 200) => {
@@ -28,5 +28,14 @@ describe('API de administración de vuelos (HU18, HU19)', () => {
     reply({ id: 9 })
     await obtenerVueloAdmin(9)
     expect(seen.url).toBe('/admin/vuelos/9')
+  })
+
+  it('actualizarVuelo -> PUT /admin/vuelos/{id}', async () => {
+    reply({ id: 9, codigo: 'AT-0009' }, 200)
+    const payload = { tipo: 'nacional', origen: 'BOG', destino: 'MDE', fecha: '2030-02-15', hora: '10:00', duracion: 120, costo: 320000 }
+    await expect(actualizarVuelo(9, payload)).resolves.toEqual({ id: 9, codigo: 'AT-0009' })
+    expect(seen.method).toBe('put')
+    expect(seen.url).toBe('/admin/vuelos/9')
+    expect(JSON.parse(seen.data)).toEqual(payload)
   })
 })

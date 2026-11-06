@@ -14,6 +14,14 @@ const duracionDe = (horas, minutos) => {
   return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0)
 }
 
+const horasMinutosDe = (duracionMin) => {
+  const d = Number(duracionMin)
+  if (!Number.isFinite(d) || d <= 0) return { horas: '1', minutos: '30' }
+  const h = Math.floor(d / 60)
+  const m = d % 60
+  return { horas: String(h), minutos: String(m).padStart(2, '0') }
+}
+
 /** Instante de salida: fecha y hora LOCALES de Colombia (el backend guarda UTC). */
 function salidaISO(fecha, hora) {
   if (!fecha || timeToMinutes(hora) === null) return null
@@ -21,14 +29,15 @@ function salidaISO(fecha, hora) {
   return Number.isNaN(salida.getTime()) ? null : salida.toISOString()
 }
 
-function validar(f) {
+function validar(f, esEdicion = false) {
   const errores = {}
   if (!f.origen) errores.origen = 'Selecciona la ciudad de origen.'
   if (!f.destino) errores.destino = 'Selecciona la ciudad de destino.'
   else if (f.origen && f.origen === f.destino) errores.destino = 'El destino debe ser distinto del origen.'
 
   if (!f.fecha) errores.fecha = 'Indica la fecha de salida.'
-  else if (f.fecha < todayISO()) errores.fecha = 'La fecha no puede ser anterior a hoy.'
+  // En edición solo se bloquea fecha pasada si el vuelo ya sucedió; el backend valida el resto.
+  else if (!esEdicion && f.fecha < todayISO()) errores.fecha = 'La fecha no puede ser anterior a hoy.'
 
   if (timeToMinutes(f.hora) === null) errores.hora = 'Indica una hora válida.'
   if (duracionDe(f.horas, f.minutos) <= 0) errores.horas = 'La duración debe ser mayor que cero.'
@@ -44,12 +53,23 @@ function validar(f) {
 }
 
 /**
- * HU18 — Programar un vuelo. El administrador solo digita origen, destino, fecha, hora,
- * duración y costo: el sistema genera el código consecutivo, la hora de llegada y los
- * cupos por clase (D3, D4). Los errores del backend (ApiError.fields) se pintan en cada campo.
+ * VueloForm — crear o editar un vuelo (HU18 / HU12).
+ * - `vuelo`: cuando se pasa, el formulario trabaja en modo edición y precarga sus valores.
+ * - `onGuardar(payload)`: recibe { tipo, origen, destino, fecha, hora, duracion, costo }.
+ * Los errores del backend (ApiError.fields) se pintan en cada campo.
  */
-export default function VueloForm({ ciudades = [], onProgramar }) {
-  const [f, setF] = useState(INICIAL)
+export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
+  const esEdicion = Boolean(vuelo)
+  const [f, setF] = useState(esEdicion
+    ? {
+        origen: vuelo.origen?.codigo ?? '',
+        destino: vuelo.destino?.codigo ?? '',
+        fecha: vuelo.salida_utc ? new Date(vuelo.salida_utc).toISOString().slice(0, 10) : '',
+        hora: vuelo.salida_utc ? new Date(vuelo.salida_utc).toISOString().slice(11, 16) : '08:00',
+        ...horasMinutosDe(vuelo.duracion_min),
+        costo: String(vuelo.costo ?? ''),
+      }
+    : INICIAL)
   const [errores, setErrores] = useState({})
   const [errorGeneral, setErrorGeneral] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -65,14 +85,14 @@ export default function VueloForm({ ciudades = [], onProgramar }) {
 
   async function enviar(e) {
     e.preventDefault()
-    const problemas = validar(f)
+    const problemas = validar(f, esEdicion)
     setErrores(problemas)
     setErrorGeneral('')
     if (Object.keys(problemas).length > 0) return
 
     setEnviando(true)
     try {
-      await onProgramar({
+      await onGuardar({
         tipo,
         origen: f.origen,
         destino: f.destino,
@@ -131,13 +151,20 @@ export default function VueloForm({ ciudades = [], onProgramar }) {
             </dd>
           </div>
         </dl>
-        <p className="vu-form__hint">
-          El código consecutivo, la hora de llegada y los cupos por clase los genera AeroTiquetes al guardar.
-        </p>
+        {esEdicion && (
+          <p className="vu-form__hint">
+            Al guardar, el sistema recalcula la hora de llegada. El código y los cupos por clase se mantienen.
+          </p>
+        )}
+        {!esEdicion && (
+          <p className="vu-form__hint">
+            El código consecutivo, la hora de llegada y los cupos por clase los genera AeroTiquetes al guardar.
+          </p>
+        )}
       </div>
 
       <div className="vu-form__actions">
-        <Button type="submit" loading={enviando}>Programar vuelo</Button>
+        <Button type="submit" loading={enviando}>{esEdicion ? 'Guardar cambios' : 'Programar vuelo'}</Button>
       </div>
     </Card>
   )

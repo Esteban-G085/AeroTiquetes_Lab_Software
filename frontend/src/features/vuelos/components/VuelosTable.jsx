@@ -52,6 +52,9 @@ export default function VuelosTable({ vuelos = [] }) {
                 <td data-label="Estado"><EstadoBadge estado={v.estado} /></td>
                 <td className="text-end" data-label="">
                   <Link className="btn btn-sm btn-outline-primary" to={`/admin/vuelos/${v.id}`}>Consultar</Link>
+                  {v.estado === 'programado' && (
+                    <Link className="btn btn-sm btn-outline-secondary ms-1" to={`/admin/vuelos/${v.id}/editar`}>Editar</Link>
+                  )}
                 </td>
               </tr>
             ))}
