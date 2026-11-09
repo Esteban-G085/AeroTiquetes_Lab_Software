@@ -1,5 +1,5 @@
 import { http } from '@/services/http'
-import { crearVuelo, listarVuelos, obtenerVueloAdmin, actualizarVuelo } from './api'
+import { crearVuelo, listarVuelos, obtenerVueloAdmin, actualizarVuelo, cancelarVuelo } from './api'
 
 let seen
 const reply = (data, status = 200) => {
@@ -37,5 +37,12 @@ describe('API de administración de vuelos (HU18, HU19)', () => {
     expect(seen.method).toBe('put')
     expect(seen.url).toBe('/admin/vuelos/9')
     expect(JSON.parse(seen.data)).toEqual(payload)
+  })
+
+  it('cancelarVuelo -> PATCH /admin/vuelos/{id}/cancelar', async () => {
+    reply({ id: 9, codigo: 'AT-0009', estado: 'cancelado' }, 200)
+    await expect(cancelarVuelo(9)).resolves.toEqual({ id: 9, codigo: 'AT-0009', estado: 'cancelado' })
+    expect(seen.method).toBe('patch')
+    expect(seen.url).toBe('/admin/vuelos/9/cancelar')
   })
 })

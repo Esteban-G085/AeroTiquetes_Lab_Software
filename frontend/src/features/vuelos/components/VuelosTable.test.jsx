@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { ToastProvider } from '@/components/feedback'
 import VuelosTable from './VuelosTable'
 
 const VUELOS = [
@@ -23,7 +24,9 @@ const CABECERAS = ['Código', 'Ruta', 'Salida', 'Duración', 'Costo', 'Cupos (Ec
 // Rótulo que ve el modo tarjeta en móvil (el de cupos se abrevia; la última columna es solo el botón).
 const ROTULOS = ['Código', 'Ruta', 'Salida', 'Duración', 'Costo', 'Cupos', 'Estado', '']
 
-const montar = () => render(<MemoryRouter><VuelosTable vuelos={VUELOS} /></MemoryRouter>)
+const montar = () => render(
+  <ToastProvider><MemoryRouter><VuelosTable vuelos={VUELOS} /></MemoryRouter></ToastProvider>
+)
 
 describe('VuelosTable (HU19)', () => {
   it('rotula cada celda con el encabezado de su columna', () => {
