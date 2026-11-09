@@ -3,8 +3,9 @@ import { matchPath } from 'react-router-dom'
 import usuarios from './usuarios'
 import vuelos from './vuelos'
 import busqueda from './busqueda'
+import noticias from './noticias'
 
-export const features = [usuarios, vuelos, busqueda]
+export const features = [usuarios, vuelos, busqueda, noticias]
 
 /** Todas las rutas declaradas por los features. */
 export const allRoutes = features.flatMap((f) => f.routes)
