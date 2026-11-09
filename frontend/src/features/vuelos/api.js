@@ -7,6 +7,7 @@ import { http } from '@/services/http'
 //   GET  /admin/vuelos/{id}
 //   PUT  /admin/vuelos/{id}  { tipo, origen, destino, fecha, hora, duracion, costo }
 //   PATCH /admin/vuelos/{id}/cancelar
+//   GET  /admin/vuelos/realizados
 // El backend genera el código consecutivo, la hora de llegada y los cupos por clase (D3, D4).
 
 const sinVaciar = (obj) =>
@@ -41,4 +42,11 @@ export async function actualizarVuelo(id, payload) {
 export async function cancelarVuelo(id) {
   const { data } = await http.patch(`/admin/vuelos/${encodeURIComponent(id)}/cancelar`)
   return data
+}
+
+/** HU14 — Listar vuelos realizados o sucedidos. */
+export async function listarVuelosRealizados() {
+  const { data } = await http.get('/admin/vuelos/realizados')
+  const items = Array.isArray(data) ? data : data?.items ?? []
+  return { total: Number(data?.total ?? items.length), items }
 }
