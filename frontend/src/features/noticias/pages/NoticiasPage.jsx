@@ -7,6 +7,8 @@ import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/components/feedback'
 import {
   listarNoticias,
+  obtenerNoticia,
+  estadoSuscripcion,
   suscribirseNoticias,
   cancelarSuscripcionNoticias,
 } from '../api'
@@ -32,9 +34,23 @@ export default function NoticiasPage() {
     }
   }, [])
 
+  const cargarEstadoSuscripcion = useCallback(async () => {
+    if (!isAuthenticated) {
+      setSuscrito(false)
+      return
+    }
+    try {
+      const estado = await estadoSuscripcion()
+      setSuscrito(Boolean(estado?.suscrito))
+    } catch {
+      setSuscrito(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
     cargarNoticias()
-  }, [cargarNoticias])
+    cargarEstadoSuscripcion()
+  }, [cargarNoticias, cargarEstadoSuscripcion])
 
   async function manejarSuscripcion() {
     if (!isAuthenticated) {
@@ -97,26 +113,29 @@ export default function NoticiasPage() {
         <>
           <div className="not-grid">
             {noticias.map((n) => (
-              <article key={n.id ?? n.codigo ?? n.titulo} className="not-card">
+              <article key={n.id ?? n.titulo} className="not-card">
                 {n.imagen && <img src={n.imagen} alt={n.titulo} className="not-card__imagen" />}
                 <div className="not-card__contenido">
                   <div className="not-card__meta">
-                    <span className="not-card__fecha">{n.fecha_publicacion || n.fecha || ''}</span>
-                    {n.origen && n.destino && (
+                    <span className="not-card__fecha">{n.publicada_en || n.fecha_publicacion || ''}</span>
+                    {n.vuelo && n.vuelo.origen && n.vuelo.destino && (
                       <span className="not-card__ruta">
-                        {typeof n.origen === 'object' ? n.origen.codigo ?? n.origen : n.origen}
+                        {typeof n.vuelo.origen === 'object' ? n.vuelo.origen.codigo ?? n.vuelo.origen : n.vuelo.origen}
                         {' → '}
-                        {typeof n.destino === 'object' ? n.destino.codigo ?? n.destino : n.destino}
+                        {typeof n.vuelo.destino === 'object' ? n.vuelo.destino.codigo ?? n.vuelo.destino : n.vuelo.destino}
                       </span>
                     )}
                   </div>
                   <h3 className="not-card__titulo">{n.titulo}</h3>
-                  <p className="not-card__resumen">{n.resumen || n.descripcion || ''}</p>
-                  {n.precio !== undefined && (
+                  <p className="not-card__resumen">{n.contenido || n.resumen || n.descripcion || ''}</p>
+                  {n.vuelo && n.vuelo.costo !== undefined && (
                     <span className="not-card__precio">
-                      Desde {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(n.precio)}
+                      Desde {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(n.vuelo.costo)}
                     </span>
                   )}
+                  <Link className="not-card__detalle" to={`/noticias/${n.id}`}>
+                    Ver detalle
+                  </Link>
                 </div>
               </article>
             ))}
@@ -126,7 +145,7 @@ export default function NoticiasPage() {
             <PageHeader eyebrow="Suscripción" title="Recibe noticias por correo" subtitle="¿Quieres recibir avisos cuando publiquemos una nueva noticia?" />
             <p className="not-suscripcion__estado">
               {suscrito === null
-                ? 'Estado de suscripción: por definir.'
+                ? 'Estado de suscripción: verificando…'
                 : suscrito
                 ? 'Estás suscrito a las noticias de vuelos.'
                 : 'No estás suscrito a las noticias.'}
