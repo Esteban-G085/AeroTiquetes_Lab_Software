@@ -106,3 +106,20 @@ class VueloCrear(BaseModel):
     hora: time = Field(description="HH:MM en hora de Colombia (America/Bogota)")
     duracion: int = Field(gt=0, description="Minutos")
     costo: int = Field(gt=0, description="Por persona, en COP")
+
+
+class VueloEditar(BaseModel):
+    """Cuerpo de `PUT /admin/vuelos/{id}` (HU12). Es un reemplazo: se envian todos los datos del vuelo.
+
+    El `tipo` NO se envia: se deduce de las ciudades (si alguna es del exterior, es internacional).
+    `estado` es opcional; si se omite o es el actual se editan los datos, y si es distinto el
+    vuelo solo cambia de estado (ver `service.editar_vuelo`).
+    """
+
+    origen: str = Field(min_length=3, max_length=3, description="Codigo de ciudad, ej. BOG")
+    destino: str = Field(min_length=3, max_length=3, description="Codigo de ciudad, ej. MDE")
+    fecha: date = Field(description="YYYY-MM-DD")
+    hora: time = Field(description="HH:MM en hora de Colombia (America/Bogota)")
+    duracion: int = Field(gt=0, description="Minutos")
+    costo: int = Field(gt=0, description="Por persona, en COP")
+    estado: EstadoVuelo | None = None

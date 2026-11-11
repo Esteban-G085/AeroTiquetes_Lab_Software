@@ -141,6 +141,12 @@ if __name__ == "__main__":  # python -m app.modules.vuelos.seeds
     with session_scope() as sesion:
         ciudades_nuevas = asegurar_ciudades(sesion)
         vuelos_nuevos = sembrar_vuelos_ejemplo(sesion)
-    print(f"Ciudades nuevas: {ciudades_nuevas} | vuelos de ejemplo nuevos: {vuelos_nuevos}")
+        from app.modules.noticias.service import publicar_noticias_faltantes
+
+        noticias_nuevas = publicar_noticias_faltantes(sesion)  # una noticia por cada vuelo programado
+    print(
+        f"Ciudades nuevas: {ciudades_nuevas} | vuelos de ejemplo nuevos: {vuelos_nuevos} "
+        f"| noticias nuevas: {noticias_nuevas}"
+    )
     if not vuelos_nuevos:
         print("(La tabla `vuelo` ya tenia datos: no se agrego nada.)")

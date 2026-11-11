@@ -38,13 +38,14 @@ def url_temporal(tmp_path, monkeypatch):
     get_settings.cache_clear()
 
 
-def test_hay_una_sola_cabeza_y_la_cadena_es_001_a_006():
+def test_hay_una_sola_cabeza_y_la_cadena_es_001_a_007():
     """Seccion 5.4 del plan: sin `multiple heads`."""
     script = ScriptDirectory.from_config(_config())
-    assert script.get_heads() == ["006_paises"]
+    assert script.get_heads() == ["007_noticias"]
     cadena = [r.revision for r in script.walk_revisions()][::-1]
     assert cadena == [
         "001_usuarios", "002_roles", "003_ciudades", "004_vuelos", "005_busquedas", "006_paises",
+        "007_noticias",
     ]
 
 

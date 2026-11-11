@@ -13,7 +13,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.modules.vuelos.models import (
@@ -27,7 +27,7 @@ from app.modules.vuelos.models import (
     codigo_para,
 )
 from app.core.errors import AppError
-from app.modules.vuelos.schemas import OrdenVuelos, UsoCiudad, VueloCrear
+from app.modules.vuelos.schemas import OrdenVuelos, UsoCiudad, VueloCrear, VueloEditar
 
 logger = logging.getLogger("aerotiquetes.busqueda")
 
@@ -95,6 +95,11 @@ def crear_vuelo(
 # la misma transaccion. Hoy esta vacio; en las Iteraciones 2 y 4 se registra aqui la publicacion de
 # noticias (`ALPROGRAMAR_VUELO.append(publicar_noticia)`).
 ALPROGRAMAR_VUELO: list[Callable] = []
+
+# Segundo punto de extension: funciones `f(id_vuelo)` que corren DESPUES de guardar el vuelo y de responder
+# (en segundo plano), con su propia sesion. Sirven para lo lento o que no debe tumbar la programacion,
+# como enviar correos (las noticias se avisan a los suscriptores por aqui).
+TRAS_PROGRAMAR_VUELO: list[Callable[[int], None]] = []
 
 
 def validar_programacion(
@@ -303,6 +308,149 @@ def consultar_vuelo(db: Session, id_vuelo: int) -> Vuelo | None:
 # ---------------------------------------------------------------------------
 # Historial de busquedas (B2-11)
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Editar, cancelar y estados del vuelo (Sprint 2, B2-12 a B2-14; HU12, HU13, HU14)
+# ---------------------------------------------------------------------------
+# Punto de extension para el modulo de compra/reserva (B1): funciones `f(db, vuelo)` que se ejecutan
+# al cancelar un vuelo, dentro de la misma transaccion (cancelar reservas y compras con reintegro).
+ALCANCELAR_VUELO: list[Callable] = []
+
+# Cambios de estado permitidos. `cancelado` y `realizado` son finales.
+_TRANSICIONES = {
+    EstadoVuelo.PROGRAMADO: {EstadoVuelo.CANCELADO, EstadoVuelo.SUCEDIDO},
+    EstadoVuelo.SUCEDIDO: {EstadoVuelo.REALIZADO},
+}
+
+
+def _error(mensaje: str, estado_http: int, codigo: str) -> AppError:
+    return AppError(mensaje, status_code=estado_http, code=codigo)
+
+
+def _vuelo_o_404(db: Session, id_vuelo: int) -> Vuelo:
+    vuelo = db.get(Vuelo, id_vuelo)
+    if vuelo is None:
+        raise _error("El vuelo no existe.", 404, "vuelo_no_encontrado")
+    return vuelo
+
+
+def cancelar_vuelo(db: Session, id_vuelo: int) -> Vuelo:
+    """HU13: cancela un vuelo `programado` y libera sus cupos (vuelven a la capacidad del tipo).
+
+    Cualquier otro estado da 409 `transicion_invalida`. Los ganchos de `ALCANCELAR_VUELO` corren en la
+    misma transaccion: si uno falla, el vuelo no queda cancelado.
+    """
+    vuelo = _vuelo_o_404(db, id_vuelo)
+    if vuelo.estado == EstadoVuelo.CANCELADO:
+        raise _error("El vuelo ya esta cancelado.", 409, "transicion_invalida")
+    if vuelo.estado != EstadoVuelo.PROGRAMADO:
+        raise _error("Solo se puede cancelar un vuelo programado.", 409, "transicion_invalida")
+    vuelo.estado = EstadoVuelo.CANCELADO
+    vuelo.cupos_economica, vuelo.cupos_primera = CUPOS_POR_TIPO[vuelo.tipo]
+    for gancho in ALCANCELAR_VUELO:
+        gancho(db, vuelo)
+    db.commit()
+    db.refresh(vuelo)
+    return vuelo
+
+
+def _cambiar_estado(db: Session, vuelo: Vuelo, nuevo: EstadoVuelo, ahora: datetime) -> Vuelo:
+    if nuevo == EstadoVuelo.CANCELADO:
+        return cancelar_vuelo(db, vuelo.id)
+    if nuevo not in _TRANSICIONES.get(vuelo.estado, set()):
+        raise _error(
+            f"No se puede pasar un vuelo de '{vuelo.estado.value}' a '{nuevo.value}'.", 409, "transicion_invalida"
+        )
+    if nuevo == EstadoVuelo.SUCEDIDO and vuelo.salida_utc > ahora:
+        raise _error("El vuelo aun no ha salido.", 409, "transicion_invalida")
+    if nuevo == EstadoVuelo.REALIZADO and vuelo.llegada_utc > ahora:
+        raise _error("El vuelo aun no ha llegado.", 409, "transicion_invalida")
+    vuelo.estado = nuevo
+    db.commit()
+    db.refresh(vuelo)
+    return vuelo
+
+
+def editar_vuelo(db: Session, id_vuelo: int, datos: VueloEditar, *, ahora: datetime | None = None) -> Vuelo:
+    """HU12: edita fecha, hora, origen, destino, duracion y costo de un vuelo `programado`.
+
+    * Si `datos.estado` es distinto del actual, el vuelo SOLO cambia de estado (ver `_TRANSICIONES`) y el
+      resto de los datos se ignora.
+    * Si no, se editan los datos: solo un vuelo `programado` es editable (409 `vuelo_no_editable`) y se
+      aplican las mismas reglas de HU18/D5 que al programarlo (422 con errores por campo).
+    * El tipo se deduce de las ciudades. Si cambia (nacional <-> internacional) cambia la capacidad, y eso
+      solo se permite si no hay cupos ocupados (409 `vuelo_con_ventas`).
+    * La llegada se recalcula (salida + duracion, D15). El codigo no cambia.
+    """
+    ahora = ahora or datetime.now(timezone.utc)
+    vuelo = _vuelo_o_404(db, id_vuelo)
+    if datos.estado is not None and datos.estado != vuelo.estado:
+        return _cambiar_estado(db, vuelo, datos.estado, ahora)
+    if vuelo.estado != EstadoVuelo.PROGRAMADO:
+        raise _error("Solo se pueden editar los vuelos programados.", 409, "vuelo_no_editable")
+
+    origen = obtener_ciudad(db, datos.origen)
+    destino = obtener_ciudad(db, datos.destino)
+    tipo = tipo_entre(origen, destino) if origen and destino else vuelo.tipo
+    errores = validar_programacion(
+        VueloCrear(
+            tipo=tipo, origen=datos.origen, destino=datos.destino, fecha=datos.fecha, hora=datos.hora,
+            duracion=datos.duracion, costo=datos.costo,
+        ),
+        origen,
+        destino,
+        ahora=ahora,
+    )
+    if errores:
+        raise AppError("Los datos enviados no son validos.", status_code=422, code="validacion", fields=errores)
+
+    if tipo != vuelo.tipo:
+        if (vuelo.cupos_economica, vuelo.cupos_primera) != CUPOS_POR_TIPO[vuelo.tipo]:
+            raise _error(
+                "El vuelo ya tiene cupos ocupados: no se puede cambiar entre nacional e internacional.",
+                409,
+                "vuelo_con_ventas",
+            )
+        vuelo.tipo = tipo
+        vuelo.cupos_economica, vuelo.cupos_primera = CUPOS_POR_TIPO[tipo]
+
+    salida_utc = datetime.combine(datos.fecha, datos.hora, tzinfo=TZ_COLOMBIA).astimezone(timezone.utc)
+    vuelo.origen = origen
+    vuelo.destino = destino
+    vuelo.salida_utc = salida_utc
+    vuelo.duracion_min = datos.duracion
+    vuelo.llegada_utc = salida_utc + timedelta(minutes=datos.duracion)
+    vuelo.costo = datos.costo
+    db.commit()
+    db.refresh(vuelo)
+    return vuelo
+
+
+def sincronizar_estados(db: Session, ahora: datetime | None = None) -> int:
+    """Pasa los vuelos al estado que les corresponde por el tiempo (HU14). Devuelve cuantos cambio.
+
+    * `programado` -> `sucedido` cuando ya salio.
+    * `sucedido`   -> `realizado` cuando ya llego.
+
+    Corre al arrancar, cada cierto tiempo (ver `main.py`) y antes de listar los vuelos realizados.
+    """
+    ahora = ahora or datetime.now(timezone.utc)
+    salieron = db.execute(
+        update(Vuelo)
+        .where(Vuelo.estado == EstadoVuelo.PROGRAMADO, Vuelo.salida_utc <= ahora)
+        .values(estado=EstadoVuelo.SUCEDIDO)
+    ).rowcount
+    llegaron = db.execute(
+        update(Vuelo)
+        .where(Vuelo.estado == EstadoVuelo.SUCEDIDO, Vuelo.llegada_utc <= ahora)
+        .values(estado=EstadoVuelo.REALIZADO)
+    ).rowcount
+    db.commit()
+    return (salieron or 0) + (llegaron or 0)
+
+
+# ---------------------------------------------------------------------------
+# Historial de busquedas (B2-11)
+# ---------------------------------------------------------------------------
 def registrar_busqueda(
     db: Session, id_cliente: int, *, origen: str | None, destino: str | None, fecha: date | None
 ) -> Busqueda | None:
@@ -331,3 +479,21 @@ def registrar_busqueda(
         db.rollback()
         logger.exception("No se pudo guardar el historial de busqueda del cliente %s", id_cliente)
         return None
+
+
+def listar_vuelos_realizados(
+    db: Session,
+    *,
+    estado: EstadoVuelo | None = None,
+    origen: str | None = None,
+    destino: str | None = None,
+    pagina: int = 1,
+) -> tuple[int, list[Vuelo]]:
+    """HU14: vuelos `sucedido` o `realizado`, el de salida mas reciente primero."""
+    estados = [estado] if estado else [EstadoVuelo.SUCEDIDO, EstadoVuelo.REALIZADO]
+    condiciones = [Vuelo.estado.in_(estados)]
+    if origen:
+        condiciones.append(Vuelo.id_origen.in_(_ids_de_ciudad(origen)))
+    if destino:
+        condiciones.append(Vuelo.id_destino.in_(_ids_de_ciudad(destino)))
+    return _pagina(db, condiciones, (Vuelo.salida_utc.desc(),), pagina)

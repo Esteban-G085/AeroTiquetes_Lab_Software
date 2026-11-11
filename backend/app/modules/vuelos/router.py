@@ -5,7 +5,7 @@ Lectura (B2-06, B2-07) y programacion de vuelos (B2-05) sobre la base de datos.
 
 Contrato: `frontend/docs/CONTRATO_VUELOS.md`.
 """
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 
 from app.core.deps import DbSession, require_roles
 from app.core.errors import AppError
@@ -17,6 +17,7 @@ from app.modules.vuelos.schemas import (
     PaginaVuelos,
     UsoCiudad,
     VueloCrear,
+    VueloEditar,
     VueloOut,
 )
 
@@ -66,6 +67,36 @@ def listar_vuelos_admin(
 
 
 @router.get(
+    "/admin/vuelos/realizados",
+    response_model=PaginaVuelos,
+    tags=["Administracion de vuelos"],
+    dependencies=[_SOLO_ADMIN],
+)
+def listar_vuelos_realizados(
+    db: DbSession,
+    estado: EstadoVuelo | None = Query(None, description="`sucedido` o `realizado`; sin valor, ambos"),
+    origen: str | None = Query(None, description="Codigo de ciudad, ej. BOG"),
+    destino: str | None = Query(None, description="Codigo de ciudad, ej. MDE"),
+    pagina: int = Query(1, ge=1),
+):
+    """Vuelos realizados (HU14): los que estan en estado `sucedido` o `realizado`, el mas reciente primero.
+
+    Antes de listar se actualizan los estados por el paso del tiempo (`programado` -> `sucedido` ->
+    `realizado`). Para marcar a mano un vuelo como `realizado` use `PUT /admin/vuelos/{id}` con `estado`.
+    """
+    if estado is not None and estado not in (EstadoVuelo.SUCEDIDO, EstadoVuelo.REALIZADO):
+        raise AppError(
+            "Los datos enviados no son validos.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="validacion",
+            fields={"query.estado": "Solo se permite `sucedido` o `realizado`."},
+        )
+    service.sincronizar_estados(db)
+    total, vuelos = service.listar_vuelos_realizados(db, estado=estado, origen=origen, destino=destino, pagina=pagina)
+    return PaginaVuelos.armar(total, vuelos, pagina, service.TAMANO_PAGINA)
+
+
+@router.get(
     "/admin/vuelos/{id}",
     response_model=VueloOut,
     tags=["Administracion de vuelos"],
@@ -79,6 +110,40 @@ def consultar_vuelo_admin(id: int, db: DbSession):
     return VueloOut.model_validate(vuelo)
 
 
+@router.put(
+    "/admin/vuelos/{id}",
+    response_model=VueloOut,
+    tags=["Administracion de vuelos"],
+    dependencies=[_SOLO_ADMIN],
+)
+def editar_vuelo(id: int, datos: VueloEditar, db: DbSession):
+    """Edita un vuelo (HU12): fecha, hora (de Colombia), origen, destino, duracion y costo.
+
+    * Solo se editan los vuelos `programado` (409 `vuelo_no_editable`).
+    * Mismas reglas que al programar (422 `validacion` con `error.fields`). El tipo se deduce de las ciudades.
+    * Si `estado` viene y es distinto del actual, el vuelo SOLO cambia de estado y se ignoran los demas
+      datos: `cancelado` (libera cupos), `sucedido` (si ya salio) o `realizado` (si ya llego).
+      Una transicion no permitida da 409 `transicion_invalida`.
+    * El codigo no cambia; la llegada se recalcula.
+    """
+    return VueloOut.model_validate(service.editar_vuelo(db, id, datos))
+
+
+@router.patch(
+    "/admin/vuelos/{id}/cancelar",
+    response_model=VueloOut,
+    tags=["Administracion de vuelos"],
+    dependencies=[_SOLO_ADMIN],
+)
+def cancelar_vuelo(id: int, db: DbSession):
+    """Cancela un vuelo `programado` (HU13): pasa a `cancelado` y libera sus cupos.
+
+    404 si no existe; 409 `transicion_invalida` si ya esta cancelado o ya salio. Su noticia deja de
+    mostrarse.
+    """
+    return VueloOut.model_validate(service.cancelar_vuelo(db, id))
+
+
 @router.post(
     "/admin/vuelos",
     response_model=VueloOut,
@@ -88,6 +153,7 @@ def consultar_vuelo_admin(id: int, db: DbSession):
 def programar_vuelo(
     datos: VueloCrear,
     db: DbSession,
+    tareas: BackgroundTasks,
     administrador=Depends(require_roles("administrador", modulo="administracion_vuelos")),
 ):
     """Programa un vuelo (HU18) y lo guarda.
@@ -100,4 +166,8 @@ def programar_vuelo(
     y hora futuras; nacional = dos capitales de departamento; internacional = una ciudad del grupo
     `colombia` y una del `exterior`, en cualquier sentido.
     """
-    return VueloOut.model_validate(service.programar_vuelo(db, datos, administrador.id))
+    vuelo = service.programar_vuelo(db, datos, administrador.id)
+    respuesta = VueloOut.model_validate(vuelo)
+    for tarea in service.TRAS_PROGRAMAR_VUELO:  # p. ej. avisar la noticia a los suscriptores (correo)
+        tareas.add_task(tarea, vuelo.id)
+    return respuesta
