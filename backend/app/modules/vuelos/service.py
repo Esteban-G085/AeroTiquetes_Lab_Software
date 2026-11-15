@@ -13,7 +13,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.modules.vuelos.models import (
@@ -27,7 +27,7 @@ from app.modules.vuelos.models import (
     codigo_para,
 )
 from app.core.errors import AppError
-from app.modules.vuelos.schemas import OrdenVuelos, UsoCiudad, VueloCrear
+from app.modules.vuelos.schemas import OrdenVuelos, UsoCiudad, VueloCancelar, VueloCrear, VueloEditar
 
 logger = logging.getLogger("aerotiquetes.busqueda")
 
@@ -331,3 +331,146 @@ def registrar_busqueda(
         db.rollback()
         logger.exception("No se pudo guardar el historial de busqueda del cliente %s", id_cliente)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Estados automaticos (HU22, B2-14)
+# ---------------------------------------------------------------------------
+def actualizar_estados(db: Session, ahora: datetime | None = None) -> int:
+    """Pasa de `programado` a `sucedido` los vuelos cuya hora de salida ya llego, y de `sucedido` a `realizado` los que ya
+    aterrizaron (salida + duracion). Es automatico: no lo hace el administrador. Devuelve cuantos cambio.
+
+    Se llama al consultar el panel del administrador y desde la tarea periodica de `main.py`."""
+    ahora = ahora or datetime.now(timezone.utc)
+    a_sucedido = db.execute(
+        update(Vuelo)
+        .where(Vuelo.estado == EstadoVuelo.PROGRAMADO, Vuelo.salida_utc <= ahora)
+        .values(estado=EstadoVuelo.SUCEDIDO)
+    ).rowcount
+    a_realizado = db.execute(
+        update(Vuelo)
+        .where(Vuelo.estado == EstadoVuelo.SUCEDIDO, Vuelo.llegada_utc <= ahora)
+        .values(estado=EstadoVuelo.REALIZADO)
+    ).rowcount
+    db.commit()
+    return (a_sucedido or 0) + (a_realizado or 0)
+
+
+def tiquetes_vendidos(db: Session, ids: list[int]) -> dict[int, int]:
+    """Tiquetes activos (comprados o reservados) por vuelo. Los que no tienen ninguno quedan en 0."""
+    from app.modules.compras.models import ESTADOS_ACTIVOS, Tiquete  # diferido: compras importa vuelos
+
+    if not ids:
+        return {}
+    filas = db.execute(
+        select(Tiquete.id_vuelo, func.count())
+        .where(Tiquete.id_vuelo.in_(ids), Tiquete.estado.in_(ESTADOS_ACTIVOS))
+        .group_by(Tiquete.id_vuelo)
+    )
+    conteo = {id_vuelo: n for id_vuelo, n in filas}
+    return {i: conteo.get(i, 0) for i in ids}
+
+
+def listar_realizados(db: Session) -> list[Vuelo]:
+    """Historico (HU14): los vuelos `sucedido` y `realizado`, el mas reciente primero."""
+    actualizar_estados(db)
+    consulta = (
+        select(Vuelo)
+        .where(Vuelo.estado.in_((EstadoVuelo.SUCEDIDO, EstadoVuelo.REALIZADO)))
+        .order_by(Vuelo.salida_utc.desc(), Vuelo.id.desc())
+    )
+    return list(db.scalars(consulta).unique())
+
+
+# ---------------------------------------------------------------------------
+# Editar y cancelar (HU12, HU13)
+# ---------------------------------------------------------------------------
+def _vuelo_bloqueado(db: Session, id_vuelo: int) -> Vuelo:
+    """El vuelo con su fila bloqueada hasta el commit (en PostgreSQL): una compra que llegue a la vez espera, y
+    el conteo de tiquetes que sigue ya la incluye. 404 si no existe."""
+    vuelo = db.scalar(select(Vuelo).where(Vuelo.id == id_vuelo).with_for_update(of=Vuelo))
+    if vuelo is None:
+        raise AppError("El vuelo no existe.", status_code=404, code="vuelo_no_encontrado")
+    return vuelo
+
+
+def _exigir_programado(vuelo: Vuelo, accion: str, ahora: datetime) -> None:
+    if vuelo.estado == EstadoVuelo.CANCELADO:
+        raise AppError(f"Este vuelo esta cancelado: no se puede {accion}.", status_code=409, code="vuelo_cancelado")
+    if vuelo.estado == EstadoVuelo.REALIZADO:
+        raise AppError(f"Este vuelo ya fue realizado: no se puede {accion}.", status_code=409, code="vuelo_realizado")
+    if vuelo.estado == EstadoVuelo.SUCEDIDO or vuelo.salida_utc <= ahora:
+        raise AppError(f"Este vuelo ya sucedio: no se puede {accion}.", status_code=409, code="vuelo_sucedido")
+
+
+def editar_vuelo(db: Session, id_vuelo: int, datos: VueloEditar, *, ahora: datetime | None = None) -> tuple[Vuelo, int]:
+    """Edita fecha, hora, origen, destino, duracion y costo (HU12). Devuelve (vuelo, tiquetes_vendidos).
+
+    Solo si el vuelo sigue programado, no ha salido y NO tiene tiquetes (409 con el motivo). Las ciudades se validan
+    con las mismas reglas de HU18 segun el tipo del vuelo (422 con `fields`). El codigo, los cupos y el tipo no cambian."""
+    ahora = ahora or datetime.now(timezone.utc)
+    actualizar_estados(db, ahora)
+    vuelo = _vuelo_bloqueado(db, id_vuelo)
+    _exigir_programado(vuelo, "editar", ahora)
+    vendidos = tiquetes_vendidos(db, [vuelo.id])[vuelo.id]
+    if vendidos:
+        db.rollback()
+        raise AppError(
+            f"Este vuelo ya tiene {vendidos} {'tiquete vendido' if vendidos == 1 else 'tiquetes vendidos'}: no se puede editar.",
+            status_code=409, code="vuelo_con_tiquetes",
+        )
+
+    origen, destino = obtener_ciudad(db, datos.origen), obtener_ciudad(db, datos.destino)
+    errores = validar_programacion(
+        VueloCrear(tipo=vuelo.tipo, origen=datos.origen, destino=datos.destino, fecha=datos.fecha, hora=datos.hora,
+                   duracion=datos.duracion_min, costo=datos.precio),
+        origen, destino, ahora=ahora,
+    )
+    if errores:
+        db.rollback()
+        raise AppError("Los datos enviados no son validos.", status_code=422, code="validacion", fields=errores)
+
+    salida = datetime.combine(datos.fecha, datos.hora, tzinfo=TZ_COLOMBIA).astimezone(timezone.utc)
+    vuelo.origen, vuelo.destino = origen, destino
+    vuelo.salida_utc = salida
+    vuelo.duracion_min = datos.duracion_min
+    vuelo.llegada_utc = salida + timedelta(minutes=datos.duracion_min)
+    vuelo.costo = datos.precio
+    db.commit()
+    db.refresh(vuelo)
+    return vuelo, 0
+
+
+MOTIVO_MIN = 10
+
+
+def cancelar_vuelo(
+    db: Session, id_vuelo: int, datos: VueloCancelar, *, ahora: datetime | None = None
+) -> tuple[Vuelo, dict]:
+    """Cancela un vuelo programado (HU13). Devuelve (vuelo, {"tiquetes": n, "reintegrado": total}).
+
+    Sin tiquetes basta con cancelar. Con tiquetes solo se permite por una causa de fuerza mayor (`motivo`, 10 a 300
+    caracteres; 422 con `fields.motivo`). Al cancelar, los tiquetes comprados se reintegran a la billetera de cada
+    cliente, las reservas se cancelan y los cupos vuelven (`compras.service.reintegrar_vuelo_cancelado`)."""
+    from app.modules.compras import service as compras  # diferido: compras importa vuelos
+
+    ahora = ahora or datetime.now(timezone.utc)
+    actualizar_estados(db, ahora)
+    vuelo = _vuelo_bloqueado(db, id_vuelo)
+    _exigir_programado(vuelo, "cancelar", ahora)
+    vendidos = tiquetes_vendidos(db, [vuelo.id])[vuelo.id]
+    motivo = (datos.motivo or "").strip()
+    if vendidos and len(motivo) < MOTIVO_MIN:
+        db.rollback()
+        raise AppError(
+            "Los datos enviados no son validos.", status_code=422, code="validacion",
+            fields={"motivo": f"Con tiquetes vendidos solo se cancela por fuerza mayor: escribe la causa (minimo {MOTIVO_MIN} caracteres)."},
+        )
+
+    vuelo.estado = EstadoVuelo.CANCELADO
+    db.flush()
+    resultado = compras.reintegrar_vuelo_cancelado(db, vuelo.id, devolver_cupos=True)  # hace commit
+    if motivo:
+        logger.info("Vuelo %s cancelado por fuerza mayor: %s", vuelo.codigo, motivo)
+    db.refresh(vuelo)
+    return vuelo, resultado

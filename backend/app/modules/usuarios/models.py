@@ -6,22 +6,22 @@ Diseno (herencia por tablas unidas / joined-table inheritance):
     usuario (tabla base: login + perfil comun)
       ├── root            (1 fila; su "Id" de acceso es usuario.usuario)
       ├── administrador    (estado pendiente/activo + datos de la invitacion)
-      └── cliente          (sin columnas propias aun; aqui se enganchara la
-                             billetera en la Iteracion 2 sin tocar `usuario`)
+      └── cliente          (sin columnas propias; su billetera y sus tiquetes viven en
+                             el modulo de compras y apuntan a `cliente.id`)
 
 Se eligio este diseno (en vez de una sola tabla ancha) para que cada tabla
 hija pueda crecer de forma independiente sin agregar columnas nulas a los
 demas roles, y porque la FK de `vuelo.id_administrador` (modulo de B2) puede
 apuntar limpiamente a `administrador.id`.
 
-`rol` y `rol_modulo` (migracion 002_roles) implementan la matriz de permisos
-de HU24: los 4 roles son fijos (no se crean ni eliminan), pero que modulo ve
-cada rol si es editable por el root.
+Los permisos por rol son fijos y se aplican con `require_roles(...)` (core/deps).
+No existe gestion de roles: root solo crea administradores y gestiona su propio
+perfil (la matriz rol x modulo de la migracion 002 se elimino en la 007).
 """
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -37,37 +37,6 @@ class RolNombre(str, enum.Enum):
 class EstadoAdministrador(str, enum.Enum):
     PENDIENTE = "pendiente"
     ACTIVO = "activo"
-
-
-# Los 9 modulos del SRS (RNF12); el Sprint 1 solo usa "usuarios",
-# "administracion_vuelos" y "busqueda", pero la matriz completa se siembra
-# desde ahora para que HU24 no deba volver a migrar en iteraciones futuras.
-MODULOS_SISTEMA: tuple[str, ...] = (
-    "administracion_vuelos",
-    "compra_reserva",
-    "usuarios",
-    "noticias",
-    "busqueda",
-    "gestion_financiera",
-    "checkin_silla",
-    "recomendacion",
-    "chatbot",
-)
-
-
-# Nombre legible de cada modulo (lo usa la pantalla "Gestionar roles" del front
-# como encabezado de columna; el id es el que se guarda en la base de datos).
-MODULOS_NOMBRES: dict[str, str] = {
-    "administracion_vuelos": "Administración de vuelos",
-    "compra_reserva": "Compra y reserva",
-    "usuarios": "Usuarios",
-    "noticias": "Noticias",
-    "busqueda": "Búsqueda",
-    "gestion_financiera": "Gestión financiera",
-    "checkin_silla": "Check-in y silla",
-    "recomendacion": "Recomendación",
-    "chatbot": "Chatbot",
-}
 
 
 class TimestampMixin:
@@ -157,33 +126,6 @@ class Cliente(Base):
     __tablename__ = "cliente"
 
     id: Mapped[int] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), primary_key=True)
-    # Sin columnas propias en este sprint; la billetera (Iteracion 2) se
-    # engancha aqui mas adelante sin tocar `usuario`.
+    # Sin columnas propias: billetera, viajeros, reservas y compras apuntan a `cliente.id`.
 
     usuario: Mapped[Usuario] = relationship(back_populates="cliente")
-
-
-class Rol(Base):
-    """Los 4 roles del sistema. Fila fija, sembrada una sola vez (HU24: no se
-    crean ni eliminan roles, solo se activan/desactivan sus modulos)."""
-
-    __tablename__ = "rol"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    nombre: Mapped[RolNombre] = mapped_column(Enum(RolNombre, name="rol_nombre_catalogo"), unique=True, nullable=False)
-
-    modulos: Mapped[list["RolModulo"]] = relationship(back_populates="rol", cascade="all, delete-orphan")
-
-
-class RolModulo(Base):
-    """Matriz rol x modulo (HU24). `permitido` es lo unico editable por root."""
-
-    __tablename__ = "rol_modulo"
-    __table_args__ = (UniqueConstraint("rol_id", "modulo", name="uq_rol_modulo"),)
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    rol_id: Mapped[int] = mapped_column(ForeignKey("rol.id", ondelete="CASCADE"), nullable=False)
-    modulo: Mapped[str] = mapped_column(String(50), nullable=False)
-    permitido: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
-    rol: Mapped[Rol] = relationship(back_populates="modulos")

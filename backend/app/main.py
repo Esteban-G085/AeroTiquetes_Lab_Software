@@ -3,11 +3,12 @@ Punto de entrada de la aplicacion FastAPI.
 
 Responsable de: CORS para el frontend (Vite), manejo de errores unico,
 montar los routers de cada modulo, servir archivos estaticos (imagenes de
-perfil) y, al arrancar, sembrar el root por defecto y la matriz de roles
+perfil) y, al arrancar, sembrar el root por defecto
 (B1-01).
 
 Para correr en desarrollo:  uvicorn app.main:app --reload --port 8000
 """
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -22,10 +23,16 @@ from app.modules.busqueda.router import router as busqueda_router
 from app.modules.catalogos import models as _catalogos_models  # noqa: F401
 from app.modules.catalogos.router import router as catalogos_router
 from app.modules.catalogos.seeds import asegurar_paises
+from app.modules.compras.router import router as compras_router
+from app.modules.compras.service import vencer_reservas
+from app.modules.financiero.router import router as financiero_router
+from app.modules.noticias import service as noticias_service
+from app.modules.noticias.router import router as noticias_router
 from app.modules.usuarios.router import router as usuarios_router
-from app.modules.usuarios.service import asegurar_root_por_defecto, asegurar_roles_y_matriz
+from app.modules.usuarios.service import asegurar_root_por_defecto
 from app.modules.vuelos.router import router as vuelos_router
 from app.modules.vuelos.seeds import asegurar_ciudades
+from app.modules.vuelos.service import actualizar_estados
 
 settings = get_settings()
 
@@ -34,23 +41,47 @@ settings = get_settings()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 
+INTERVALO_LIBERAR_RESERVAS_SEG = 60
+
+
+def _liberar_reservas_vencidas() -> None:
+    with session_scope() as db:
+        vencer_reservas(db)
+        actualizar_estados(db)  # programado -> sucedido -> realizado (HU22)
+
+
+async def _liberar_reservas_periodicamente() -> None:
+    while True:
+        await asyncio.sleep(INTERVALO_LIBERAR_RESERVAS_SEG)
+        try:
+            await asyncio.to_thread(_liberar_reservas_vencidas)
+        except Exception:  # la tarea nunca debe morir por un error puntual
+            logging.getLogger("aerotiquetes.reservas").exception("No se pudieron liberar las reservas vencidas")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Arranque: root por defecto (R17-19) y matriz de roles (HU24), ambos
-    # idempotentes para que correr la app varias veces no duplique nada.
+    # Arranque: root por defecto (R17-19) y catalogos, todos idempotentes
+    # para que correr la app varias veces no duplique nada.
     with session_scope() as db:
         asegurar_root_por_defecto(db)
-        asegurar_roles_y_matriz(db)
         asegurar_ciudades(db)  # catalogo de ciudades (B2-04), idempotente
         asegurar_paises(db)  # catalogo de paises para lugar de nacimiento
-    yield
+        noticias_service.publicar_faltantes(db)  # noticias de los vuelos que ya existian (HU11)
+    # Tarea periodica: libera las reservas vencidas aunque nadie consulte (los cupos que ve la
+    # busqueda salen de `vuelo.cupos_*`). Ademas, cada peticion de compras vence las suyas.
+    tarea = asyncio.create_task(_liberar_reservas_periodicamente())
+    try:
+        yield
+    finally:
+        tarea.cancel()
 
 
 app = FastAPI(
     title="AeroTiquetes API",
     description=(
         "Sistema de gestion de compra y reserva de tiquetes aereos en linea. "
-        "Sprint 1: modulo de Usuarios (cuentas, roles) y base de Vuelos/Busqueda."
+        "Usuarios (cuentas), Vuelos/Busqueda, Compra y reserva, Gestion financiera y Noticias."
     ),
     version="0.1.0",
     lifespan=lifespan,
@@ -74,6 +105,9 @@ app.include_router(usuarios_router)
 app.include_router(vuelos_router)
 app.include_router(busqueda_router)
 app.include_router(catalogos_router)
+app.include_router(financiero_router)
+app.include_router(compras_router)
+app.include_router(noticias_router)
 
 
 @app.get("/salud", tags=["Sistema"])

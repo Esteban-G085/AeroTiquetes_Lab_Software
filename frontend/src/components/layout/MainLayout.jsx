@@ -1,7 +1,9 @@
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '@/context'
+import { ROLES } from '@/config/roles'
 import { getNavItems } from '@/features'
 import Header from './Header'
+import CartButton from './CartButton'
 import Footer from './Footer'
 import { useDocumentTitle } from './useDocumentTitle'
 
@@ -21,6 +23,7 @@ export default function MainLayout() {
         accountItems={getNavItems(rol, 'account')}
         userName={isAuthenticated ? displayName(user) : undefined}
         onLogout={isAuthenticated ? logout : undefined}
+        cartSlot={rol === ROLES.CLIENTE ? <CartButton /> : undefined}
       />
       <main id="contenido" className="at-main container">
         <Outlet />

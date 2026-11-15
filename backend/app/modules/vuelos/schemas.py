@@ -96,6 +96,30 @@ class PaginaVuelos(BaseModel):
         return cls(total=total, pagina=pagina, tamano=tamano, items=[VueloOut.model_validate(v) for v in vuelos])
 
 
+class VueloAdminOut(VueloOut):
+    """Vuelo en las pantallas del administrador: ademas, cuantos tiquetes activos (comprados o reservados) tiene."""
+
+    tiquetes_vendidos: int = Field(0, description="Tiquetes activos: comprados o reservados (retienen cupo).")
+
+
+class PaginaVuelosAdmin(BaseModel):
+    total: int
+    pagina: int
+    tamano: int
+    items: list[VueloAdminOut]
+
+
+class ListaVuelosAdmin(BaseModel):
+    total: int
+    items: list[VueloAdminOut]
+
+
+def vuelo_admin(vuelo, vendidos: int) -> VueloAdminOut:
+    out = VueloAdminOut.model_validate(vuelo)
+    out.tiquetes_vendidos = vendidos
+    return out
+
+
 class VueloCrear(BaseModel):
     """Lo unico que digita el administrador (HU18). El resto lo genera el sistema."""
 
@@ -106,3 +130,21 @@ class VueloCrear(BaseModel):
     hora: time = Field(description="HH:MM en hora de Colombia (America/Bogota)")
     duracion: int = Field(gt=0, description="Minutos")
     costo: int = Field(gt=0, description="Por persona, en COP")
+
+
+class VueloEditar(BaseModel):
+    """Edicion de un vuelo programado (HU12): fecha, hora, origen, destino, duracion y costo.
+
+    Fecha y hora en hora de Colombia, igual que al programarlo. El tipo (nacional o internacional) no cambia.
+    """
+
+    fecha: date = Field(description="YYYY-MM-DD")
+    hora: time = Field(description="HH:MM en hora de Colombia (America/Bogota)")
+    origen: str = Field(min_length=3, max_length=3, description="Codigo de ciudad, ej. BOG")
+    destino: str = Field(min_length=3, max_length=3, description="Codigo de ciudad, ej. MDE")
+    duracion_min: int = Field(gt=0, le=1440, description="Minutos")
+    precio: int = Field(gt=0, le=100_000_000, description="Por persona, en COP")
+
+
+class VueloCancelar(BaseModel):
+    motivo: str | None = Field(None, max_length=300, description="Causa de fuerza mayor; obligatoria si hay tiquetes.")

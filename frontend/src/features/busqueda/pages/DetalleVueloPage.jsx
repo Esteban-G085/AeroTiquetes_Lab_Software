@@ -1,6 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
 import { EmptyState, ErrorState } from '@/components/feedback'
-import { Button } from '@/components/ui'
 import { BackLink, PageHeader } from '@/components/layout'
 import { SkyArt } from '@/components/brand'
 import { VueloDetalle, VueloDetalleSkeleton } from '@/components/travel'
@@ -9,7 +8,7 @@ import { useAuth } from '@/context'
 import useVuelo from '../hooks/useVuelo'
 import '../busqueda.css'
 
-/** HU5 — Detalle de un vuelo (visitante y cliente). La compra es de la Iteración 2. */
+/** HU5 — Detalle de un vuelo (visitante y cliente). El cliente sigue a la reserva/compra (HU6–HU7, `/comprar/:id`). */
 export default function DetalleVueloPage() {
   const { id } = useParams()
   const { vuelo, status, error, recargar } = useVuelo(id)
@@ -57,7 +56,8 @@ export default function DetalleVueloPage() {
         vuelo={vuelo}
         acciones={
           <>
-            {esCliente && <Button disabled>Reservar / Comprar (próximo sprint)</Button>}
+            {esCliente && vuelo.estado === 'programado' && <Link className="btn btn-primary" to={`/comprar/${vuelo.id}`}>Reservar o comprar</Link>}
+            {esCliente && vuelo.estado !== 'programado' && <span className="bu-detail__note">Este vuelo ya no está disponible para reservar ni comprar.</span>}
             {!isAuthenticated && <Link className="btn btn-primary" to="/login">Inicia sesión para reservar</Link>}
             {isAuthenticated && !esCliente && (
               <span className="bu-detail__note">

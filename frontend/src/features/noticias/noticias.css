@@ -1,0 +1,30 @@
+/* Estilos propios del módulo Noticias. Prefijo nt- (ver features/README.md). */
+
+.nt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1.25rem; }
+
+.nt-card { display: flex; flex-direction: column; overflow: hidden; background: #fff; border: 1px solid var(--at-line); border-radius: var(--at-radius-lg); box-shadow: var(--at-shadow-sm); transition: box-shadow var(--at-med) var(--at-ease), border-color var(--at-fast) ease; }
+.nt-card:hover { box-shadow: var(--at-shadow-md); border-color: var(--at-blue-200); }
+.nt-card__media { position: relative; aspect-ratio: 16 / 9; background: var(--at-grad-banner); }
+.nt-card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.nt-card__art { height: 100%; display: flex; align-items: center; justify-content: center; gap: .9rem; color: #fff; font-family: var(--at-font-display); font-size: 1.9rem; font-weight: 600; }
+.nt-card__art svg { transform: rotate(90deg); color: var(--at-sun); }
+.nt-card__badge { position: absolute; top: .75rem; left: .75rem; box-shadow: var(--at-shadow-sm); }
+.nt-card__body { display: grid; gap: .45rem; padding: 1rem 1.1rem 1.2rem; align-content: start; flex: 1; }
+.nt-card__title { margin: 0; font-size: 1.2rem; }
+.nt-card__sub { margin: 0; color: var(--at-muted); font-size: var(--at-text-sm); }
+.nt-card__when { margin: 0; display: inline-flex; align-items: center; gap: .4rem; color: var(--at-muted); font-size: var(--at-text-sm); }
+.nt-card__price { margin: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: .35rem .5rem; color: var(--at-muted); font-size: var(--at-text-sm); }
+.nt-card__price strong { font-family: var(--at-font-display); font-size: 1.5rem; color: var(--at-blue-800); font-variant-numeric: lining-nums tabular-nums; }
+.nt-card__old { color: var(--at-muted); }
+.nt-card__until { margin: 0; color: var(--at-muted); font-size: var(--at-text-xs); }
+.nt-card__body .btn { justify-self: start; margin-top: .35rem; }
+
+.nt-sub { display: flex; align-items: flex-start; gap: 1rem; }
+.nt-sub__icon { flex: none; width: 2.75rem; height: 2.75rem; border-radius: 50%; display: grid; place-items: center; background: var(--at-blue-50); color: var(--at-blue-600); }
+.nt-sub__body { flex: 1; min-width: 0; }
+.nt-sub__title { margin: 0 0 .3rem; font-size: 1.15rem; }
+.nt-sub__text { margin: 0 0 .75rem; color: var(--at-muted); }
+.nt-sub__row { display: flex; align-items: flex-start; gap: .75rem; flex-wrap: wrap; }
+.nt-sub__row .at-field { flex: 1 1 14rem; margin-bottom: 0; }
+.nt-sub__row .btn { margin-top: 1.85rem; }
+@media (max-width: 575.98px) { .nt-sub__row .btn { margin-top: 0; width: 100%; } }

@@ -113,3 +113,21 @@ export function minutesToTime(minutos) {
   if (!Number.isFinite(m) || m < 0) return ''
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 }
+
+// ── Compra y reserva (F1, Sprint 2) ───────────────────────────────────────────
+/** Fecha sin hora ("1998-05-10") como "10 may 1998". Se interpreta en UTC para que no cambie de día según el equipo. */
+export const formatDateOnly = (ymd) => formatDateShort(`${ymd}T00:00:00Z`, 'UTC')
+
+/** Tiempo restante legible: 5 h 12 min · 40 min · "menos de 1 min". Valores <= 0 → "0 min". */
+export function formatRemaining(ms) {
+  const total = Math.floor(Number(ms) / 60_000)
+  if (!Number.isFinite(total) || total <= 0) return Number(ms) > 0 ? 'menos de 1 min' : '0 min'
+  const d = Math.floor(total / 1440)
+  const h = Math.floor((total % 1440) / 60)
+  const m = total % 60
+  if (d) return h ? `${d} d ${h} h` : `${d} d`
+  return h ? (m ? `${h} h ${m} min` : `${h} h`) : `${m} min`
+}
+
+/** "1234567812345678" → "•••• 5678". Nunca se muestra el número completo de una tarjeta. */
+export const maskCard = (numero) => `•••• ${String(numero ?? '').replace(/\D/g, '').slice(-4)}`

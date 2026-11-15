@@ -2,7 +2,7 @@
 """
 Recorrido de funcionalidades en un navegador real (Chromium) contra un backend SIMULADO.
 Verifica los flujos de extremo a extremo del módulo Usuarios: sesión y rutas protegidas, registro, perfil,
-cambio de correo y de contraseña, panel root (administradores y roles) y primer ingreso del administrador.
+cambio de correo y de contraseña, panel root (administradores) y primer ingreso del administrador.
 
 Requisitos:  pip install playwright && playwright install chromium
 Uso:         npm run dev   (en otra terminal)   y luego   npm run e2e      [BASE=http://localhost:5173]
@@ -25,11 +25,6 @@ def fulfill(route,status=200,body=None):
 ADMINS=[{'id':1,'nombre':'Jose Luis','correo':'jose1@123.com','estado':'activo','imagen_url':None},
         {'id':2,'nombre':'Manolo','correo':'manolito@123.com','estado':'activo','imagen_url':None},
         {'id':3,'nombre':'Camila Torres','correo':'camila@123.com','estado':'pendiente','imagen_url':None}]
-ROLES={'modulos':[{'id':'usuarios','nombre':'Usuarios'},{'id':'vuelos','nombre':'Vuelos'},{'id':'busqueda','nombre':'Búsqueda'},{'id':'reservas','nombre':'Reservas y compras'}],
- 'roles':[{'id':'root','nombre':'Root','descripcion':'Control total del sistema','editable':False,'modulos':{'usuarios':True,'vuelos':True,'busqueda':True,'reservas':False}},
-          {'id':'administrador','nombre':'Administrador','descripcion':'Vuelos y noticias','editable':True,'modulos':{'usuarios':False,'vuelos':True,'busqueda':True,'reservas':False}},
-          {'id':'cliente','nombre':'Cliente','descripcion':'Reservas y compras','editable':True,'modulos':{'usuarios':False,'vuelos':False,'busqueda':True,'reservas':True}},
-          {'id':'visitante','nombre':'Visitante','descripcion':'Búsqueda y check-in','editable':True,'modulos':{'usuarios':False,'vuelos':False,'busqueda':True,'reservas':False}}]}
 
 import re, sys, tempfile, os
 from playwright.sync_api import sync_playwright
@@ -39,7 +34,7 @@ B = os.environ.get('BASE', 'http://localhost:5173'); API = 'http://localhost:800
 # PNG mínimo de 1×1 para probar la subida de foto (sin depender de Pillow)
 FOTO = os.path.join(tempfile.gettempdir(), 'at-foto.png')
 open(FOTO, 'wb').write(bytes.fromhex('89504e470d0a1a0a0000000d4948445200000001000000010806000000'+'1f15c4890000000d49444154789c6360f8cfc00000030101000518d84e0000000049454e44ae426082'))
-perfil=dict(PERFIL); admins=[dict(a) for a in ADMINS]; roles=json.loads(json.dumps(ROLES)); log=[]; ok=[]; bad=[]
+perfil=dict(PERFIL); admins=[dict(a) for a in ADMINS]; log=[]; ok=[]; bad=[]
 def check(name, cond, extra=''):
     (ok if cond else bad).append(name); print(('  ✓ ' if cond else '  ✗ ')+name+(f'  [{extra}]' if extra and not cond else ''))
 def opt(r): return r.request.method=='OPTIONS'
@@ -74,13 +69,6 @@ def handler(route):
         d=json.loads(r.post_data); log.append(('adm_post',d)); admins.append({'id':9,'nombre':d['nombre'],'correo':d['correo'],'estado':'pendiente','imagen_url':None}); return fulfill(route,201,{})
     if u.startswith('/root/administradores/') and m=='DELETE':
         i=u.split('/')[-1]; log.append(('adm_del',i)); admins[:]=[a for a in admins if str(a['id'])!=i]; return route.fulfill(status=204,headers=CORS)
-    if u=='/root/roles' and m=='GET': return fulfill(route,200,roles)
-    if u=='/root/roles' and m=='PUT':
-        d=json.loads(r.post_data); log.append(('roles_put',d))
-        for ch in d['roles']:
-            for x in roles['roles']:
-                if x['id']==ch['id']: x['modulos']=ch['modulos']
-        return fulfill(route,200,{})
     if u.startswith('/auth/completar-registro'):
         if m=='GET': return fulfill(route,200,{'correo':'camila@123.com','nombre':'Camila'}) if 'vencido' not in u else fulfill(route,410,{'error':{'code':'E','message':'x'}})
         body=r.post_data_buffer.decode('latin1'); log.append(('completar',sorted(set(re.findall(r'name="([a-z_]+)"',body))),'tok123' in body)); return fulfill(route,201,{})
@@ -151,10 +139,6 @@ with sync_playwright() as p:
     check('crear administrador (solo nombre y correo) y aparece pendiente', [x for x in log if x[0]=='adm_post'][-1][1]=={'nombre':'Nuevo Admin','correo':'nuevo@123.com'})
     pg.get_by_role('button',name='Eliminar a Nuevo Admin').click(); pg.get_by_role('dialog').get_by_role('button',name='Eliminar').click(); pg.locator('.us-adm__item',has_text='Nuevo Admin').wait_for(state='detached')
     check('eliminar pide confirmación y borra', [x for x in log if x[0]=='adm_del'][-1][1]=='9')
-    pg.get_by_role('link',name='Roles',exact=True).click(); pg.get_by_role('table').wait_for()
-    check('el rol root está bloqueado', pg.get_by_role('switch',name='Root: Vuelos').is_disabled())
-    pg.get_by_role('switch',name='Cliente: Vuelos').click(); pg.get_by_role('button',name='Guardar cambios').click(); pg.get_by_text('Permisos actualizados').wait_for()
-    rp=[x for x in log if x[0]=='roles_put'][-1][1]; check('PUT roles solo con el rol modificado', [r['id'] for r in rp['roles']]==['cliente'])
     pg.goto(B+'/admin/vuelos'); pg.get_by_text('No tienes acceso a esta sección').wait_for()
     check('403 real: el root abre /admin/vuelos (ruta de administrador) y ve la pantalla de acceso denegado', pg.get_by_role('link',name='Volver a mi inicio').is_visible()); pg.close()
 

@@ -38,13 +38,14 @@ def url_temporal(tmp_path, monkeypatch):
     get_settings.cache_clear()
 
 
-def test_hay_una_sola_cabeza_y_la_cadena_es_001_a_006():
+def test_hay_una_sola_cabeza_y_la_cadena_esta_completa():
     """Seccion 5.4 del plan: sin `multiple heads`."""
     script = ScriptDirectory.from_config(_config())
-    assert script.get_heads() == ["006_paises"]
+    assert script.get_heads() == ["009_noticias"]
     cadena = [r.revision for r in script.walk_revisions()][::-1]
     assert cadena == [
         "001_usuarios", "002_roles", "003_ciudades", "004_vuelos", "005_busquedas", "006_paises",
+        "007_quitar_roles", "008_compras_financiero", "009_noticias",
     ]
 
 
@@ -83,7 +84,7 @@ def test_downgrade_a_la_002_quita_las_tablas_de_vuelos_y_se_puede_volver_a_subir
     command.downgrade(cfg, "002_roles")
     tablas = set(inspect(create_engine(url_temporal)).get_table_names())
     assert not (TABLAS_DE_VUELOS & tablas)
-    assert {"usuario", "administrador", "rol"} <= tablas  # lo de B1 queda intacto
+    assert {"usuario", "administrador", "rol", "rol_modulo"} <= tablas  # 002 sigue existiendo al bajar a ella
 
     command.upgrade(cfg, "head")
     assert TABLAS_DE_VUELOS <= set(inspect(create_engine(url_temporal)).get_table_names())

@@ -1,0 +1,39 @@
+/* Estilos propios del módulo Gestión financiera. Prefijo fi- (ver features/README.md). */
+
+.fi-layout { display: grid; grid-template-columns: minmax(0, 24rem) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+@media (max-width: 991.98px) { .fi-layout { grid-template-columns: minmax(0, 1fr); } }
+
+.fi-balance { display: grid; gap: 1rem; }
+.fi-balance__label { margin: 0; color: #c9d7f7; font-family: var(--at-font-sans); font-size: var(--at-text-sm); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.fi-balance__amount { margin: 0; display: flex; align-items: center; gap: .6rem; font-family: var(--at-font-display); font-size: clamp(2rem, 1.4rem + 2vw, 2.8rem); font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.fi-balance__eye { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; border: 0; border-radius: var(--at-radius); background: rgb(255 255 255 / 12%); color: #fff; }
+.fi-balance__eye:hover { background: rgb(255 255 255 / 22%); }
+.fi-balance__modes { display: inline-flex; gap: .25rem; padding: .25rem; border-radius: var(--at-radius-pill); background: rgb(255 255 255 / 12%); justify-self: start; }
+.fi-mode { padding: .4rem .95rem; border: 0; border-radius: var(--at-radius-pill); background: transparent; color: #e4ecfd; font-size: var(--at-text-sm); font-weight: 600; }
+.fi-mode.is-active { background: #fff; color: var(--at-blue-800); }
+.fi-balance__form .form-label { color: #e4ecfd; }
+.fi-balance__form .at-field__error { color: #ffd0cb; }
+.fi-balance__form .form-control { border-color: transparent; }
+.fi-balance__form .btn-primary { background: #fff; border-color: #fff; color: var(--at-blue-800); box-shadow: none; }
+.fi-balance__form .btn-primary:hover { background: var(--at-blue-50); border-color: var(--at-blue-50); color: var(--at-blue-800); }
+.fi-quick { display: flex; flex-wrap: wrap; gap: .4rem; margin: -.3rem 0 1rem; }
+.fi-quick__btn { padding: .3rem .8rem; border: 1px solid rgb(255 255 255 / 40%); border-radius: var(--at-radius-pill); background: transparent; color: #fff; font-size: var(--at-text-sm); font-weight: 600; }
+.fi-quick__btn:hover { background: rgb(255 255 255 / 16%); }
+.fi-balance__note { margin: 0; color: #c9d7f7; font-size: var(--at-text-xs); }
+
+.fi-cards__head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.25rem; }
+.fi-cards__title { margin: 0; font-size: 1.25rem; }
+.fi-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem; }
+
+.fi-card { position: relative; display: grid; gap: 1.1rem; padding: 1.1rem 1.2rem; border-radius: var(--at-radius-lg); color: #fff; box-shadow: var(--at-shadow-md); }
+.fi-card--credito { background: linear-gradient(135deg, var(--at-blue-800), var(--at-blue-500)); }
+.fi-card--debito { background: linear-gradient(135deg, var(--at-blue-900), #3b4f86); }
+.fi-card__top { display: flex; align-items: center; justify-content: space-between; font-size: var(--at-text-sm); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.fi-card__num { margin: 0; font-size: 1.2rem; letter-spacing: .12em; }
+.fi-card__bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; font-size: var(--at-text-sm); }
+.fi-card__holder { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.fi-card__tools { position: absolute; top: .55rem; right: .6rem; display: none; gap: .2rem; }
+.fi-card:hover .fi-card__tools, .fi-card:focus-within .fi-card__tools { display: inline-flex; }
+@media (hover: none) { .fi-card__tools { display: inline-flex; position: static; justify-content: flex-end; } }
+.fi-card__btn { width: 2.25rem; height: 2.25rem; display: grid; place-items: center; border: 0; border-radius: var(--at-radius-sm); background: rgb(255 255 255 / 20%); color: #fff; }
+.fi-card__btn:hover { background: rgb(255 255 255 / 34%); }

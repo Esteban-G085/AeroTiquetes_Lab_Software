@@ -40,10 +40,10 @@ describe('DetalleVueloPage (HU5)', () => {
     expect(screen.getByRole('link', { name: 'Inicia sesión para reservar' })).toHaveAttribute('href', '/login')
   })
 
-  it('al cliente se le indica que la compra llega en el próximo sprint', async () => {
+  it('al cliente se le ofrece reservar o comprar (lleva a /comprar/:id)', async () => {
     seedSession({ rol: 'cliente' })
     await abrir()
-    expect(screen.getByRole('button', { name: /próximo sprint/ })).toBeDisabled()
+    expect(screen.getByRole('link', { name: 'Reservar o comprar' })).toHaveAttribute('href', '/comprar/7')
   })
 
   it('si el vuelo no existe, ofrece volver a la búsqueda', async () => {
