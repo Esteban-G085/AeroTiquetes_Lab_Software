@@ -29,10 +29,6 @@ PERFIL = {'id': 7, 'rol': 'cliente', 'dni': '11111', 'nombres': 'María José', 
           'genero': 'femenino', 'correo': 'usuario@123.com', 'usuario': 'maria.j', 'imagen_url': None, 'correo_pendiente': None}
 ADMINS = [{'id': 1, 'nombre': 'Jose Luis', 'correo': 'jose1@123.com', 'estado': 'activo', 'imagen_url': None},
           {'id': 3, 'nombre': 'Camila Torres', 'correo': 'camila@123.com', 'estado': 'pendiente', 'imagen_url': None}]
-ROLES = {'modulos': [{'id': 'usuarios', 'nombre': 'Usuarios'}, {'id': 'vuelos', 'nombre': 'Vuelos'}, {'id': 'reservas', 'nombre': 'Reservas y compras'}],
-         'roles': [{'id': r, 'nombre': r.capitalize(), 'descripcion': 'Descripción del rol', 'editable': r != 'root',
-                    'modulos': {'usuarios': r == 'root', 'vuelos': r != 'visitante', 'reservas': r == 'cliente'}}
-                   for r in ['root', 'administrador', 'cliente', 'visitante']]}
 
 # Catálogo y vuelos de ejemplo (docs/CONTRATO_VUELOS.md): lo justo para que las pantallas de F2
 # se pinten con datos reales en vez de con el estado de error.
@@ -80,8 +76,7 @@ SCREENS = [
     ('cambiar contraseña', '/perfil/password', 'cliente', None),
     ('perfil root', '/perfil', 'root', None),
     ('administradores', '/root/administradores', 'root', None),
-    ('roles', '/root/roles', 'root', None),
-    ('menú lateral (móvil)', '/root/roles', 'root', open_drawer),
+    ('menú lateral (móvil)', '/root/administradores', 'root', open_drawer),
     ('menú de cuenta (escritorio)', '/', 'cliente', open_user_menu),
     # ── Vuelos (F2): búsqueda, detalle y panel del administrador ──
     ('búsqueda de vuelos (visitante)', '/', None, None),
@@ -91,7 +86,7 @@ SCREENS = [
     ('programar vuelo', '/admin/vuelos/nuevo', 'administrador', None),
     ('consultar vuelo programado', '/admin/vuelos/9', 'administrador', None),
     ('catálogo de diseño y piezas de viaje', '/dev/ui', None, None),
-    ('403', '/root/roles', 'cliente', None),
+    ('403', '/root/administradores', 'cliente', None),
     ('404', '/no-existe', None, None),
 ]
 
@@ -122,7 +117,6 @@ def mock_api(pg):
                 else: status, body = 404, {'error': {'code': 'NO_ENCONTRADO', 'message': 'El vuelo no existe.'}}
             else: body = {'total': len(VUELOS), 'items': VUELOS}
         elif url.startswith('/root/administradores'): body = ADMINS
-        elif url.startswith('/root/roles'): body = ROLES
         elif url.startswith('/auth/completar-registro') and r.method == 'GET':
             if 'vencido' in url: status, body = 410, {'error': {'code': 'EXPIRADO', 'message': 'x'}}
             else: body = {'correo': 'camila@123.com', 'nombre': 'Camila'}

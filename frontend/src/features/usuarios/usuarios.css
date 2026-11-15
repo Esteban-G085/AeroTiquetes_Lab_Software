@@ -137,38 +137,3 @@
 
 @media (max-width: 991.98px) { .us-adm__layout { grid-template-columns: 1fr; } }
 @media (max-width: 575.98px) { .us-adm__item { gap: .7rem; } }
-
-/* ═══ Panel root: matriz de roles (HU24) ═════════════════════════════════ */
-.us-roles__card { --us-pad: clamp(1.1rem, 2.5vw, 1.75rem); padding: var(--us-pad); }
-.us-roles__kicker { font-family: var(--at-font-sans); font-size: var(--at-text-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--at-muted); margin: 0 0 1rem; }
-.us-roles__skeleton { display: grid; gap: .75rem; }
-.us-roles__scroll { overflow-x: auto; }
-.us-roles__table { width: 100%; border-collapse: collapse; }
-.us-roles__table th, .us-roles__table td { padding: 1rem .75rem; text-align: center; border-bottom: 1px solid var(--at-line); }
-.us-roles__table thead th { font-size: var(--at-text-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--at-muted); background: var(--at-surface-2); border-bottom: 1px solid var(--at-line); }
-.us-roles__table thead th:first-child { text-align: left; border-top-left-radius: var(--at-radius); }
-.us-roles__table thead th:last-child { border-top-right-radius: var(--at-radius); }
-.us-roles__table tbody tr:hover { background: #fafcff; }
-.us-roles__table tbody tr:last-child > * { border-bottom: 0; }
-.us-roles__table th.us-roles__role { display: table-cell; text-align: left; font-weight: 400; letter-spacing: 0; text-transform: none; background: none; color: var(--at-ink); font-size: var(--at-text-base); }
-.us-roles__name { display: block; font-weight: 700; }
-.us-roles__desc { display: block; color: var(--at-muted); font-size: var(--at-text-sm); margin-top: .1rem; }
-.us-roles__lock { display: inline-block; margin-top: .4rem; padding: .1rem .55rem; border-radius: var(--at-radius-pill); background: var(--at-blue-50); color: var(--at-blue-800); font-size: var(--at-text-xs); font-weight: 600; }
-.us-roles .at-switch { display: flex; justify-content: center; padding: 0; }
-
-.us-roles__actions { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; margin: 1.5rem calc(-1 * var(--us-pad)) calc(-1 * var(--us-pad)); padding: 1rem var(--us-pad); background: rgb(255 255 255 / 94%); border-top: 1px solid var(--at-line); border-radius: 0 0 var(--at-radius-lg) var(--at-radius-lg); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-.us-roles__count { margin-right: auto; color: var(--at-warning-ink); font-size: var(--at-text-sm); font-weight: 600; }
-
-/* Móvil: una tarjeta por rol */
-@media (max-width: 767.98px) {
-  .us-roles__table, .us-roles__table tbody, .us-roles__table tr, .us-roles__table th, .us-roles__table td { display: block; }
-  .us-roles__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } /* los nombres de módulo pasan a cada tarjeta */
-  .us-roles__table tr { border: 1px solid var(--at-line); border-radius: var(--at-radius-lg); background: #fff; padding: .9rem 1rem; margin-bottom: .9rem; box-shadow: var(--at-shadow-sm); }
-  .us-roles__table tbody tr:hover { background: #fff; }
-  .us-roles__table th, .us-roles__table td { border: 0; padding: .4rem 0; }
-  .us-roles__table th.us-roles__role { display: block; padding-bottom: .65rem; margin-bottom: .25rem; border-bottom: 1px solid var(--at-line); }
-  .us-roles__table td { display: flex; align-items: center; justify-content: space-between; text-align: left; }
-  .us-roles__table td::before { content: attr(data-label); color: var(--at-ink); font-weight: 500; }
-  .us-roles .at-switch { display: block; }
-  .us-roles__actions .btn { flex: 1 1 8rem; }
-}

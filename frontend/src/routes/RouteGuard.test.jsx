@@ -22,7 +22,7 @@ describe('RouteGuard (rutas protegidas por rol)', () => {
 
   it('administrador en ruta de root -> 403', async () => {
     seedSession({ rol: 'administrador' })
-    renderWithProviders(<AppRouter />, { route: '/root/roles' })
+    renderWithProviders(<AppRouter />, { route: '/root/administradores' })
     expect(await screen.findByText('No tienes acceso a esta sección')).toBeInTheDocument()
   })
 

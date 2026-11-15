@@ -3,7 +3,7 @@ import { ROLES } from '@/config/roles'
 
 // F2 — módulo Búsqueda (HU5: F2-02 … F2-04).
 // La búsqueda es la página de inicio para visitantes y clientes; el detalle es público
-// (el visitante puede mirar, pero reservar/comprar es de la Iteración 2).
+// (el visitante puede mirar; reservar y comprar es del cliente, en `features/compra`).
 export default {
   name: 'busqueda',
   routes: [

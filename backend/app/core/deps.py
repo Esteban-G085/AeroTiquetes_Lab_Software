@@ -68,31 +68,19 @@ def get_current_user(
 CurrentUser = Annotated[object, Depends(get_current_user)]
 
 
-def require_roles(*roles_permitidos: str, modulo: str | None = None):
+def require_roles(*roles_permitidos: str):
     """Fabrica de dependencias: `Depends(require_roles("root", "administrador"))`.
 
-    Si la lista esta vacia, solo exige estar autenticado (cualquier rol).
-    Si se pasa `modulo`, ademas del rol se consulta la matriz rol x modulo
-    (HU24) para que activar/desactivar un modulo desde `/root/roles` tenga
-    efecto real sobre el acceso, no solo informativo."""
+    Si la lista esta vacia, solo exige estar autenticado (cualquier rol). Los
+    permisos por rol son fijos (no hay gestion de roles ni matriz de modulos)."""
 
-    def _dependencia(db: DbSession, usuario=Depends(get_current_user)):
+    def _dependencia(usuario=Depends(get_current_user)):
         if roles_permitidos and usuario.rol not in roles_permitidos:
             raise AppError(
                 "No tienes permisos para realizar esta accion.",
                 status_code=status.HTTP_403_FORBIDDEN,
                 code="permiso_denegado",
             )
-        if modulo is not None:
-            # Import diferido: evita el ciclo core <-> modules.usuarios
-            from app.modules.usuarios.service import modulo_habilitado
-
-            if not modulo_habilitado(db, usuario.rol, modulo):
-                raise AppError(
-                    "Este modulo esta desactivado para tu rol.",
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    code="modulo_desactivado",
-                )
         return usuario
 
     return _dependencia

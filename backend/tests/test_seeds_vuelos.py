@@ -46,7 +46,7 @@ def test_asegurar_ciudades_es_idempotente_y_completa_las_que_falten(db_session):
 
 
 def test_la_aplicacion_siembra_el_catalogo_al_arrancar(client, db_session):
-    """`client` abre la app (lifespan): el catalogo ya debe estar, junto al root y la matriz de roles."""
+    """`client` abre la app (lifespan): el catalogo ya debe estar, junto al root."""
     assert _contar(db_session, Ciudad) == 37
     assert client.get("/health").status_code in (200, 404)  # la app esta viva
 

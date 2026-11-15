@@ -109,20 +109,11 @@ El correo trae un enlace al **front**: `{FRONTEND_URL}/completar-registro?token=
 * El `correo` viaja en el formulario (campo bloqueado) por compatibilidad, pero **el backend debe usar el del token**.
 * Misma validación que el registro; errores por campo en `error.fields`.
 
-## ✅ Root — matriz de roles · HU24 / P2 (`GET` y `PUT /root/roles`) · solo rol `root`
-Las columnas de la matriz salen de `modulos`: **un módulo nuevo aparece sin tocar el front**.
-```json
-{ "modulos": [ { "id": "vuelos", "nombre": "Vuelos" }, { "id": "reservas", "nombre": "Reservas y compras" } ],
-  "roles": [
-    { "id": "root", "nombre": "Root", "descripcion": "Control total", "editable": false,
-      "modulos": { "vuelos": true, "reservas": false } },
-    { "id": "cliente", "nombre": "Cliente", "descripcion": "Reservas y compras", "editable": true,
-      "modulos": { "vuelos": false, "reservas": true } } ] }
-```
-* Los 4 roles son fijos (no se crean ni eliminan). `editable: false` bloquea la fila en el front (**el root no puede quitarse su propio acceso**; el backend debe impedirlo también).
-* `PUT /root/roles` con **solo los roles que cambiaron**, cada uno con su mapa completo:
-  `{ "roles": [ { "id": "cliente", "modulos": { "vuelos": true, "reservas": true } } ] }` → 200. El front vuelve a pedir `GET`.
-* El cambio debe aplicarse **de inmediato** en `require_roles` (criterio de HU24).
+## ❌ Root — matriz de roles · HU24 / P2 (`GET` y `PUT /root/roles`) — RETIRADA en el Sprint 2
+Fue un malentendido: **el root solo crea administradores** (sección anterior) y **gestiona su propio perfil** (`GET/PUT /me`, que para el
+root se limita a cambiar la contraseña con `PUT /me/password`). Las rutas `/root/roles` ya no existen (responden 404) y el front quitó la
+pantalla `/root/roles`. Los 4 roles (`root`, `administrador`, `cliente`, `visitante`) siguen siendo fijos; no hay matriz de módulos.
+En `PUT /me` y `POST /me/correo`, el root recibe **403 `root_solo_password`** si intenta cambiar otros datos.
 
 ## 🔜 Pendiente de acordar
 La verificación del cambio de correo (D8) y las preguntas de abajo. El resto de tareas de F1 ya está construido contra este contrato.
@@ -139,14 +130,12 @@ La verificación del cambio de correo (D8) y las preguntas de abajo. El resto de
 1. ¿Forma exacta de la respuesta de `/auth/login`? (hoy asumida arriba)
 2. ¿Enum de `genero`?
 3. ~~¿Cómo recibe el administrador el acceso?~~ Propuesta cerrada arriba: enlace al front con `?token=`. **Confirmar** y que B2 use esa URL en la plantilla.
-4. ~~¿Estructura de la matriz de roles?~~ Propuesta cerrada arriba (roles × módulos). **Confirmar** los `id` de módulos y qué `require_roles` consulta. El mockup mostraba columnas "Crear/editar" y "Estado": no se implementaron (ver `MOCKUPS.md`).
+4. ~~¿Estructura de la matriz de roles?~~ **Retirada en el Sprint 2** (la HU24 era un malentendido). Antes: El mockup mostraba columnas "Crear/editar" y "Estado": no se implementaron (ver `MOCKUPS.md`).
 5. ¿Las imágenes se sirven como URL absoluta (`imagen_url`) o hay que anteponer la base URL? (el front soporta ambas)
 6. ~~¿Enlace de verificación de correo (D8): a dónde apunta?~~ **Cerrado:** el correo apunta a
    `/verificar-correo?token=…` (pantalla pública del front) y B1 lo implementó como `POST /auth/verificar-correo { token }`,
    no `POST /me/correo/confirmar`. El token es de un solo uso: al confirmarlo, el backend responde
    `sin_cambio_pendiente` si se reutiliza.
 7. ¿El enlace del administrador (D6) apunta a `/completar-registro?token=…` en el front? (la ruta ya existe como pantalla provisional)
-8. **Menú vs. matriz:** si el root desactiva un módulo para un rol, el backend responde 403, pero el front sigue mostrando la entrada de menú
-   (las rutas se protegen con el rol, no con la matriz). Propuesta: que `/me` (o el login) devuelva `modulos: ["vuelos", ...]` permitidos
-   y el front oculte lo que no corresponda. No bloquea el sprint.
+8. ~~**Menú vs. matriz**~~ Sin efecto: ya no hay matriz de módulos.
 9. Si el root elimina un administrador que tiene sesión activa, ¿se invalida su token? (por ahora seguirá válido hasta expirar).

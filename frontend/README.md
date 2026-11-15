@@ -46,13 +46,13 @@ src/
 ├── styles/        tokens.css (colores, tipografía) · base.css (Bootstrap → tokens) · components.css
 ├── domain/        Reglas y catálogos del negocio: ciudades.js · estados.js · vuelo.js
 ├── docs/          DISENO.md (sistema de diseño) · ESTADO_SPRINT1.md (checklist) · MOCKUPS.md ·
-│                  CONTRATO_USUARIOS.md (API de B1) · CONTRATO_VUELOS.md (API de B2) · mockups/
+│                  CONTRATO_USUARIOS.md · CONTRATO_COMPRAS.md (API de B1) · CONTRATO_VUELOS.md (API de B2) · CONTRATO_SPRINT2.md (lo que F1 esperaba) · mockups/
 ├── components/    UI compartida: ui/ · feedback/ · layout/ · brand/ · travel/
-├── features/      UN MÓDULO POR CARPETA: usuarios/ · busqueda/ · vuelos/   (ver features/README.md)
+├── features/      UN MÓDULO POR CARPETA: usuarios/ · busqueda/ · vuelos/ · compra/ · financiero/   (ver features/README.md)
 ├── routes/        AppRouter (construido desde los features) · RouteGuard
 ├── pages/         Páginas transversales (404, /dev/ui)
 ├── services/      http.js (Axios) · apiError · tokenStorage · authApi
-├── context/       AuthContext (sesión) · useIdleTimeout
+├── context/       AuthContext (sesión) · CartContext (carrito) · useIdleTimeout
 └── utils/         format · useAsyncData · useCiudades · ciudadesOpciones · useGoBack · media · cn · jwt
 ```
 
@@ -78,6 +78,7 @@ src/
 ## Cómo trabajamos
 
 * **F1** es dueño de `features/usuarios`, `components/`, `routes/`, `styles/`, `config/`, `context/`, `services/` y `domain/`.
+* **F1 (Sprint 2)** también es dueño de `features/compra` y `features/financiero`, y del carrito (`context/CartContext`, `components/layout/CartButton`).
 * **F2** es dueño de `features/busqueda` y `features/vuelos`, integrados sobre la base de F1 (ramas `feature/F2-*` → PR a `master`); ya **no** son *stubs*.
 * Un feature se registra en **una línea** (`features/index.js`) y declara sus propias rutas, roles y menú.
 * Un feature **no** importa archivos internos de otro (`@/features/x/pages/Y`); ESLint lo impide.

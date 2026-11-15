@@ -1,6 +1,33 @@
 # Cambios en componentes compartidos
 
+## Sprint 2 — Compra, reserva, billetera (F1) integrados con el backend de B1
+**Lo que otro módulo debe saber al integrar:**
+* **Carrito:** nuevo `context/CartContext` (`useCart()` → `items, count, total, upsertItems, removeItem, clear, getItem`). `App.jsx` monta `<CartProvider>`
+  dentro de `<AuthProvider>`, y `test/helpers.renderWithProviders` también. `MainLayout` pasa `cartSlot={<CartButton />}` **solo al cliente** (antes no pasaba nada).
+  Quien renderice `MainLayout` en una prueba sin `renderWithProviders` necesita `CartProvider`.
+* **Menú:** cliente → `Mis viajes` (principal) y `Billetera` (menú de cuenta). Entre 992 y 1199 px los enlaces de la navegación se compactan.
+* **Compartido nuevo:** iconos (`cart`, `wallet`, `card`, `ticket`, `bell`, `chat`, `send`, `download`, `plus`, `minus`, `refresh`, `sparkles`, `swap`, `news`),
+  `utils/format` (`formatDateOnly`, `formatRemaining`, `maskCard`; `formatDate` y `formatDateTime` se quedan con la versión de F2),
+  `components/travel/toFlightProps`, clases `.at-tabs` / `.at-filters` / `.at-cart`, `test/helpers.VUELO_EJEMPLO`.
+* **Detalle del vuelo:** el botón «Reservar o comprar» (solo cliente) lleva a `/comprar/:vueloId`.
+* **Capa de API:** `features/compra/api.js` y `features/financiero/api.js` traducen la API real de B1 (`docs/CONTRATO_COMPRAS.md`) a la forma con la que F1
+  construyó las pantallas (`docs/CONTRATO_SPRINT2.md`): las pantallas no cambiaron.
+* **Noticias y administración de vuelos (pantallas de F1, ya con backend):** `features/noticias` (nuevo, registrado en `features/index.js`) y, dentro de
+  `features/vuelos`, las pantallas `EditarVueloPage`, `CancelarVueloPage` y `VuelosRealizadosPage` con sus rutas (`/admin/vuelos/:id/editar`, `/:id/cancelar`,
+  `/realizados`), `rules.js` y `components/VuelosTabla`. `vuelos/api.js` (de F2) sumó `editarVuelo`, `cancelarVuelo`, `listarVuelosRealizados`, `obtenerVuelo`
+  y `listarCiudades`, que traducen a la forma de esas pantallas. El panel de F2 (`VuelosAdminPage`/`VuelosTable`) solo agregó el enlace «Vuelos realizados» y los botones
+  Editar / Cancelar de los vuelos programados. Las listas, consulta y programar de F1 se descartaron: se queda lo de F2. `vuelos.css`: estilos de gestión acotados con `.vu-gestion`.
+
 Lo que otro módulo puede notar al integrar. Los cambios de un solo feature no se listan aquí.
+
+## Sprint 2 — Se retira la gestión de roles (HU24)
+
+La HU24 era un malentendido (el root solo crea administradores y gestiona su propio perfil). Lo que se quitó, por si otro módulo lo usaba:
+* Ruta `/root/roles` y `pages/RolesPage.jsx`, `components/RolesMatrix.jsx` (y sus pruebas) del feature `usuarios`.
+* `getRoles` / `updateRoles` de `features/usuarios/api.js` y `features/usuarios/utils.js` (+ prueba), que solo servían a esa pantalla.
+* Los estilos de la matriz en `usuarios.css`.
+* Las pruebas de rutas que usaban `/root/roles` como ejemplo ahora usan `/root/administradores`.
+`config/roles.js` **no cambia**: los 4 roles siguen existiendo y las rutas siguen declarando `roles`.
 
 ## Parte 9 — Integración de búsqueda y vuelos (F2)
 

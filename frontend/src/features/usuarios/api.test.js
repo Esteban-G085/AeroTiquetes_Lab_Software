@@ -1,7 +1,7 @@
 import { http } from '@/services/http'
 import {
   registrarCliente, buildPersonalDataFormData, obtenerPerfil, actualizarPerfil, solicitarCambioCorreo, cambiarPassword,
-  listarAdministradores, crearAdministrador, eliminarAdministrador, validarInvitacion, completarRegistro, obtenerRoles,
+  listarAdministradores, crearAdministrador, eliminarAdministrador, validarInvitacion, completarRegistro,
 } from './api'
 
 const values = {
@@ -66,7 +66,7 @@ describe('API de usuarios', () => {
   })
 })
 
-describe('API de administradores, invitación y roles', () => {
+describe('API de administradores e invitación', () => {
   let seen
   beforeEach(() => {
     seen = null
