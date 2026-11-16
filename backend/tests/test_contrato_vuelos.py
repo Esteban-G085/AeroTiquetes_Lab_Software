@@ -383,7 +383,7 @@ def test_admin_pagina_la_lista(client, token_admin, vuelos, monkeypatch):
 def test_admin_consulta_el_detalle_y_el_404(client, token_admin, vuelos):
     cab = auth_headers(token_admin)
     ok = client.get("/admin/vuelos/3", headers=cab)
-    assert ok.status_code == 200 and set(ok.json()) == CAMPOS_VUELO | {"tiquetes_vendidos"}  # el panel suma cuantos tiquetes tiene
+    assert ok.status_code == 200 and set(ok.json()) == CAMPOS_VUELO
     no = client.get("/admin/vuelos/9999", headers=cab)
     assert no.status_code == 404 and no.json()["error"]["code"] == "vuelo_no_encontrado"
 
@@ -411,7 +411,7 @@ def test_programar_vuelo_nacional_lo_guarda_con_lo_que_genera_el_sistema(client,
 def test_el_vuelo_programado_queda_guardado_y_se_puede_buscar(client, token_admin):
     creado = _post(client, token_admin).json()
     cab = auth_headers(token_admin)
-    assert client.get(f"/admin/vuelos/{creado['id']}", headers=cab).json() == {**creado, "tiquetes_vendidos": 0}
+    assert client.get(f"/admin/vuelos/{creado['id']}", headers=cab).json() == creado
     assert client.get(f"/vuelos/{creado['id']}").json() == creado
     assert creado["codigo"] in _codigos(client.get("/vuelos", params={"origen": "BOG", "destino": "MDE"}))
     assert creado["codigo"] in _codigos(client.get("/admin/vuelos", headers=cab))

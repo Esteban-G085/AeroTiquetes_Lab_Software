@@ -45,7 +45,7 @@ export default function EditarVueloPage() {
           <p>{error?.message ?? 'Error al cargar el vuelo.'}</p>
           <button className="btn btn-primary" onClick={recargar}>Reintentar</button>
         </div>
-      )
+      </div>
     )
   }
 
