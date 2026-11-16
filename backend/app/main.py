@@ -62,7 +62,7 @@ INTERVALO_LIBERAR_RESERVAS_SEG = 60
 def _liberar_reservas_vencidas() -> None:
     with session_scope() as db:
         vencer_reservas(db)
-        noticias_service.publicar_faltantes(db)  # noticias de los vuelos que ya existian (HU11)
+        noticias_service.publicar_noticias_faltantes(db)  # noticias de los vuelos que ya existian (HU11)
 
 
 async def _liberar_reservas_periodicamente() -> None:
@@ -88,7 +88,7 @@ async def lifespan(app: FastAPI):
         asegurar_ciudades(db)  # catalogo de ciudades (B2-04), idempotente
         asegurar_paises(db)  # catalogo de paises para lugar de nacimiento
         sincronizar_estados(db)  # programado -> sucedido -> realizado segun la hora (HU14)
-        noticias_service.publicar_faltantes(db)  # noticias de los vuelos que ya existian (HU11)
+        noticias_service.publicar_noticias_faltantes(db)  # noticias de los vuelos que ya existian (HU11)
     ciclo = asyncio.create_task(_ciclo_estados())
     tarea = asyncio.create_task(_liberar_reservas_periodicamente())
     try:

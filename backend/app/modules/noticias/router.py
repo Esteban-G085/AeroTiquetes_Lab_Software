@@ -16,8 +16,8 @@ from app.modules.noticias.schemas import CancelarPorToken, NoticiaOut, PaginaNot
 
 router = APIRouter(tags=["Noticias"])
 
-# Solo clientes, y el modulo `noticias` debe estar activo para su rol (HU24).
-_SOLO_CLIENTE = Depends(require_roles("cliente", modulo="noticias"))
+# Solo clientes (el modulo `noticias` se verifica en el frontend).
+_SOLO_CLIENTE = Depends(require_roles("cliente"))
 
 
 def _estado(sus) -> SuscripcionOut:

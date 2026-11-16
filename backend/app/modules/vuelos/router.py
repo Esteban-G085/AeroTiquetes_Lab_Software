@@ -23,8 +23,8 @@ from app.modules.vuelos.schemas import (
 
 router = APIRouter()
 
-# Solo administradores, y ademas el modulo debe estar activo en la matriz de roles (HU24).
-_SOLO_ADMIN = Depends(require_roles("administrador", modulo="administracion_vuelos"))
+# Solo administradores.
+_SOLO_ADMIN = Depends(require_roles("administrador"))
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +153,7 @@ def cancelar_vuelo(id: int, db: DbSession):
 def programar_vuelo(
     datos: VueloCrear,
     db: DbSession,
-    administrador=Depends(require_roles("administrador", modulo="administracion_vuelos")),
+    administrador=Depends(require_roles("administrador")),
 ):
     """Programa un vuelo (HU18) y lo guarda.
 

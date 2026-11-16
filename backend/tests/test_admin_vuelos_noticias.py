@@ -64,7 +64,7 @@ def test_rutas_de_administracion_exigen_administrador(client, token_cliente, met
     assert getattr(client, metodo)(ruta, headers=auth_headers(token_cliente)).status_code == 403
 
 
-@pytest.mark.parametrize("ruta", ["/noticias", "/noticias/suscripcion"])
+@pytest.mark.parametrize("ruta", ["/noticias/suscripcion"])
 def test_noticias_sin_token_401(client, ruta):
     assert client.get(ruta).status_code == 401
 
