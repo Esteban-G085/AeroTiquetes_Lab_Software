@@ -205,25 +205,3 @@ class InvitacionResponse(BaseModel):
 
     correo: str
     nombre: str
-
-
-# ---------- Root: matriz de roles (HU24) ----------
-# Forma acordada con el front (docs/CONTRATO_USUARIOS.md de F1): una fila por rol
-# con un mapa {modulo: permitido}, y la lista de modulos con su nombre legible.
-
-class ModuloItem(BaseModel):
-    id: str
-    nombre: str
-
-
-class RolItem(BaseModel):
-    id: RolNombre
-    nombre: str
-    descripcion: str
-    editable: bool  # False para root: no puede quitarse su propio acceso
-    modulos: dict[str, bool]
-
-
-class RolesMatrizResponse(BaseModel):
-    modulos: list[ModuloItem]
-    roles: list[RolItem]

@@ -1,11 +1,11 @@
 """
 Ciudades y administracion de vuelos (HU5 catalogo, HU18 y HU19).
 
-Lectura (B2-06, B2-07) y programacion de vuelos (B2-05) sobre la base de datos.
+Lectura (B2-06, B2-07) y programacion (B2-05) sobre la base de datos.
 
 Contrato: `frontend/docs/CONTRATO_VUELOS.md`.
 """
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.core.deps import DbSession, require_roles
 from app.core.errors import AppError
@@ -153,7 +153,6 @@ def cancelar_vuelo(id: int, db: DbSession):
 def programar_vuelo(
     datos: VueloCrear,
     db: DbSession,
-    tareas: BackgroundTasks,
     administrador=Depends(require_roles("administrador", modulo="administracion_vuelos")),
 ):
     """Programa un vuelo (HU18) y lo guarda.
@@ -166,8 +165,4 @@ def programar_vuelo(
     y hora futuras; nacional = dos capitales de departamento; internacional = una ciudad del grupo
     `colombia` y una del `exterior`, en cualquier sentido.
     """
-    vuelo = service.programar_vuelo(db, datos, administrador.id)
-    respuesta = VueloOut.model_validate(vuelo)
-    for tarea in service.TRAS_PROGRAMAR_VUELO:  # p. ej. avisar la noticia a los suscriptores (correo)
-        tareas.add_task(tarea, vuelo.id)
-    return respuesta
+    return VueloOut.model_validate(service.programar_vuelo(db, datos, administrador.id))

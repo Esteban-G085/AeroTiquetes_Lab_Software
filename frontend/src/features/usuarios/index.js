@@ -30,8 +30,5 @@ export default {
     { path: '/root/administradores', title: 'Gestionar administradores',
       Component: lazy(() => import('./pages/AdministradoresPage')),
       roles: [ROOT], nav: { label: 'Administradores', area: 'main', order: 10 } },
-    { path: '/root/roles', title: 'Gestionar roles',
-      Component: lazy(() => import('./pages/RolesPage')),
-      roles: [ROOT], nav: { label: 'Roles', area: 'main', order: 20 } },
   ],
 }

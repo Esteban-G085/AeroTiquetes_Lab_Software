@@ -54,20 +54,19 @@ describe('AppRouter', () => {
     const menu = screen.getByRole('dialog', { name: 'Menú' })
     expect(within(menu).getByRole('link', { name: 'Iniciar sesión' })).toBeInTheDocument()
     expect(within(menu).getByRole('link', { name: 'Registrarse' })).toBeInTheDocument()
-    expect(within(menu).queryByRole('link', { name: 'Roles' })).not.toBeInTheDocument()
+    expect(within(menu).queryByRole('link', { name: 'Administradores' })).not.toBeInTheDocument()
     expect(within(menu).queryByRole('button', { name: 'Cerrar sesión' })).not.toBeInTheDocument()
   })
 
   it('menú diferenciado: el root ve sus módulos, sin carrito, y puede cerrar sesión', async () => {
     seedSession({ rol: 'root' }, { usuario: 'root' })
-    renderWithProviders(<AppRouter />, { route: '/root/roles' })
-    expect(await screen.findByRole('heading', { name: 'Gestionar roles' })).toBeInTheDocument()
+    renderWithProviders(<AppRouter />, { route: '/root/administradores' })
+    expect(await screen.findByRole('heading', { name: 'Gestionar administradores' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /carrito/i })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Abrir menú' }))
     const menu = screen.getByRole('dialog', { name: 'Menú' })
     expect(within(menu).getByRole('link', { name: 'Administradores' })).toBeInTheDocument()
-    expect(within(menu).getByRole('link', { name: 'Roles' })).toBeInTheDocument()
 
     await userEvent.click(within(menu).getByRole('button', { name: 'Cerrar sesión' }))
     expect(await screen.findByRole('heading', { name: 'Iniciar sesión' })).toBeInTheDocument()

@@ -13,7 +13,7 @@ Actualizado: 21-oct-2026 · Módulos: proyecto base, autenticación, cuenta, pan
 | F1-05 | Gestionar perfil (HU2), incluida la variante root y el cambio de correo con verificación | ✅ |
 | F1-06 | Cambiar contraseña (HU3) | ✅ |
 | F1-07 | Gestionar administradores + completar registro (HU23) | ✅ |
-| F1-08 | Gestionar roles (HU24) | ✅ |
+| F1-08 | ~~Gestionar roles (HU24)~~ | ❌ retirada en el Sprint 2 (era un malentendido: el root solo crea administradores y gestiona su perfil) |
 | F1-09 | Pruebas, revisión responsive y checklist | ✅ |
 | F2-01 | MSW: *handlers* desde `/openapi.json` para trabajar sin backend | ❌ descartada por el equipo: se trabaja contra los contratos (ver `CONTRATO_VUELOS.md`) |
 | F2-02 | Formulario de búsqueda (HU5): criterios combinables según el plan (D14) | ✅ |
@@ -71,9 +71,8 @@ no podían detectar.
 - [x] Pantalla de primer ingreso (`/completar-registro?token=`): reutiliza los campos del registro y valida enlaces vencidos o ya usados.
 - [x] *Backend/B2:* que el correo llegue a Mailpit con el enlace `{FRONTEND_URL}/completar-registro?token=…`.
 
-**HU24 · Gestionar roles**
-- [x] Los 4 roles se muestran fijos (no se crean ni eliminan); la matriz es activa y solo se envían los roles modificados; el root no puede quitarse su propio acceso.
-- [x] *Backend:* aplicar el cambio de inmediato y restringir realmente el acceso por módulo.
+**~~HU24 · Gestionar roles~~ — retirada en el Sprint 2**
+- La pantalla `/root/roles` y la matriz de módulos se eliminaron (frontend y backend). Los 4 roles siguen siendo fijos y cada ruta se protege por rol.
 
 **HU5 · Buscar y consultar vuelos**
 - [x] Criterios combinables: origen, destino, fecha, rango de precio, rango de duración y clase. **Sin** filtro de aerolínea (D14) y sin ocultar vuelos por falta de cupo: la disponibilidad por clase se advierte y el filtro de clase solo la destaca (D13).
@@ -120,8 +119,8 @@ Con el backend y Mailpit levantados:
 9. Abrir el enlace → formulario con correo bloqueado; completarlo → el admin pasa a "activo" y puede iniciar sesión.
 10. Abrir el mismo enlace otra vez → "Enlace no válido".
 11. Root elimina un administrador → confirmación y desaparece del listado.
-12. Root cambia un permiso en la matriz → se aplica de inmediato en el backend.
-13. Con un cliente, abrir `/root/roles` por URL → 403 en pantalla (y 403 del backend si se llama a la API).
+12. ~~Root cambia un permiso en la matriz~~ *(retirado en el Sprint 2).*
+13. Con un cliente, abrir `/root/administradores` por URL → 403 en pantalla (y 403 del backend si se llama a la API).
 
 ### Búsqueda y vuelos (B2 publicado)
 
@@ -139,7 +138,6 @@ Con el backend y Mailpit levantados:
 
 * **Para B2 (respondido):** las preguntas 1–6 de `CONTRATO_VUELOS.md` ya tienen respuesta (sección «Respuestas de B2» del contrato): forma de `Vuelo`, alcance del filtro de fecha, catálogo de ciudades, detalle por `id`, estados y orígenes internacionales.
 * **Para B2 (hecho):** las plantillas de correo con las URLs del contrato ya están en el backend (`app/core/email.py`); la invitación llega a Mailpit con el enlace de primer ingreso.
-* **Roles y rutas de vuelos:** la ruta `/` declara visitante y cliente, y `/admin/vuelos` solo administrador, mientras que la matriz de roles por defecto le da al root los módulos `usuarios` y `búsqueda`. Decidir si el root debe poder buscar vuelos y entrar al panel (hoy el backend le responde **403** en `/admin/vuelos`).
+* **Roles y rutas de vuelos:** la ruta `/` declara visitante y cliente, y `/admin/vuelos` solo administrador, mientras que el root solo gestiona administradores y su perfil. Decidir si el root debe poder buscar vuelos y entrar al panel (hoy el backend le responde **403** en `/admin/vuelos`).
 * **Para el PO:** las diferencias entre mockups e historias (`MOCKUPS.md`), ahora incluidos el filtro de aerolínea de HU5/HU18 y el "solo lectura" de HU19.
-* **Mejora posible:** que `/me` devuelva los módulos permitidos para ocultar del menú lo que el root desactive.
 * **Armonía visual:** hecha en la Parte 10 del `CHANGELOG.md` (esqueletos de carga, tabla responsive en móvil, franja de marca en el buscador y el detalle, y un único botón «Volver»). Queda registrar la medición de la auditoría responsive de esas pantallas.

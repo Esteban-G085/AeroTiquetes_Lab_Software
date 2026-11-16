@@ -25,7 +25,6 @@ from app.modules.usuarios.schemas import (
     PerfilResponse,
     PerfilUpdate,
     RegistroClienteRequest,
-    RolesMatrizResponse,
     TokenResponse,
     UsuarioPublico,
     VerificarCorreoRequest,
@@ -286,13 +285,3 @@ def crear_administrador(payload: CrearAdministradorRequest, db: DbSession, usuar
 )
 def eliminar_administrador(administrador_id: int, db: DbSession):
     service.eliminar_administrador(db, administrador_id)
-
-
-@router.get(
-    "/root/roles",
-    response_model=RolesMatrizResponse,
-    tags=["Root"],
-    dependencies=[Depends(require_roles(RolNombre.ROOT.value))],
-)
-def obtener_matriz_roles(db: DbSession):
-    return RolesMatrizResponse(**service.obtener_matriz_roles(db))

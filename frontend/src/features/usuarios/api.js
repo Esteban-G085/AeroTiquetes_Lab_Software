@@ -107,15 +107,3 @@ export async function completarRegistro(token, values, imagen) {
   const { data } = await http.post('/auth/completar-registro', form)
   return data
 }
-
-// ---- Root: matriz de roles (HU24 / P2) ----
-
-/**
- * GET /root/roles ->
- *   { modulos: [{ id, nombre }],
- *     roles:   [{ id, nombre, descripcion?, editable, modulos: { [moduloId]: boolean } }] }
- */
-export async function obtenerRoles() {
-  const { data } = await http.get('/root/roles')
-  return { modulos: data?.modulos ?? [], roles: data?.roles ?? [] }
-}

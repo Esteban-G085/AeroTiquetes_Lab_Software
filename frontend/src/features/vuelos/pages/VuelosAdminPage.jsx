@@ -40,8 +40,13 @@ export default function VuelosAdminPage() {
       <PageHeader
         eyebrow="Administración"
         title="Vuelos programados"
-        subtitle="Consulta, filtra y programa los vuelos del sistema."
-        actions={<Link className="btn btn-primary" to="/admin/vuelos/nuevo">Programar vuelo</Link>}
+        subtitle="Consulta, filtra, programa, edita y cancela los vuelos del sistema."
+        actions={(
+          <>
+            <Link className="btn btn-outline-primary" to="/admin/vuelos/realizados">Vuelos realizados</Link>
+            <Link className="btn btn-primary" to="/admin/vuelos/nuevo">Programar vuelo</Link>
+          </>
+        )}
       />
 
       {ciudadesStatus === 'fallback' && (

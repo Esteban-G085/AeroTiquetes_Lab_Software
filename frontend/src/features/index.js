@@ -3,9 +3,11 @@ import { matchPath } from 'react-router-dom'
 import usuarios from './usuarios'
 import vuelos from './vuelos'
 import busqueda from './busqueda'
+import compra from './compra'
+import financiero from './financiero'
 import noticias from './noticias'
 
-export const features = [usuarios, vuelos, busqueda, noticias]
+export const features = [usuarios, vuelos, busqueda, compra, financiero, noticias]
 
 /** Todas las rutas declaradas por los features. */
 export const allRoutes = features.flatMap((f) => f.routes)

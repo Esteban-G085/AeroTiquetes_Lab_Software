@@ -84,7 +84,7 @@ def test_downgrade_a_la_002_quita_las_tablas_de_vuelos_y_se_puede_volver_a_subir
     command.downgrade(cfg, "002_roles")
     tablas = set(inspect(create_engine(url_temporal)).get_table_names())
     assert not (TABLAS_DE_VUELOS & tablas)
-    assert {"usuario", "administrador", "rol"} <= tablas  # lo de B1 queda intacto
+    assert {"usuario", "administrador", "rol", "rol_modulo"} <= tablas  # 002 sigue existiendo al bajar a ella
 
     command.upgrade(cfg, "head")
     assert TABLAS_DE_VUELOS <= set(inspect(create_engine(url_temporal)).get_table_names())

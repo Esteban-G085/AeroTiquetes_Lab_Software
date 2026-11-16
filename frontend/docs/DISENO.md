@@ -133,3 +133,11 @@ Las pantallas de búsqueda y de vuelos se alinearon con el lenguaje del rediseñ
   y la consulta del panel (HU19). Las pantallas de vuelos **ya no** usan `LoadingState`.
 * **Jerarquía y escalonamiento:** una sola acción primaria por pantalla (§4) —de ahí que «Ver detalle» en los resultados sea
   `outline-primary`— y las tarjetas entran con `at-enter`, `at-enter-2` y `at-enter-3`, igual que los paneles de F1.
+
+
+## Sprint 2 — patrones nuevos
+* **Resumen de precio** (`ResumenViaje`): siempre visible junto al formulario y en el carrito; tramo por tramo y total. Cumple las reglas de precio claro (§5).
+* **Acciones irreversibles** (pagar, cancelar compra, eliminar tarjeta): siempre con `ConfirmDialog` que dice **qué pasará y cuánto**.
+* **Estados**: cada pantalla con datos usa esqueleto (`Skeleton`) → `ErrorState` con «Reintentar» → `EmptyState` con una acción.
+* **Datos sensibles**: tarjetas enmascaradas; saldo con botón de ocultar.
+* **Reglas que bloquean**: si una acción no se puede (compra a menos de 1 h del vuelo), la pantalla **dice por qué** en vez de ocultar el botón sin explicación.

@@ -127,8 +127,7 @@ Devuelve un objeto `Vuelo` (incluye `fecha_programacion`). **404** si no existe.
 Las lecturas ya salen de la **base de datos** (ciudades, búsqueda, detalle y panel del administrador). Para tener datos
 de prueba: `cd backend && python -m app.modules.vuelos.seeds` (20 vuelos `AT-0001`…`AT-0020` con fechas relativas a "hoy";
 uno sin cupo en económica, caso D13, y uno ya `sucedido`, que la búsqueda excluye y el panel muestra). Las 37 ciudades
-se cargan solas al arrancar el backend y `/ciudades` las devuelve en orden alfabético. `POST /admin/vuelos` ya **guarda** el vuelo (B2-05). Las rutas `/admin/*` exigen rol `administrador` **y** el módulo `administracion_vuelos`
-activo en la matriz de roles (HU24).
+se cargan solas al arrancar el backend y `/ciudades` las devuelve en orden alfabético. `POST /admin/vuelos` ya **guarda** el vuelo (B2-05). Las rutas `/admin/*` exigen rol `administrador` (la matriz de roles de la HU24 se retiró en el Sprint 2).
 
 1. **Forma de `Vuelo`:** confirmada tal cual está arriba (`salida_utc`, `llegada_utc`, `duracion_min`, `costo`,
    `cupos_economica`, `cupos_primera`, `fecha_programacion`, `origen`/`destino` embebidos con `codigo`, `nombre`,
@@ -154,7 +153,7 @@ activo en la matriz de roles (HU24).
 | Historial de búsquedas (B2-11) | Si `GET /vuelos` lleva `Authorization: Bearer` de un **cliente**, el backend guarda origen, destino y fecha (solo la página 1, y solo si hay alguno de esos tres criterios). El front **no hace nada extra**: basta con enviar el token como ya hace. El visitante busca igual, sin rastro; un token inválido o vencido se trata como visitante (nunca 401 en la búsqueda). |
 | `GET /admin/vuelos` | Filtros `estado`, `origen`, `destino`, `pagina`. Orden: salida descendente. |
 | `POST /admin/vuelos` | **Guarda** el vuelo (B2-05) y responde 201 con el `Vuelo` completo (`id`, `codigo` `AT-####` consecutivo, llegada, cupos, `programado`) y registra al administrador. La `hora` es hora de Colombia. Errores **422** `validacion` con el mensaje en `error.fields`: `destino` (igual al origen, o combinación no permitida), `origen`/`destino` (ciudad inexistente o no apta para el tipo), `fecha` (salida no futura), `duracion`/`costo` (≤ 0), `hora` (formato). Varios errores llegan juntos. |
-| Sin sesión / otro rol | `/admin/*` responde **401** (`no_autenticado`) sin token y **403** (`permiso_denegado`) con cliente o root. Con el módulo desactivado en la matriz: **403** (`modulo_desactivado`). |
+| Sin sesión / otro rol | `/admin/*` responde **401** (`no_autenticado`) sin token y **403** (`permiso_denegado`) con cliente o root. |
 | Errores de validación de query | Vienen con el prefijo `query.` en `error.fields` (p. ej. `query.pagina`); los de cuerpo, sin prefijo (`duracion`). Es el formato común de `core/errors.py`. |
 
 ## Rastro en el front

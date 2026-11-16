@@ -278,3 +278,27 @@
 .at-detail__price { font-family: var(--at-font-display); font-size: 1.35rem; font-weight: 600; color: var(--at-blue-800); font-variant-numeric: lining-nums tabular-nums; }
 .at-detail__actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding-top: 1.25rem; border-top: 1px dashed var(--at-line); }
 @media (max-width: 575.98px) { .at-detail__route { grid-template-columns: 1fr; } }
+
+/* ═══ Carrito de la cabecera (Sprint 2) ══════════════════════════════════ */
+.at-cart { position: relative; text-decoration: none; color: var(--at-ink); }
+.at-cart__count { position: absolute; top: 2px; right: 0; min-width: 1.15rem; height: 1.15rem; padding: 0 .3rem; border-radius: var(--at-radius-pill); background: var(--at-blue-600); color: #fff; font-size: .68rem; font-weight: 700; line-height: 1.15rem; text-align: center; border: 2px solid #fff; box-sizing: content-box; }
+
+/* Con varias opciones de menú, entre 992 y 1199 px la navegación se compacta para que no se desborde */
+@media (min-width: 992px) and (max-width: 1199.98px) {
+  .at-nav { margin-left: .5rem; }
+  .at-nav__link { padding: .5rem .6rem; font-size: var(--at-text-sm); }
+  .at-nav ul { gap: 0; flex-wrap: nowrap; }
+}
+.at-nav__link { white-space: nowrap; }
+
+/* ═══ Pestañas y filtros (compartidas) ═══ */
+.at-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--at-line); overflow-x: auto; }
+.at-tabs__tab { display: inline-flex; align-items: center; gap: .5rem; padding: .8rem 1.1rem; border: 0; border-bottom: 3px solid transparent; background: none; color: var(--at-muted); font-weight: 700; white-space: nowrap; margin-bottom: -1px; }
+.at-tabs__tab:hover { color: var(--at-ink); }
+.at-tabs__tab.is-active { color: var(--at-blue-700); border-bottom-color: var(--at-blue-600); }
+.at-tabs__n { min-width: 1.4rem; padding: .05rem .4rem; border-radius: var(--at-radius-pill); background: var(--at-blue-50); color: var(--at-blue-800); font-size: var(--at-text-xs); text-align: center; }
+.at-filters { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.at-filters__btn { padding: .4rem .95rem; border: 1px solid var(--at-line-strong); border-radius: var(--at-radius-pill); background: #fff; color: var(--at-ink); font-size: var(--at-text-sm); font-weight: 600; }
+.at-filters__btn:hover { border-color: var(--at-blue-600); }
+.at-filters__btn.is-active { background: var(--at-blue-600); border-color: var(--at-blue-600); color: #fff; }
+

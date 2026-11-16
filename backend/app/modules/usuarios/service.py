@@ -24,13 +24,9 @@ from app.core.security import (
 from app.core.security import TokenError
 from app.modules.catalogos.service import obtener_pais_canonico
 from app.modules.usuarios.models import (
-    MODULOS_NOMBRES,
-    MODULOS_SISTEMA,
     Administrador,
     Cliente,
     EstadoAdministrador,
-    Rol,
-    RolModulo,
     RolNombre,
     Root,
     Usuario,
@@ -40,7 +36,7 @@ settings = get_settings()
 
 
 # =========================================================================
-# Arranque: root por defecto + matriz de roles (B1-01)
+# Arranque: root por defecto (B1-01)
 # =========================================================================
 
 def asegurar_root_por_defecto(db: Session) -> None:
@@ -60,58 +56,6 @@ def asegurar_root_por_defecto(db: Session) -> None:
     db.flush()  # para tener usuario.id antes de crear la fila hija
     db.add(Root(id=usuario.id))
     db.commit()
-
-
-# Permisos por defecto de la matriz HU24 (editable despues por el root).
-_MATRIZ_POR_DEFECTO: dict[RolNombre, set[str]] = {
-    RolNombre.ROOT: {"usuarios", "busqueda"},
-    RolNombre.ADMINISTRADOR: {"administracion_vuelos", "busqueda", "noticias"},
-    RolNombre.CLIENTE: {
-        "usuarios",
-        "compra_reserva",
-        "busqueda",
-        "noticias",
-        "gestion_financiera",
-        "checkin_silla",
-        "recomendacion",
-        "chatbot",
-    },
-    RolNombre.VISITANTE: {"usuarios", "busqueda"},
-}
-
-
-def asegurar_roles_y_matriz(db: Session) -> None:
-    """Siembra los 4 roles fijos y, por cada uno, una fila por modulo del
-    SRS (9 en total) si todavia no existen. Idempotente."""
-    roles_existentes = {r.nombre: r for r in db.scalars(select(Rol))}
-
-    for rol_nombre in RolNombre:
-        rol = roles_existentes.get(rol_nombre)
-        if rol is None:
-            rol = Rol(nombre=rol_nombre)
-            db.add(rol)
-            db.flush()
-            roles_existentes[rol_nombre] = rol
-
-        modulos_existentes = {rm.modulo for rm in db.scalars(select(RolModulo).where(RolModulo.rol_id == rol.id))}
-        permitidos_por_defecto = _MATRIZ_POR_DEFECTO.get(rol_nombre, set())
-        for modulo in MODULOS_SISTEMA:
-            if modulo in modulos_existentes:
-                continue
-            db.add(RolModulo(rol_id=rol.id, modulo=modulo, permitido=modulo in permitidos_por_defecto))
-
-    db.commit()
-
-
-def modulo_habilitado(db: Session, rol: RolNombre, modulo: str) -> bool:
-    """Usada por `require_roles(..., modulo=...)` en core/deps para aplicar
-    realmente la matriz de HU24, no solo mostrarla."""
-    fila = db.scalar(
-        select(RolModulo).join(Rol).where(Rol.nombre == rol, RolModulo.modulo == modulo)
-    )
-    # Si todavia no existe la fila (no deberia pasar tras el seed), no se
-    # bloquea por un dato faltante: se deja pasar y se confia en require_roles.
-    return True if fila is None else fila.permitido
 
 
 # =========================================================================
@@ -251,7 +195,19 @@ def registrar_cliente(db: Session, datos: dict, ruta_imagen: str | None) -> Usua
 # Perfil (/me) (B1-06, B1-07)
 # =========================================================================
 
+def _exigir_no_root(usuario: Usuario) -> None:
+    """El root solo tiene Id y contrasena (R17-R19): sin datos personales ni correo.
+    Lo unico que gestiona de su perfil es cambiar su contrasena."""
+    if usuario.rol == RolNombre.ROOT:
+        raise AppError(
+            "El root solo puede cambiar su contrasena; no tiene datos personales ni correo.",
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="root_solo_password",
+        )
+
+
 def actualizar_perfil(db: Session, usuario: Usuario, cambios: dict, ruta_imagen: str | None = None) -> Usuario:
+    _exigir_no_root(usuario)
     # El documento nunca se toca aqui (ya lo garantiza el schema PerfilUpdate,
     # que no expone ese campo); el correo tampoco (ver solicitar_cambio_correo).
     for campo, valor in cambios.items():
@@ -289,6 +245,7 @@ def cambiar_password(db: Session, usuario: Usuario, actual: str, nueva: str) -> 
 
 
 def solicitar_cambio_correo(db: Session, usuario: Usuario, correo_nuevo: str, password_actual: str) -> None:
+    _exigir_no_root(usuario)
     if not usuario.password_hash or not verify_password(password_actual, usuario.password_hash):
         raise AppError(
             "La contrasena actual no es correcta.",
@@ -468,41 +425,3 @@ def completar_registro_administrador(db: Session, datos: dict, ruta_imagen: str 
     db.commit()
     db.refresh(usuario)
     return usuario
-
-
-# =========================================================================
-# Root: matriz de roles (B1-09)
-# =========================================================================
-
-_ROLES_INFO: dict[RolNombre, tuple[str, str]] = {
-    RolNombre.ROOT: ("Root", "Control total del sistema"),
-    RolNombre.ADMINISTRADOR: ("Administrador", "Programa y consulta vuelos"),
-    RolNombre.CLIENTE: ("Cliente", "Busca, reserva y compra"),
-    RolNombre.VISITANTE: ("Visitante", "Consulta sin iniciar sesion"),
-}
-
-
-def obtener_matriz_roles(db: Session) -> dict:
-    """Matriz en la forma que consume el front: modulos (id + nombre) y una
-    fila por rol con su mapa {modulo: permitido}."""
-    filas = list(db.scalars(select(RolModulo).join(Rol)))
-    por_rol: dict[RolNombre, dict[str, bool]] = {r: {} for r in RolNombre}
-    for fila in filas:
-        por_rol[fila.rol.nombre][fila.modulo] = fila.permitido
-
-    return {
-        "modulos": [{"id": m, "nombre": MODULOS_NOMBRES.get(m, m)} for m in MODULOS_SISTEMA],
-        "roles": [
-            {
-                "id": rol,
-                "nombre": _ROLES_INFO[rol][0],
-                "descripcion": _ROLES_INFO[rol][1],
-                # Las funciones ya están definidas: nada es editable desde aquí.
-                "editable": False,
-                "modulos": {m: por_rol[rol].get(m, False) for m in MODULOS_SISTEMA},
-            }
-            for rol in RolNombre
-        ],
-    }
-
-

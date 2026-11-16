@@ -36,6 +36,9 @@ from app.core.db import Base, get_db  # noqa: E402
 from app.modules.catalogos import models as _catalogos_models  # noqa: E402,F401
 from app.modules.usuarios import models as _usuarios_models  # noqa: E402,F401
 from app.modules.vuelos import models as _vuelos_models  # noqa: E402,F401
+from app.modules.financiero import models as _financiero_models  # noqa: E402,F401
+from app.modules.compras import models as _compras_models  # noqa: E402,F401
+from app.modules.noticias import models as _noticias_models  # noqa: E402,F401
 
 get_settings.cache_clear()
 
@@ -117,7 +120,7 @@ def app(TestingSessionLocal, monkeypatch):
 
     fastapi_app.dependency_overrides[get_db] = _override_get_db
 
-    # El lifespan de main.py (siembra de root y roles) usa session_scope(),
+    # El lifespan de main.py (siembra de root y catalogos) usa session_scope(),
     # que no pasa por la dependencia get_db. Se apunta tambien a la BD de
     # pruebas para que ese arranque no intente conectarse a Postgres.
     monkeypatch.setattr(db_module, "SessionLocal", TestingSessionLocal)
@@ -128,9 +131,8 @@ def app(TestingSessionLocal, monkeypatch):
 
 @pytest.fixture()
 def client(app):
-    # El lifespan de la app (ver app/main.py) siembra el root por defecto y
-    # la matriz de roles al entrar al context manager; no hace falta
-    # repetirlo aqui.
+    # El lifespan de la app (ver app/main.py) siembra el root por defecto y los
+    # catalogos al entrar al context manager; no hace falta repetirlo aqui.
     with TestClient(app) as c:
         yield c
 

@@ -56,3 +56,27 @@
 .vu-form__preview-grid dd { margin: .1rem 0 0; font-weight: 600; }
 .vu-form__hint { margin: .9rem 0 0; color: var(--at-muted); font-size: var(--at-text-sm); }
 .vu-form__actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .75rem; }
+
+/* ═══ Gestión del vuelo: editar, cancelar y realizados (Sprint 2, pantallas de F1) ═══
+   Lo de formularios va acotado con .vu-gestion para no cambiar el formulario de programar (HU18). */
+.vu-narrow { max-width: 46rem; margin-inline: auto; }
+.vu-tablewrap { overflow-x: auto; border: 1px solid var(--at-line); border-radius: var(--at-radius-lg); background: #fff; box-shadow: var(--at-shadow-sm); }
+.vu-table { margin: 0; min-width: 46rem; font-size: var(--at-text-sm); vertical-align: middle; }
+.vu-table th { padding: .8rem 1rem; background: var(--at-surface-2); color: var(--at-muted); font-size: var(--at-text-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; border-bottom: 1px solid var(--at-line); }
+.vu-table td { padding: .8rem 1rem; border-color: var(--at-line); }
+.vu-table__sub { display: block; color: var(--at-muted); font-size: var(--at-text-xs); }
+.vu-table__actions { display: flex; gap: .4rem; justify-content: flex-end; white-space: nowrap; }
+
+.vu-gestion { gap: 1rem; }
+.vu-form__state { margin: 0; display: flex; align-items: center; gap: .5rem; color: var(--at-muted); }
+.vu-form__fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.vu-gestion .vu-form__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.1rem; }
+.vu-gestion .vu-form__actions { justify-content: flex-end; padding-top: .5rem; margin-top: 0; border-top: 1px solid var(--at-line); }
+@media (max-width: 575.98px) { .vu-gestion .vu-form__grid { grid-template-columns: 1fr; } .vu-gestion .vu-form__actions .btn { flex: 1 1 100%; } }
+
+.vu-stats { margin: 0 0 1.25rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.vu-stats > div { padding: .9rem 1.1rem; background: #fff; border: 1px solid var(--at-line); border-radius: var(--at-radius); }
+.vu-stats dt { color: var(--at-muted); font-size: var(--at-text-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.vu-stats dd { margin: 0; font-family: var(--at-font-display); font-size: 1.6rem; color: var(--at-blue-800); font-variant-numeric: lining-nums tabular-nums; }
+.vu-toolbar { display: grid; grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); gap: 1rem 1.5rem; align-items: end; margin-bottom: .5rem; }
+@media (max-width: 767.98px) { .vu-toolbar { grid-template-columns: 1fr; } }
