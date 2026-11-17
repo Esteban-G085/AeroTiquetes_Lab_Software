@@ -44,7 +44,7 @@ class Noticia(Base):
     )
 
     @property
-    def vuelo_id(self) -> int:
+    def vuelo_id(self) -> int | None:
         return self.id_vuelo
 
     vuelo: Mapped[Vuelo] = relationship(lazy="joined")

@@ -13,7 +13,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core import email as email_module  # se llama como atributo: la suite de pruebas reemplaza `_enviar`
@@ -114,17 +114,25 @@ def publicar_noticias_faltantes(db: Session) -> int:
 
 
 def _visibles(ahora: datetime) -> list:
+    """Condiciones de vigencia.
+
+    Las noticias de vuelo se rigen por su vuelo (programado y con salida futura); las noticias manuales
+    (`id_vuelo` nulo) se rigen solo por `vigente_hasta`. En ambos casos se retiran a los DIAS_PUBLICADA.
+    """
     return [
-        Vuelo.estado == EstadoVuelo.PROGRAMADO,
-        Vuelo.salida_utc > ahora,
         Noticia.publicada_en >= ahora - timedelta(days=DIAS_PUBLICADA),
+        Noticia.vigente_hasta > ahora,
+        or_(
+            Noticia.id_vuelo.is_(None),
+            and_(Vuelo.estado == EstadoVuelo.PROGRAMADO, Vuelo.salida_utc > ahora),
+        ),
     ]
 
 
 def listar_noticias(db: Session, pagina: int = 1, ahora: datetime | None = None) -> tuple[int, list[Noticia]]:
     """Noticias vigentes, la mas reciente primero."""
     ahora = ahora or datetime.now(timezone.utc)
-    base = select(Noticia).join(Vuelo, Vuelo.id == Noticia.id_vuelo).where(*_visibles(ahora))
+    base = select(Noticia).outerjoin(Vuelo, Vuelo.id == Noticia.id_vuelo).where(*_visibles(ahora))
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
     filas = db.scalars(
         base.order_by(Noticia.publicada_en.desc(), Noticia.id.desc())
@@ -138,22 +146,20 @@ def obtener_noticia(db: Session, id_noticia: int, ahora: datetime | None = None)
     """Una noticia vigente; None si no existe o ya no se muestra."""
     ahora = ahora or datetime.now(timezone.utc)
     consulta = (
-        select(Noticia).join(Vuelo, Vuelo.id == Noticia.id_vuelo).where(Noticia.id == id_noticia, *_visibles(ahora))
+        select(Noticia)
+        .outerjoin(Vuelo, Vuelo.id == Noticia.id_vuelo)
+        .where(Noticia.id == id_noticia, *_visibles(ahora))
     )
     return db.scalars(consulta).unique().first()
 
 
 def listar_vigentes(db: Session, ahora: datetime | None = None) -> list[Noticia]:
-    """Devuelve las noticias vigentes (vuelo programado con salida futura, publicado hace menos de 8 dias)."""
+    """Devuelve las noticias vigentes (con o sin vuelo, dentro de su plazo de publicacion)."""
     ahora = ahora or datetime.now(timezone.utc)
     consulta = (
         select(Noticia)
-        .join(Vuelo, Vuelo.id == Noticia.id_vuelo)
-        .where(
-            Noticia.vigente_hasta > ahora,
-            Vuelo.estado == EstadoVuelo.PROGRAMADO,
-            Vuelo.salida_utc > ahora,
-        )
+        .outerjoin(Vuelo, Vuelo.id == Noticia.id_vuelo)
+        .where(*_visibles(ahora))
         .order_by(Noticia.publicada_en.desc(), Noticia.id.desc())
     )
     return list(db.scalars(consulta).unique())
@@ -237,7 +243,8 @@ def notificar_suscriptores(id_vuelo: int) -> int:
                 select(Suscripcion.correo, Suscripcion.token_cancelacion)
                 .where(Suscripcion.activa.is_(True), Suscripcion.correo.is_not(None))
             ).all()
-            vuelo_id = noticia.id_vuelo
+            titulo = noticia.titulo or "Nuevo vuelo disponible"
+            contenido = noticia.contenido or ""
     except Exception:
         logger.exception("No se pudo preparar el aviso de la noticia del vuelo %s", id_vuelo)
         return 0
@@ -248,16 +255,16 @@ def notificar_suscriptores(id_vuelo: int) -> int:
         try:
             enlace = f"{frontend}/cancelar-suscripcion?token={token}"
             cuerpo = email_module._plantilla(
-                titulo=html.escape(f"Nuevo vuelo disponible"),
+                titulo=html.escape(titulo),
                 mensaje_html=(
-                    f"Se ha programado un nuevo vuelo. <br><br>"
+                    f"{html.escape(contenido)} <br><br>"
                     f'<span style="font-size:12px;color:#666;">Recibes este correo porque te suscribiste a las '
                     f'noticias de AeroTiquetes. <a href="{enlace}">Cancelar suscripcion</a></span>'
                 ),
                 boton_texto="Ver noticias",
                 boton_url=f"{frontend}/noticias",
             )
-            email_module._enviar(correo, f"Nuevo vuelo disponible - AeroTiquetes", cuerpo)
+            email_module._enviar(correo, f"{titulo} - AeroTiquetes", cuerpo)
             enviados += 1
         except Exception:
             logger.exception("No se pudo avisar la noticia %s a un suscriptor", id_vuelo)

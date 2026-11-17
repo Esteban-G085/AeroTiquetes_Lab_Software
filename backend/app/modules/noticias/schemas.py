@@ -16,7 +16,8 @@ class NoticiaOut(BaseModel):
     tipo: str
     titulo: str | None = None
     contenido: str | None = None
-    vuelo_id: int
+    # Una noticia manual del administrador no tiene vuelo asociado (B2-15 / HU11).
+    vuelo_id: int | None = None
     origen: CiudadNoticia
     destino: CiudadNoticia
     salida: datetime

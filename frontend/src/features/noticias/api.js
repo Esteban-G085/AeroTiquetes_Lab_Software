@@ -4,7 +4,7 @@ import { http } from '@/services/http'
 //   GET  /noticias                        → lista de noticias publicadas
 //   GET  /noticias/{id}                   → detalle de una noticia
 //   GET  /noticias/suscripcion            → estado de suscripción del cliente
-//   POST /noticias/suscripcion            → suscribir al cliente autenticado
+//   PUT  /noticias/suscripcion  {correo}  → suscribir al cliente autenticado
 //   DELETE /noticias/suscripcion          → cancelar la suscripción del cliente
 //   POST /noticias/suscripcion/cancelar   → cancelar desde enlace del correo (público, con token)
 // Solo clientes autenticados pueden suscribirse/cancelar; consultar es público.
@@ -31,9 +31,9 @@ export async function estadoSuscripcion() {
 /** Alias del contrato F1: `obtenerSuscripcion` == `estadoSuscripcion`. */
 export const obtenerSuscripcion = estadoSuscripcion
 
-/** HU11 — Suscribir al cliente autenticado a las noticias. */
-export async function suscribirseNoticias() {
-  const { data } = await http.put('/noticias/suscripcion')
+/** HU11 — Suscribir al cliente autenticado con el correo donde quiere recibir las noticias. */
+export async function suscribirseNoticias(correo) {
+  const { data } = await http.put('/noticias/suscripcion', { correo })
   return data
 }
 

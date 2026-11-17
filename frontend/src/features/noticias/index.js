@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { ROLES } from '@/config/roles'
+import { ALL_ROLES, ROLES } from '@/config/roles'
 
 // F2 — módulo Noticias (HU11).
 // Clientes y administradores pueden consultar noticias; la suscripción requiere sesión.
@@ -19,6 +19,12 @@ export default {
       title: 'Crear noticia',
       Component: lazy(() => import('./pages/CrearNoticiaPage')),
       roles: [ROLES.ADMIN, ROLES.ROOT],
+    },
+    {
+      path: '/noticias/:id',
+      title: 'Detalle de noticia',
+      Component: lazy(() => import('./pages/NoticiaDetallePage')),
+      roles: ALL_ROLES, // pública, como GET /noticias/{id} en el backend
     },
     {
       path: '/cancelar-suscripcion',

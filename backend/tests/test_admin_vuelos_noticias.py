@@ -290,6 +290,58 @@ def test_publicar_faltantes_ignora_vuelos_programados_hace_mas_de_8_dias(client,
     assert noticias.publicar_faltantes(db_session) == 0
 
 
+def test_noticia_manual_sin_vuelo_aparece_en_el_listado_y_en_el_detalle(client, adm, cab):
+    r = client.post(
+        "/admin/noticias",
+        headers=adm,
+        json={
+            "titulo": "Nuevos destinos para el próximo mes",
+            "contenido": "Estamos ampliando nuestra ruta nacional.",
+            "id_vuelo": None,
+        },
+    )
+    assert r.status_code == 201, r.text
+    creada = r.json()
+    assert creada["vuelo_id"] is None and creada["titulo"] == "Nuevos destinos para el próximo mes"
+
+    items = client.get("/noticias", headers=cab).json()["items"]
+    assert any(n["id"] == creada["id"] for n in items)
+
+    detalle = client.get(f"/noticias/{creada['id']}", headers=cab)
+    assert detalle.status_code == 200, detalle.text
+    assert detalle.json()["vuelo_id"] is None
+    assert detalle.json()["titulo"] == "Nuevos destinos para el próximo mes"
+
+
+def test_noticia_manual_vencida_no_aparece(client, adm, cab):
+    ayer = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    r = client.post(
+        "/admin/noticias",
+        headers=adm,
+        json={"titulo": "Promoción vencida", "contenido": "Ya no vigente", "vigente_hasta": ayer},
+    )
+    assert r.status_code == 201, r.text
+    assert all(n["id"] != r.json()["id"] for n in client.get("/noticias", headers=cab).json()["items"])
+    assert client.get(f"/noticias/{r.json()['id']}", headers=cab).status_code == 404
+
+
+def test_detalle_de_noticia_de_vuelo_trae_los_datos_actualizados(client, adm, cab):
+    v = _programar(client, adm)
+    client.put(f"/admin/vuelos/{v['id']}", json=_edicion(v, precio=199_000), headers=adm)
+    [n] = [x for x in client.get("/noticias", headers=cab).json()["items"] if x["vuelo_id"] == v["id"]]
+
+    detalle = client.get(f"/noticias/{n['id']}", headers=cab)
+    assert detalle.status_code == 200, detalle.text
+    assert detalle.json()["origen"] == {"ciudad": "Bogotá", "codigo": "BOG"}
+    assert detalle.json()["destino"]["codigo"] == "MDE"
+    assert detalle.json()["precio"] == 199_000
+
+
+def test_detalle_de_noticia_inexistente_da_404(client, cab):
+    r = client.get("/noticias/99999", headers=cab)
+    assert r.status_code == 404 and r.json()["error"]["code"] == "noticia_no_encontrada"
+
+
 # ============================================================================ HU11: suscripcion
 def test_suscripcion_alta_consulta_cambio_y_baja(client, cab):
     assert client.get("/noticias/suscripcion", headers=cab).json() == {"suscrito": False, "correo": "ana.gomez@example.com"}

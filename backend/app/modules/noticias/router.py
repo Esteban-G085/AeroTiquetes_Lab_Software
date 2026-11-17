@@ -5,7 +5,7 @@ Noticias de vuelos y suscripcion (HU11, Sprint 2, B2-15).
 * Cliente: ver, activar y cancelar su suscripcion.
 * Publico (enlace del correo): cancelar la suscripcion con el token.
 
-Contrato: `frontend/docs/CONTRATO_NOTICIAS.md`.
+Contrato: `frontend/docs/CONTRATO_ADMIN_VUELOS_NOTICIAS.md`.
 """
 from fastapi import APIRouter, Depends, Query, status
 

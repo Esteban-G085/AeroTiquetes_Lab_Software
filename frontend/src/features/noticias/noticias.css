@@ -99,6 +99,67 @@ select:focus-visible,
   background: var(--at-bg-muted);
 }
 
+/* Portada por defecto cuando el backend no envía imagen (están en la Iteración 4). */
+.not-card__portada {
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--at-space-3);
+  background: var(--at-bg-muted);
+  color: var(--at-primary);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.not-card__tipo,
+.not-card__descuento {
+  align-self: flex-start;
+  border-radius: var(--at-radius);
+  background: var(--at-bg-muted);
+  color: var(--at-primary);
+  font-size: var(--at-text-sm);
+  font-weight: var(--at-font-semibold);
+  padding: 0.15rem 0.5rem;
+}
+
+.not-card__descuento {
+  color: var(--at-success);
+}
+
+.not-card__salida {
+  font-size: var(--at-text-sm);
+  color: var(--at-text-muted);
+  margin: 0;
+}
+
+.not-card__acciones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-2);
+  flex-wrap: wrap;
+  margin-top: var(--at-space-2);
+}
+
+.not-card__detalle,
+.not-card__comprar {
+  font-size: var(--at-text-sm);
+  font-weight: var(--at-font-semibold);
+  color: var(--at-primary);
+  text-decoration: none;
+}
+
+.not-card__comprar {
+  color: var(--at-success);
+}
+
+.not-card__detalle:hover,
+.not-card__comprar:hover {
+  text-decoration: underline;
+}
+
 .not-card__contenido {
   padding: var(--at-space-3);
   display: flex;
@@ -164,6 +225,55 @@ select:focus-visible,
 
 .not-suscripcion__aviso {
   font-size: var(--at-text-sm);
+}
+
+.not-suscripcion__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-3);
+}
+
+.not-suscripcion__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-2);
+}
+
+/* Detalle de una noticia (/noticias/:id) */
+.not-detalle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-3);
+}
+
+.not-detalle__contenido {
+  font-size: var(--at-text-base);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.not-detalle__datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--at-space-3);
+  margin: 0;
+}
+
+.not-detalle__datos dt {
+  font-size: var(--at-text-sm);
+  color: var(--at-text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.not-detalle__datos dd {
+  font-weight: var(--at-font-semibold);
+  margin: 0;
+}
+
+.not-detalle__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-2);
 }
 
 @media (max-width: 640px) {

@@ -45,6 +45,7 @@ puede mostrar un vuelo como `programado` hasta un minuto después de su hora de 
 | Método y ruta | Quién | Respuesta |
 |---|---|---|
 | `GET /noticias` | cliente, administrador | `200 { "items": [Noticia] }`, la más reciente primero (máx. 100) |
+| `GET /noticias/{id}` | cliente, administrador | `200 Noticia`; `404 noticia_no_encontrada` si no existe o ya no está vigente |
 | `GET /noticias/suscripcion` | cliente | `{ "suscrito": false, "correo": "ana@correo.com" }` (`correo` = el de la suscripción o, si no hay, el de la cuenta) |
 | `PUT /noticias/suscripcion` | cliente | cuerpo `{ "correo" }` → `{ "suscrito": true, "correo" }`; `422 fields.correo` si no es un correo |
 | `DELETE /noticias/suscripcion` | cliente | `204` (idempotente) |
@@ -56,5 +57,7 @@ imagen_url: null, publicada_en, vigente_hasta, descuento_pct: null, precio_origi
   aplicación se crean las de los vuelos programados hace menos de 8 días que aún no tengan (por ejemplo los de ejemplo).
 * **Vigencia:** 8 días desde que se publica, y solo mientras el vuelo siga `programado` y no haya salido (RF05, RF06). Los datos (ruta, salida, precio) se leen del
   vuelo al consultar: si el administrador lo edita, la noticia sale actualizada.
+* El administrador también puede publicar noticias manuales con `POST /admin/noticias` (`administrador`): `{ titulo?, contenido?, imagen_url?, id_vuelo?, vigente_hasta? }`.
+  Con `id_vuelo: null` la noticia no depende de un vuelo: `vuelo_id` sale `null` y solo se rige por `vigente_hasta` y los 8 días de publicación.
 * **Pendiente (decisión del PO, pregunta 6):** `imagen_url` sale siempre `null` (el front dibuja la portada con los códigos de la ruta). Subir una imagen alusiva
   y las **promociones** (`tipo: "promocion"`, `descuento_pct`, `precio_original`) quedan para la Iteración 4.

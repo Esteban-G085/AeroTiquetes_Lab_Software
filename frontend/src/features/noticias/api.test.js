@@ -32,17 +32,18 @@ describe('API de noticias (HU11)', () => {
   })
 
   it('estadoSuscripcion -> GET /noticias/suscripcion', async () => {
-    reply({ suscrito: true, desde: '2026-11-10T10:00:00Z' })
-    await expect(estadoSuscripcion()).resolves.toEqual({ suscrito: true, desde: '2026-11-10T10:00:00Z' })
+    reply({ suscrito: true, correo: 'ana@correo.com' })
+    await expect(estadoSuscripcion()).resolves.toEqual({ suscrito: true, correo: 'ana@correo.com' })
     expect(seen.method).toBe('get')
     expect(seen.url).toBe('/noticias/suscripcion')
   })
 
-  it('suscribirseNoticias -> POST /noticias/suscripcion', async () => {
-    reply({ suscrito: true }, 201)
-    await expect(suscribirseNoticias()).resolves.toEqual({ suscrito: true })
-    expect(seen.method).toBe('post')
+  it('suscribirseNoticias -> PUT /noticias/suscripcion con { correo }', async () => {
+    reply({ suscrito: true, correo: 'ana@correo.com' }, 200)
+    await expect(suscribirseNoticias('ana@correo.com')).resolves.toEqual({ suscrito: true, correo: 'ana@correo.com' })
+    expect(seen.method).toBe('put')
     expect(seen.url).toBe('/noticias/suscripcion')
+    expect(JSON.parse(seen.data)).toEqual({ correo: 'ana@correo.com' })
   })
 
   it('cancelarSuscripcionNoticias -> DELETE /noticias/suscripcion', async () => {

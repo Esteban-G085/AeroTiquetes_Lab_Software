@@ -1,27 +1,46 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { EmptyState, ErrorState } from '@/components/feedback'
-import { Button, Notice } from '@/components/ui'
+import { EmptyState, ErrorState, useToast } from '@/components/feedback'
+import { Button, Input, Notice } from '@/components/ui'
 import { PageHeader, BackLink } from '@/components/layout'
+import { ROLES } from '@/config/roles'
 import { useAuth } from '@/context/AuthContext'
-import { useToast } from '@/components/feedback'
+import { formatDate, formatPrice, formatTime } from '@/utils/format'
 import {
   listarNoticias,
-  obtenerNoticia,
   estadoSuscripcion,
   suscribirseNoticias,
   cancelarSuscripcionNoticias,
 } from '../api'
 import '../noticias.css'
 
-/** HU11 — Noticias de vuelos: consultar, suscribirse y cancelar suscripción (cliente). */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
+/** "Bogotá a Medellín" con la forma de ciudad/código que envía el backend. */
+const rutaDe = (n) => {
+  const origen = n.origen?.ciudad || n.origen?.codigo || ''
+  const destino = n.destino?.ciudad || n.destino?.codigo || ''
+  return origen && destino ? `${origen} a ${destino}` : ''
+}
+
+const tituloDe = (n) => {
+  if (n.titulo) return n.titulo
+  return rutaDe(n) ? `Nuevo vuelo ${n.origen?.ciudad || n.origen?.codigo} → ${n.destino?.ciudad || n.destino?.codigo}` : 'Noticia'
+}
+
+/** HU11 — Consultar noticias y gestionar la suscripción por correo (solo clientes). */
 export default function NoticiasPage() {
-  const { rol, isAuthenticated } = useAuth()
+  const { rol } = useAuth()
   const toast = useToast()
   const [noticias, setNoticias] = useState([])
   const [status, setStatus] = useState('loading') // loading | ready | error
-  const [suscrito, setSuscrito] = useState(null) // null | true | false
-  const [suscripcionStatus, setSuscripcionStatus] = useState('idle') // idle | saving | success | error
+  const [suscrito, setSuscrito] = useState(false)
+  const [correo, setCorreo] = useState('')
+  const [errorCorreo, setErrorCorreo] = useState('')
+  const [suscripcionStatus, setSuscripcionStatus] = useState('idle') // idle | saving
+
+  const esCliente = rol === ROLES.CLIENTE
+  const esAdmin = rol === ROLES.ADMIN || rol === ROLES.ROOT
 
   const cargarNoticias = useCallback(async () => {
     setStatus('loading')
@@ -29,63 +48,69 @@ export default function NoticiasPage() {
       const { items } = await listarNoticias()
       setNoticias(items)
       setStatus('ready')
-    } catch (err) {
+    } catch {
       setStatus('error')
     }
   }, [])
 
-  const cargarEstadoSuscripcion = useCallback(async () => {
-    if (!isAuthenticated) {
-      setSuscrito(false)
-      return
-    }
+  const cargarSuscripcion = useCallback(async () => {
+    if (!esCliente) return
     try {
       const estado = await estadoSuscripcion()
       setSuscrito(Boolean(estado?.suscrito))
+      setCorreo(estado?.correo ?? '')
     } catch {
       setSuscrito(false)
     }
-  }, [isAuthenticated])
+  }, [esCliente])
 
   useEffect(() => {
     cargarNoticias()
-    cargarEstadoSuscripcion()
-  }, [cargarNoticias, cargarEstadoSuscripcion])
+    cargarSuscripcion()
+  }, [cargarNoticias, cargarSuscripcion])
 
-  async function manejarSuscripcion() {
-    if (!isAuthenticated) {
-      toast.info('Debes iniciar sesión para suscribirte a las noticias.')
+  async function suscribirse(e) {
+    e.preventDefault()
+    setErrorCorreo('')
+    const valor = correo.trim()
+    if (!EMAIL_RE.test(valor)) {
+      setErrorCorreo('Escribe un correo válido.')
       return
     }
     setSuscripcionStatus('saving')
     try {
-      if (suscrito) {
-        await cancelarSuscripcionNoticias()
-        setSuscrito(false)
-        toast.success('Te has dado de baja de las noticias.')
-      } else {
-        await suscribirseNoticias()
-        setSuscrito(true)
-        toast.success('Te has suscrito a las noticias de vuelos.')
-      }
-      setSuscripcionStatus('success')
+      await suscribirseNoticias(valor)
+      setSuscrito(true)
+      setCorreo(valor)
+      toast.success('Te has suscrito a las noticias de vuelos.')
     } catch (err) {
-      setSuscripcionStatus('error')
-      toast.error(err?.message ?? 'No se pudo actualizar tu suscripción.')
+      setErrorCorreo(err?.fields?.correo ?? err?.message ?? 'No se pudo completar la suscripción.')
+    } finally {
+      setSuscripcionStatus('idle')
     }
   }
 
-  const esAdmin = rol === 'administrador' || rol === 'root'
+  async function cancelar() {
+    setSuscripcionStatus('saving')
+    setErrorCorreo('')
+    try {
+      await cancelarSuscripcionNoticias()
+      setSuscrito(false)
+      toast.success('Te has dado de baja de las noticias.')
+    } catch (err) {
+      toast.error(err?.message ?? 'No se pudo cancelar la suscripción.')
+    } finally {
+      setSuscripcionStatus('idle')
+    }
+  }
+
+  const acciones = esAdmin ? (
+    <Link to="/noticias/crear" className="btn btn-primary">Crear noticia</Link>
+  ) : null
 
   return (
     <div className="not-page">
-      {/* Skip link para navegación por teclado */}
-      <a
-        href="#contenido-principal"
-        className="skip-link"
-      >
-        Saltar al contenido principal
-      </a>
+      <a href="#contenido-principal" className="skip-link">Saltar al contenido principal</a>
 
       <BackLink to="/">Volver al inicio</BackLink>
 
@@ -93,16 +118,12 @@ export default function NoticiasPage() {
         eyebrow="Noticias"
         title="Noticias de vuelos"
         subtitle="Mantente al tanto de los nuevos vuelos y novedades de AeroTiquetes."
+        actions={acciones}
       />
 
       <main id="contenido-principal" tabIndex={-1}>
         {status === 'loading' && (
-          <div
-            className="not-skeleton"
-            aria-label="Cargando noticias"
-            role="status"
-            aria-live="polite"
-          >
+          <div className="not-skeleton" role="status" aria-label="Cargando noticias" aria-live="polite">
             <div className="not-card-skeleton" />
             <div className="not-card-skeleton" />
             <div className="not-card-skeleton" />
@@ -112,115 +133,123 @@ export default function NoticiasPage() {
         {status === 'error' && (
           <ErrorState
             message="No se pudieron cargar las noticias. Intenta de nuevo más tarde."
-            onRetry={() => cargarNoticias()}
+            onRetry={cargarNoticias}
           />
         )}
 
         {status === 'ready' && noticias.length === 0 && (
-          <>
-            <EmptyState
-              title="No hay noticias por ahora"
-              message="Pronto publicaremos novedades sobre nuevos vuelos y destinos."
-            />
-            {esAdmin && (
-              <div className="not-empty__admin mt-4">
-                <Link to="/noticias/crear">
-                  <Button variant="primary" size="lg">
-                    Crear noticia
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </>
+          <EmptyState
+            title="No hay noticias por ahora"
+            message="Pronto publicaremos novedades sobre nuevos vuelos y destinos."
+          />
         )}
 
         {status === 'ready' && noticias.length > 0 && (
-          <>
-            <section aria-label="Lista de noticias">
-              <div className="not-grid">
-                {noticias.map((n) => (
-                  <article
-                    key={n.id ?? n.titulo}
-                    className="not-card"
-                    aria-labelledby={`noticia-titulo-${n.id}`}
-                  >
-                    {n.imagen && (
-                      <img
-                        src={n.imagen}
-                        alt={n.titulo}
-                        className="not-card__imagen"
-                      />
+          <section aria-label="Lista de noticias">
+            <div className="not-grid">
+              {noticias.map((n) => {
+                const ruta = rutaDe(n)
+                const zona = n.salida_zona || 'America/Bogota'
+                return (
+                  <article key={n.id} className="not-card" aria-labelledby={`noticia-titulo-${n.id}`}>
+                    {n.imagen_url ? (
+                      <img src={n.imagen_url} alt="" className="not-card__imagen" />
+                    ) : (
+                      <div className="not-card__portada" aria-hidden="true">
+                        <span>{n.origen?.codigo || 'AT'}</span>
+                        <span>→</span>
+                        <span>{n.destino?.codigo || '✈'}</span>
+                      </div>
                     )}
                     <div className="not-card__contenido">
                       <div className="not-card__meta">
-                        <span className="not-card__fecha">
-                          {n.publicada_en || n.fecha_publicacion || ''}
-                        </span>
-                        {n.vuelo && n.vuelo.origen && n.vuelo.destino && (
-                          <span className="not-card__ruta">
-                            {typeof n.vuelo.origen === 'object'
-                              ? n.vuelo.origen.codigo ?? n.vuelo.origen
-                              : n.vuelo.origen}
-                            {' → '}
-                            {typeof n.vuelo.destino === 'object'
-                              ? n.vuelo.destino.codigo ?? n.vuelo.destino
-                              : n.vuelo.destino}
-                          </span>
+                        <span className="not-card__fecha">{formatDate(n.publicada_en, 'America/Bogota')}</span>
+                        {ruta && <span className="not-card__ruta">{ruta}</span>}
+                        {n.tipo === 'promocion' && <span className="not-card__tipo">Promoción</span>}
+                      </div>
+
+                      <h3 id={`noticia-titulo-${n.id}`} className="not-card__titulo">{tituloDe(n)}</h3>
+
+                      {n.tipo === 'promocion' && n.descuento_pct != null && (
+                        <p className="not-card__descuento">{n.descuento_pct}% de descuento</p>
+                      )}
+
+                      {n.contenido && <p className="not-card__resumen">{n.contenido}</p>}
+
+                      {n.vuelo_id != null && (
+                        <p className="not-card__salida">
+                          Sale el {formatDate(n.salida, zona)} a las {formatTime(n.salida, zona)}
+                        </p>
+                      )}
+
+                      {n.precio > 0 && (
+                        <p className="not-card__precio">
+                          Desde {formatPrice(n.precio, n.moneda)} por persona
+                          {n.precio_original != null && <> · antes {formatPrice(n.precio_original, n.moneda)}</>}
+                        </p>
+                      )}
+
+                      <div className="not-card__acciones">
+                        <Link className="not-card__detalle" to={`/noticias/${n.id}`}>Ver detalle</Link>
+                        {esCliente && n.vuelo_id != null && (
+                          <Link
+                            className="not-card__comprar"
+                            to={`/comprar/${n.vuelo_id}`}
+                            aria-label={`Reservar o comprar ${ruta}`}
+                          >
+                            Reservar o comprar
+                          </Link>
                         )}
                       </div>
-                      <h3 id={`noticia-titulo-${n.id}`} className="not-card__titulo">
-                        {n.titulo}
-                      </h3>
-                      <p className="not-card__resumen">
-                        {n.contenido || n.resumen || n.descripcion || ''}
-                      </p>
-                      {n.vuelo && n.vuelo.costo !== undefined && (
-                        <span className="not-card__precio">
-                          Desde {new Intl.NumberFormat('es-CO', {
-                            style: 'currency',
-                            currency: 'COP',
-                          }).format(n.vuelo.costo)}
-                        </span>
-                      )}
-                      <Link className="not-card__detalle" to={`/noticias/${n.id}`}>
-                        Ver detalle
-                      </Link>
                     </div>
                   </article>
-                ))}
-              </div>
-            </section>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
-            <section className="not-suscripcion at-card at-card--padded mt-4" aria-label="Suscripción a noticias">
-              <PageHeader
-                eyebrow="Suscripción"
-                title="Recibe noticias por correo"
-                subtitle="¿Quieres recibir avisos cuando publiquemos una nueva noticia?"
+        {esCliente && (
+          <section className="not-suscripcion at-card at-card--padded mt-4" aria-label="Suscripción a noticias">
+            <PageHeader
+              eyebrow="Suscripción"
+              title="Recibe noticias por correo"
+              subtitle="Te avisaremos cuando publiquemos una noticia nueva."
+            />
+            <p className="not-suscripcion__estado">
+              {suscrito
+                ? `Estás suscrito a las noticias de vuelos en ${correo}.`
+                : 'No estás suscrito a las noticias.'}
+            </p>
+            <form className="not-suscripcion__form" onSubmit={suscribirse} noValidate>
+              <Input
+                label="Correo"
+                name="correo"
+                type="email"
+                autoComplete="email"
+                placeholder="usuario@correo.com"
+                value={correo}
+                onChange={(e) => { setCorreo(e.target.value); setErrorCorreo('') }}
+                error={errorCorreo}
               />
-              <p className="not-suscripcion__estado">
-                {suscrito === null
-                  ? 'Estado de suscripción: verificando…'
-                  : suscrito
-                  ? 'Estás suscrito a las noticias de vuelos.'
-                  : 'No estás suscrito a las noticias.'}
-              </p>
-              {isAuthenticated ? (
-                <Button
-                  onClick={manejarSuscripcion}
-                  loading={suscripcionStatus === 'saving'}
-                  variant={suscrito ? 'danger' : 'primary'}
-                  className="not-suscripcion__boton"
-                  aria-pressed={suscrito === true}
-                >
-                  {suscrito ? 'Cancelar suscripción' : 'Suscribirse a las noticias'}
+              <div className="not-suscripcion__acciones">
+                <Button type="submit" loading={suscripcionStatus === 'saving'}>
+                  {suscrito ? 'Actualizar correo' : 'Suscribirme'}
                 </Button>
-              ) : (
-                <Notice tone="info" className="not-suscripcion__aviso">
-                  Inicia sesión para poder suscribirte a las noticias y recibir avisos por correo.
-                </Notice>
-              )}
-            </section>
-          </>
+                {suscrito && (
+                  <Button type="button" variant="danger" onClick={cancelar} disabled={suscripcionStatus === 'saving'}>
+                    Cancelar suscripción
+                  </Button>
+                )}
+              </div>
+            </form>
+          </section>
+        )}
+
+        {!esCliente && !esAdmin && (
+          <Notice tone="info" className="not-suscripcion__aviso mt-4">
+            Inicia sesión como cliente para suscribirte a las noticias y recibir avisos por correo.
+          </Notice>
         )}
       </main>
     </div>
