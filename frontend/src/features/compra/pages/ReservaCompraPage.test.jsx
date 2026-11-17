@@ -65,7 +65,7 @@ describe('ReservaCompraPage (HU6 / HU7)', () => {
     await llenarViajero()
     await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
     expect(await screen.findByRole('heading', { name: 'Mi carrito' })).toBeInTheDocument()
-    expect(JSON.parse(sessionStorage.getItem('at.cart'))[0].vuelo.id).toBe(12)
+    expect(JSON.parse(sessionStorage.getItem('at.cart.v2'))[0].vuelo.id).toBe(12)
   })
 
   it('reservar sin pagar crea la reserva y muestra el código por viajero', async () => {
@@ -109,8 +109,12 @@ describe('ReservaCompraPage (HU6 / HU7)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
     expect(await screen.findByText(/Elige el vuelo de regreso/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('radio', { name: /AT-205/ }))
+    // Al elegir el regreso aparece un segundo mapa: hay que seleccionar una silla por tramo.
+    const sillas = await screen.findAllByRole('button', { name: '1A' })
+    await userEvent.click(sillas[0])
+    await userEvent.click(sillas[1])
     await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
-    await waitFor(() => expect(JSON.parse(sessionStorage.getItem('at.cart'))).toHaveLength(2))
+    await waitFor(() => expect(JSON.parse(sessionStorage.getItem('at.cart.v2'))).toHaveLength(2))
   })
 
   it('si el vuelo no existe, lo dice y ofrece buscar otros', async () => {

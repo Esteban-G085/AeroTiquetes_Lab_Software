@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+os.environ.setdefault("APP_ENV", "desarrollo")
 os.environ.setdefault("JWT_SECRET", "secreto-de-pruebas")
 os.environ.setdefault("ROOT_ID", "root")
 os.environ.setdefault("ROOT_PASSWORD", "root12345")
@@ -39,6 +40,7 @@ from app.modules.vuelos import models as _vuelos_models  # noqa: E402,F401
 from app.modules.financiero import models as _financiero_models  # noqa: E402,F401
 from app.modules.compras import models as _compras_models  # noqa: E402,F401
 from app.modules.noticias import models as _noticias_models  # noqa: E402,F401
+from app.modules.notificaciones import models as _notificaciones_models  # noqa: E402,F401
 
 get_settings.cache_clear()
 

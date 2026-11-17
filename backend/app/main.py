@@ -25,9 +25,12 @@ from app.modules.catalogos.router import router as catalogos_router
 from app.modules.catalogos.seeds import asegurar_paises
 from app.modules.compras.router import router as compras_router
 from app.modules.compras.service import vencer_reservas
+from app.modules.financiero import models as _financiero_models  # noqa: F401
 from app.modules.financiero.router import router as financiero_router
 from app.modules.noticias import service as noticias_service
 from app.modules.noticias.router import router as noticias_router
+from app.modules.notificaciones import models as _notificaciones_models  # noqa: F401
+from app.modules.notificaciones.service import enviar_pendientes
 from app.modules.usuarios.router import router as usuarios_router
 from app.modules.usuarios.service import asegurar_root_por_defecto
 from app.modules.vuelos.router import router as vuelos_router
@@ -74,6 +77,25 @@ async def _liberar_reservas_periodicamente() -> None:
             logging.getLogger("aerotiquetes.reservas").exception("No se pudieron liberar las reservas vencidas")
 
 
+INTERVALO_CORREOS_SEG = 30
+
+
+def _reenviar_correos_pendientes() -> None:
+    with session_scope() as db:
+        enviados = enviar_pendientes(db)
+    if enviados:
+        logging.getLogger("aerotiquetes.notificaciones").info("Correos reenviados: %s", enviados)
+
+
+async def _ciclo_correos() -> None:
+    while True:
+        await asyncio.sleep(INTERVALO_CORREOS_SEG)
+        try:
+            await asyncio.to_thread(_reenviar_correos_pendientes)
+        except Exception:  # un fallo de SMTP no debe detener el worker
+            logging.getLogger("aerotiquetes.notificaciones").exception("No se pudieron reenviar correos pendientes")
+
+
 # Logs de la aplicacion visibles en la terminal (por ejemplo, si un correo no se
 # pudo enviar). Sin esto, los INFO de `aerotiquetes.email` no se muestran.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -81,6 +103,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings.validar_seguridad_produccion()  # secretos de ejemplo prohibidos en produccion
     # Arranque: root por defecto (R17-19) y catalogos, todos idempotentes
     # para que correr la app varias veces no duplique nada.
     with session_scope() as db:
@@ -89,13 +112,16 @@ async def lifespan(app: FastAPI):
         asegurar_paises(db)  # catalogo de paises para lugar de nacimiento
         sincronizar_estados(db)  # programado -> sucedido -> realizado segun la hora (HU14)
         noticias_service.publicar_noticias_faltantes(db)  # noticias de los vuelos que ya existian (HU11)
+    _reenviar_correos_pendientes()  # vaciar la bandeja antes de arrancar los ciclos
     ciclo = asyncio.create_task(_ciclo_estados())
     tarea = asyncio.create_task(_liberar_reservas_periodicamente())
+    ciclo_correos = asyncio.create_task(_ciclo_correos())
     try:
         yield
     finally:
         ciclo.cancel()
         tarea.cancel()
+        ciclo_correos.cancel()
 
 
 app = FastAPI(
@@ -108,19 +134,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Vite muestra una URL "Network" (192.168.x.x / 10.x.x.x) ademas de localhost, y el
-# puerto puede cambiar si 5173 esta ocupado. Una lista exacta de orígenes deja
-# esas pestañas sin cabeceras CORS y el navegador convierte todas las respuestas
-# en errores de red (el front muestra "No pudimos conectar con el servidor").
-# Se permiten todos los orígenes locales por puerto, con credenciales (JWT).
+# Origenes permitidos: los configurados mas la URL del front (evita duplicar el
+# dominio real si se cambio solo FRONTEND_URL). En desarrollo se admiten ademas
+# las IPs locales de Vite, porque el puerto puede cambiar si 5173 esta ocupado.
+# En produccion NO hay regex local: solo los orígenes declarados explicitamente.
+_ORIGENES = list(dict.fromkeys([*settings.CORS_ORIGINS, settings.FRONTEND_URL]))
+_REGEX_LOCAL = (
+    r"^http://(?:localhost|127\.0\.0\.1|\[::1\]|"
+    r"192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|"
+    r"172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)(?::\d+)?$"
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_origin_regex=(
-        r"^http://(?:localhost|127\.0\.0\.1|\[::1\]|"
-        r"192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|"
-        r"172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)(?::\d+)?$"
-    ),
+    allow_origins=_ORIGENES,
+    allow_origin_regex=None if settings.es_produccion else _REGEX_LOCAL,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

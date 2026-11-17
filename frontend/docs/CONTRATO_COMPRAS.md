@@ -15,7 +15,8 @@ y sin token **401** (`no_autenticado`). Los vuelos se obtienen con el contrato d
 * **El carrito vive en el front.** El backend no guarda carritos: `POST /compras` recibe el carrito completo de una vez
   (uno o varios vuelos, cada uno con sus viajeros) y es **atómico**: o se compra todo o no se compra nada.
 * **Cupos y sillas:** al reservar o comprar se descuenta el cupo del vuelo (`cupos_primera` / `cupos_economica` de
-  `GET /vuelos/{id}`) y se asigna una **silla al azar** (`numero_silla`). El mapa de sillas completo es de la Iteración 3.
+  `GET /vuelos/{id}`) y se ocupa la silla elegida (o una disponible si no se indicó). `Asiento` es la fuente de verdad;
+  `tiquete.numero_silla` es texto (`"12A"`, no un entero). El mapa visual de selección ya está integrado.
 * **Correos:** los códigos de reserva y los avisos de reintegro se envían **en segundo plano** al correo de cada viajero
   (en desarrollo se ven en Mailpit, http://localhost:8025). El front no tiene que hacer nada.
 
@@ -23,15 +24,16 @@ y sin token **401** (`no_autenticado`). Los vuelos se obtienen con el contrato d
 
 ## 1. Billetera (HU10)
 
-La billetera se crea con saldo 0 la primera vez que se consulta. **No hay historial de movimientos** (RF19) ni comprobantes (RF20).
+La billetera se crea con saldo 0 la primera vez que se consulta. **Solo se puede recargar**: no existe edición libre del saldo.
+Tampoco hay historial de movimientos visible (RF19) ni comprobantes (RF20); internamente cada recarga, pago o reintegro
+queda auditado, sin exponerse en la API.
 
 | Método | Ruta | Cuerpo | Respuesta |
 |---|---|---|---|
 | `GET` | `/mi-billetera` | — | `200 { "saldo": 250000 }` |
 | `POST` | `/mi-billetera/agregar-saldo` | `{ "monto": 500000 }` | `200 { "saldo": 750000 }` (suma al saldo actual) |
-| `PUT` | `/mi-billetera` | `{ "saldo": 300000 }` | `200 { "saldo": 300000 }` (reemplaza el saldo; "editar") |
 
-Validaciones: `monto` entero `> 0` y `saldo` entero `≥ 0`, ambos hasta 1.000.000.000 → `422 validacion` con `fields`.
+Validaciones: `monto` entero `> 0` y hasta 1.000.000.000 → `422 validacion` con `fields`. `PUT /mi-billetera` ya no existe (405).
 
 ### Tarjetas (crédito o débito)
 
@@ -82,8 +84,8 @@ de `/mi-historial` devuelven la misma forma:
       "codigo_reserva": "K7M2QX",   // 6 caracteres, único en todo el sistema; se muestra al cliente
       "estado": "comprado",         // reservado | comprado | cancelado | vencido
       "clase": "economica",         // "primera" | "economica"
-      "trayecto": "unico",          // "unico" | "ida" | "regreso"
-      "numero_silla": 14,           // null cuando el tiquete ya no está activo
+      "trayecto": "unico",          // "unico" | "completo" | "ida" | "regreso"
+      "numero_silla": "12A",        // texto ("fila" + columna); null si ya no está activo
       "precio": 370000,
       "vuelo": { "id": 3, "codigo": "AT-0003", "tipo": "nacional", "estado": "programado",
                  "origen":  { "codigo": "BOG", "nombre": "Bogotá", "pais": "Colombia", "zona_horaria": "America/Bogota" },
@@ -109,10 +111,12 @@ se comprueba al consultar). Cada viajero recibe por correo su `codigo_reserva`.
 
 ```jsonc
 { "items": [                               // 1 a 10 viajes (el carrito)
-    { "trayecto": "unico",                 // "unico" (por defecto) | "completo" (ida y regreso)
+    { "trayecto": "unico",                 // "unico" (por defecto) | "completo" (ida y regreso en UN solo ítem)
       "vuelo_id": 3,
       "vuelo_regreso_id": null,            // obligatorio solo si trayecto = "completo"
       "clase": "economica",                // "primera" | "economica"
+      "asientos": [41, 42],                // IDs de Asiento de ida, uno por viajero (opcional)
+      "asientos_regreso": null,            // IDs de asiento de regreso, uno por viajero
       "viajeros": [                        // 1 a 5 por viaje
         { "documento": "1000-0001",        // se normaliza: sin espacios, puntos ni guiones, en mayúsculas
           "nombres": "Ana", "apellidos": "Gómez",
@@ -122,8 +126,10 @@ se comprueba al consultar). Cada viajero recibe por correo su `codigo_reserva`.
           "nombre_contacto": "Luis Gómez", "telefono_contacto": "3109876543" } ] } ] }
 ```
 
-Todos los datos del viajero son obligatorios. `trayecto: "completo"` crea **dos tiquetes por viajero** (`ida` y `regreso`) que
-comparten el mismo `codigo_reserva`; el vuelo de regreso debe ir de destino a origen y salir **después** de que llegue la ida.
+Todos los datos del viajero son obligatorios. `trayecto: "completo"` es **un solo ítem** con `vuelo_id` y `vuelo_regreso_id`,
+y crea **dos tiquetes por viajero** (`ida` y `regreso`) que comparten el mismo `codigo_reserva`. Envíe `asientos` y
+`asientos_regreso` para elegir silla en cada tramo; el vuelo de regreso debe ir de destino a origen y salir **después** de
+que llegue la ida.
 
 ### Reglas de negocio y errores
 
@@ -156,7 +162,7 @@ La reserva queda `comprada`. Errores: `402 saldo_insuficiente`, `404 reserva_no_
 
 `POST /compras` con el mismo cuerpo de la sección 3 → **201 `Operacion`** (`tipo: "compra"`, `estado: "pagada"`).
 
-Descuenta el **total del carrito** de la billetera, asigna sillas y códigos, y envía un correo a cada viajero. Si no alcanza el
+Descuenta el **total del carrito** de la billetera, ocupa las sillas elegidas y envía un correo a cada viajero. Si no alcanza el
 saldo: **402 `saldo_insuficiente`** y no se compra nada. Mismas reglas y errores de la sección 3 (excepto `expira_en`, que es `null`).
 Ejemplo de carrito con dos vuelos distintos: dos elementos en `items`; el `total` es la suma de todo.
 
@@ -218,7 +224,7 @@ Añadidas en la integración con el frontend (solo `cliente`); viven en el módu
 |---|---|
 | Detalle de vuelo → "Reservar" / "Comprar" | Formulario de viajeros → `POST /reservas` o `POST /compras` con `items` |
 | Carrito (varios vuelos) | El front acumula los `items` y llama a `POST /compras` una sola vez |
-| Mi billetera | `GET /mi-billetera`, `POST …/agregar-saldo`, `PUT /mi-billetera`, CRUD de `/mi-billetera/tarjetas` |
+| Mi billetera | `GET /mi-billetera`, `POST …/agregar-saldo` (solo recargas), CRUD de `/mi-billetera/tarjetas` |
 | Mis viajes / historial | `GET /mi-historial` (con `tipo` para las pestañas) |
 | Cancelar | `POST /compras/{id}/cancelar` (con o sin `tiquete_ids`) · `POST /reservas/{id}/cancelar` |
 | Pagar reserva pendiente | `POST /reservas/{id}/comprar` |
@@ -236,7 +242,9 @@ Añadidas en la integración con el frontend (solo `cliente`); viven en el módu
 
 ## Pendiente / decisiones abiertas
 
-1. **Sillas:** el número va en el tiquete (`numero_silla`) y se asigna al azar. La tabla `silla` y el mapa visual llegan en la Iteración 3.
-2. **Cancelar un vuelo (B2-13):** B2 debe llamar a `compras.service.reintegrar_vuelo_cancelado(db, id_vuelo)` para devolver el dinero a
-   los clientes; hasta que lo haga, cancelar un vuelo no toca los tiquetes ya vendidos.
+1. ✅ **Sillas (resuelto):** se eligen en el mapa y se envían como IDs de `Asiento` (`asientos` / `asientos_regreso`).
+   `Asiento` es la fuente de verdad y `tiquete.numero_silla` guarda la etiqueta texto (`"12A"`). La asignación automática
+   solo se usa cuando el cliente no eligió silla.
+2. ✅ **Cancelar un vuelo (resuelto):** B2 ya llama a `compras.service.reintegrar_vuelo_cancelado(db, id_vuelo)` al cancelar,
+   por lo que se cancelan los tiquetes y se devuelve el dinero a los clientes.
 3. **Tarjetas:** se guardan completas en la base (es simulado); la API solo expone los últimos 4 dígitos. Antes de producción real habría que tokenizarlas.

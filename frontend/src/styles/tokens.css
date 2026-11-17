@@ -91,4 +91,18 @@
   --at-bar-h: var(--at-header-h);
   --at-grad-card: var(--at-grad-banner);
   --at-grad-brand: var(--at-grad-sky);
+
+  /* ── Alias usados por modulos (Noticias) ──────────────────────────────── */
+  --at-primary: var(--at-blue-600);
+  --at-text: var(--at-ink);
+  --at-text-muted: var(--at-muted);
+  --at-border: var(--at-line);
+  --at-border-focus: var(--at-blue-400);
+  --at-bg-muted: var(--at-blue-50);
+  --at-font-semibold: 600;
+  --at-space-1: 0.25rem;
+  --at-space-2: 0.5rem;
+  --at-space-3: 0.75rem;
+  --at-space-4: 1rem;
+  --at-space-5: 1.5rem;
 }

@@ -8,10 +8,9 @@ describe('montos de la billetera', () => {
     expect(parseMonto('1.500.000')).toBe(1500000)
     expect(Number.isNaN(parseMonto('abc'))).toBe(true)
   })
-  it('agregar saldo exige un monto mayor a 0 y establecer saldo acepta 0', () => {
+  it('recargar exige un monto mayor a 0 (no se puede fijar el saldo en 0)', () => {
     expect(validarMonto('')).toMatch(/obligatorio/)
     expect(validarMonto('0')).toMatch(/mayor a 0/)
-    expect(validarMonto('0', { permitirCero: true })).toBeNull()
     expect(validarMonto('50000')).toBeNull()
   })
   it('limita el monto por operación', () => {

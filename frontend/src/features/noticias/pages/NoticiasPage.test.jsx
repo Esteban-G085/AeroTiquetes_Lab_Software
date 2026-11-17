@@ -30,7 +30,7 @@ const NOTICIAS = [
 ]
 
 beforeEach(() => {
-  api.listarNoticias.mockResolvedValue({ total: NOTICIAS.length, items: NOTICIAS })
+  api.listarNoticias.mockResolvedValue({ total: NOTICIAS.length, pagina: 1, tamano: 6, items: NOTICIAS })
   api.estadoSuscripcion.mockResolvedValue({ suscrito: false, correo: 'ana@correo.com' })
   api.suscribirseNoticias.mockResolvedValue({ suscrito: true, correo: 'ana@correo.com' })
   api.cancelarSuscripcionNoticias.mockResolvedValue(undefined)
@@ -100,10 +100,25 @@ describe('NoticiasPage como cliente (HU11)', () => {
   })
 
   it('sin noticias muestra un estado vacío y sigue pudiendo suscribirse', async () => {
-    api.listarNoticias.mockResolvedValue({ total: 0, items: [] })
+    api.listarNoticias.mockResolvedValue({ total: 0, pagina: 1, tamano: 6, items: [] })
     renderWithProviders(<AppRouter />, { route: '/noticias' })
     expect(await screen.findByText('No hay noticias por ahora')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Suscribirme' })).toBeInTheDocument()
+  })
+
+  it('carga más noticias con el botón cuando el total supera la primera página', async () => {
+    const extra = { ...NOTICIAS[0], id: 99, titulo: 'Otra noticia cargada' }
+    api.listarNoticias
+      .mockResolvedValueOnce({ total: 3, pagina: 1, tamano: 2, items: NOTICIAS.slice(0, 2) })
+      .mockResolvedValueOnce({ total: 3, pagina: 2, tamano: 2, items: [extra] })
+
+    renderWithProviders(<AppRouter />, { route: '/noticias' })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Cargar más noticias' }))
+    expect(await screen.findByRole('heading', { name: 'Otra noticia cargada' })).toBeInTheDocument()
+    expect(api.listarNoticias).toHaveBeenNthCalledWith(1, { pagina: 1, tamano: 6 })
+    expect(api.listarNoticias).toHaveBeenNthCalledWith(2, { pagina: 2, tamano: 6 })
+    expect(screen.queryByRole('button', { name: 'Cargar más noticias' })).not.toBeInTheDocument()
   })
 })
 
@@ -120,7 +135,7 @@ describe('NoticiasPage como administrador', () => {
 
   it('ofrece Crear noticia incluso cuando no hay noticias', async () => {
     seedSession({ rol: 'administrador' }, { nombre: 'Jose' })
-    api.listarNoticias.mockResolvedValue({ total: 0, items: [] })
+    api.listarNoticias.mockResolvedValue({ total: 0, pagina: 1, tamano: 6, items: [] })
     renderWithProviders(<AppRouter />, { route: '/noticias' })
     expect(await screen.findByText('No hay noticias por ahora')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Crear noticia' })).toHaveAttribute('href', '/noticias/crear')

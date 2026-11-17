@@ -30,7 +30,7 @@ from app.modules.vuelos.models import (
     codigo_para,
 )
 from app.core.errors import AppError
-from app.modules.vuelos.schemas import OrdenVuelos, UsoCiudad, VueloCrear, VueloEditar
+from app.modules.vuelos.schemas import ClaseVuelo, OrdenVuelos, UsoCiudad, VueloCrear, VueloEditar
 
 logger = logging.getLogger("aerotiquetes.busqueda")
 
@@ -225,13 +225,20 @@ def _rango_del_dia(dia: date) -> tuple[datetime, datetime]:
     return inicio, inicio + timedelta(days=1)
 
 
-_ORDEN_BUSQUEDA = {
-    OrdenVuelos.FECHA_ASC: (Vuelo.salida_utc.asc(),),
-    OrdenVuelos.PRECIO_ASC: (Vuelo.costo.asc(), Vuelo.salida_utc.asc()),
-    OrdenVuelos.PRECIO_DESC: (Vuelo.costo.desc(), Vuelo.salida_utc.asc()),
-    OrdenVuelos.DURACION_ASC: (Vuelo.duracion_min.asc(), Vuelo.salida_utc.asc()),
-    OrdenVuelos.DURACION_DESC: (Vuelo.duracion_min.desc(), Vuelo.salida_utc.asc()),
-}
+def _columna_precio(clase: ClaseVuelo | None):
+    """Tarifa cobrada: `costo_primera` para primera, `costo` (económica) en los demás casos."""
+    return Vuelo.costo_primera if clase == ClaseVuelo.PRIMERA else Vuelo.costo
+
+
+def _orden_busqueda(orden: OrdenVuelos, clase: ClaseVuelo | None) -> tuple:
+    precio = _columna_precio(clase)
+    return {
+        OrdenVuelos.FECHA_ASC: (Vuelo.salida_utc.asc(),),
+        OrdenVuelos.PRECIO_ASC: (precio.asc(), Vuelo.salida_utc.asc()),
+        OrdenVuelos.PRECIO_DESC: (precio.desc(), Vuelo.salida_utc.asc()),
+        OrdenVuelos.DURACION_ASC: (Vuelo.duracion_min.asc(), Vuelo.salida_utc.asc()),
+        OrdenVuelos.DURACION_DESC: (Vuelo.duracion_min.desc(), Vuelo.salida_utc.asc()),
+    }[orden]
 
 
 def _pagina(db: Session, condiciones: list, orden: tuple, pagina: int) -> tuple[int, list[Vuelo]]:
@@ -256,18 +263,21 @@ def buscar_vuelos(
     precio_max: int | None = None,
     duracion_min: int | None = None,
     duracion_max: int | None = None,
+    clase: ClaseVuelo | None = None,
     orden: OrdenVuelos = OrdenVuelos.FECHA_ASC,
     pagina: int = 1,
     ahora: datetime | None = None,
 ) -> tuple[int, list[Vuelo]]:
     """Busqueda publica (B2-08, HU5): criterios opcionales y combinables. Devuelve (total, pagina).
 
-    Solo vuelos `programado` con salida futura (D16), SIN ocultar los que no tienen cupo (D13); por
-    eso aqui no hay filtro de clase: la clase solo sirve para que la pantalla destaque la
-    disponibilidad. `fecha` es el dia completo en hora de Colombia.
+    Solo vuelos `programado` con salida futura (D16), SIN ocultar los que no tienen cupo (D13):
+    `clase` NO filtra vuelos, selecciona la tarifa cobrada (`costo_primera` o `costo`) usada por
+    los filtros de precio, el orden por precio y el campo `precio_efectivo` de la respuesta.
+    `fecha` es el dia completo en hora de Colombia.
     """
     ahora = ahora or datetime.now(timezone.utc)
     condiciones = [Vuelo.estado == EstadoVuelo.PROGRAMADO, Vuelo.salida_utc > ahora]
+    precio = _columna_precio(clase)
 
     if origen:
         condiciones.append(Vuelo.id_origen.in_(_ids_de_ciudad(origen)))
@@ -277,15 +287,15 @@ def buscar_vuelos(
         inicio, fin = _rango_del_dia(fecha)
         condiciones += [Vuelo.salida_utc >= inicio, Vuelo.salida_utc < fin]
     if precio_min is not None:
-        condiciones.append(Vuelo.costo >= precio_min)
+        condiciones.append(precio >= precio_min)
     if precio_max is not None:
-        condiciones.append(Vuelo.costo <= precio_max)
+        condiciones.append(precio <= precio_max)
     if duracion_min is not None:
         condiciones.append(Vuelo.duracion_min >= duracion_min)
     if duracion_max is not None:
         condiciones.append(Vuelo.duracion_min <= duracion_max)
 
-    return _pagina(db, condiciones, _ORDEN_BUSQUEDA[orden], pagina)
+    return _pagina(db, condiciones, _orden_busqueda(orden, clase), pagina)
 
 
 def listar_vuelos_admin(
@@ -321,13 +331,6 @@ def consultar_vuelo(db: Session, id_vuelo: int) -> Vuelo | None:
 # Punto de extension para el modulo de compra/reserva (B1): funciones `f(db, vuelo)` que se ejecutan
 # al cancelar un vuelo, dentro de la misma transaccion (cancelar reservas y compras con reintegro).
 ALCANCELAR_VUELO: list[Callable] = []
-
-# Cambios de estado permitidos. `cancelado` y `realizado` son finales.
-_TRANSICIONES = {
-    EstadoVuelo.PROGRAMADO: {EstadoVuelo.CANCELADO, EstadoVuelo.SUCEDIDO},
-    EstadoVuelo.SUCEDIDO: {EstadoVuelo.REALIZADO},
-}
-
 
 def _error(mensaje: str, estado_http: int, codigo: str, fields: dict | None = None) -> AppError:
     return AppError(mensaje, status_code=estado_http, code=codigo, fields=fields)
@@ -380,30 +383,13 @@ def cancelar_vuelo(db: Session, id_vuelo: int, motivo: str | None = None) -> Vue
     return vuelo
 
 
-def _cambiar_estado(db: Session, vuelo: Vuelo, nuevo: EstadoVuelo, ahora: datetime) -> Vuelo:
-    if nuevo == EstadoVuelo.CANCELADO:
-        return cancelar_vuelo(db, vuelo.id)
-    if nuevo not in _TRANSICIONES.get(vuelo.estado, set()):
-        raise _error(
-            f"No se puede pasar un vuelo de '{vuelo.estado.value}' a '{nuevo.value}'.", 409, "transicion_invalida"
-        )
-    if nuevo == EstadoVuelo.SUCEDIDO and vuelo.salida_utc > ahora:
-        raise _error("El vuelo aun no ha salido.", 409, "transicion_invalida")
-    if nuevo == EstadoVuelo.REALIZADO and vuelo.llegada_utc > ahora:
-        raise _error("El vuelo aun no ha llegado.", 409, "transicion_invalida")
-    vuelo.estado = nuevo
-    db.commit()
-    db.refresh(vuelo)
-    return vuelo
-
-
 def editar_vuelo(db: Session, id_vuelo: int, datos: VueloEditar, *, ahora: datetime | None = None) -> Vuelo:
     """HU12: edita fecha, hora, origen, destino, duracion y costo de un vuelo `programado`.
 
-    * Si `datos.estado` es distinto del actual, el vuelo SOLO cambia de estado (ver `_TRANSICIONES`) y el
-      resto de los datos se ignora.
-    * Si no, se editan los datos: solo un vuelo `programado` es editable (409 `vuelo_no_editable`) y se
-      aplican las mismas reglas de HU18/D5 que al programarlo (422 con errores por campo).
+    * El `estado` no es editable aqui: se cancela con `PATCH /admin/vuelos/{id}/cancelar` (HU13) o
+      pasa a sucedido/realizado automaticamente por tiempo (HU14).
+    * Solo un vuelo `programado` es editable (409 `vuelo_no_editable`) y se aplican las mismas
+      reglas de HU18/D5 que al programarlo (422 con errores por campo).
     * El tipo se deduce de las ciudades. Si cambia (nacional <-> internacional) cambia la capacidad, y eso
       solo se permite si no hay cupos ocupados (409 `vuelo_con_ventas`).
     * La llegada se recalcula (salida + duracion, D15). El codigo no cambia.
@@ -412,8 +398,6 @@ def editar_vuelo(db: Session, id_vuelo: int, datos: VueloEditar, *, ahora: datet
     vuelo = _vuelo_o_404(db, id_vuelo)
     sincronizar_estados(db, ahora)
     vuelo = db.execute(select(Vuelo).where(Vuelo.id == id_vuelo)).scalar_one()  # recargar desde BD
-    if datos.estado is not None and datos.estado != vuelo.estado:
-        return _cambiar_estado(db, vuelo, datos.estado, ahora)
     if vuelo.estado != EstadoVuelo.PROGRAMADO:
         if vuelo.estado == EstadoVuelo.SUCEDIDO:
             raise _error("Solo se pueden editar vuelos programados.", 409, "vuelo_sucedido")

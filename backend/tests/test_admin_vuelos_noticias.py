@@ -133,6 +133,20 @@ def test_no_se_edita_un_vuelo_que_ya_sucedio_estaba_cancelado_o_no_existe(client
     r = client.put(f"/admin/vuelos/{v['id']}", json=_edicion(v), headers=adm)
     assert r.status_code == 409 and r.json()["error"]["code"] == "vuelo_cancelado"
 
+
+def test_editar_no_acepta_estado_en_el_cuerpo(client, adm):
+    """HU12/HU13: `PUT` solo edita datos; el estado se cambia con `PATCH .../cancelar` o por tiempo (HU14)."""
+    v = _programar(client, adm)
+    cuerpo = _edicion(v)
+    cuerpo["estado"] = "cancelado"
+    r = client.put(f"/admin/vuelos/{v['id']}", json=cuerpo, headers=adm)
+    assert r.status_code == 422, r.text
+    assert "estado" in r.json()["error"]["fields"]
+
+    actual = client.get(f"/admin/vuelos/{v['id']}", headers=adm).json()
+    assert actual["estado"] == "programado"
+    assert actual["costo"] == v["costo"]  # ni siquiera se aplicaron los demas datos
+
     assert client.put("/admin/vuelos/99999", json=_edicion(v), headers=adm).status_code == 404
 
 
@@ -288,6 +302,41 @@ def test_publicar_faltantes_ignora_vuelos_programados_hace_mas_de_8_dias(client,
     v.fecha_programacion = datetime.now(timezone.utc) - timedelta(days=30)
     db_session.commit()
     assert noticias.publicar_faltantes(db_session) == 0
+
+
+def test_publicar_faltantes_crea_noticia_aun_con_noticia_manual_sin_vuelo(client, db_session, adm):
+    # Una noticia manual tiene id_vuelo=NULL. Con `NOT IN (SELECT id_vuelo ...)`
+    # ese NULL hacia que ningun vuelo se publicara (SQL UNKNOWN).
+    manual = client.post(
+        "/admin/noticias", headers=adm,
+        json={"titulo": "Aviso general", "contenido": "Sin vuelo asociado", "id_vuelo": None},
+    )
+    assert manual.status_code == 201, manual.text
+    antes = len(db_session.scalars(select(Noticia)).all())
+
+    vuelo = _agregar_vuelo(db_session, "BOG", "MDE", dias=10)
+    assert noticias.publicar_faltantes(db_session) == 1
+
+    creada = db_session.scalar(select(Noticia).where(Noticia.id_vuelo == vuelo.id))
+    assert creada is not None
+    assert len(db_session.scalars(select(Noticia)).all()) == antes + 1
+
+
+def test_listar_noticias_acepta_pagina_y_tamano(client, adm, cab):
+    for destino in ("MDE", "CLO", "CTG"):
+        _programar(client, adm, destino=destino)
+
+    primera = client.get("/noticias?pagina=1&tamano=2", headers=cab).json()
+    segunda = client.get("/noticias?pagina=2&tamano=2", headers=cab).json()
+
+    assert primera["pagina"] == 1 and primera["tamano"] == 2
+    assert segunda["pagina"] == 2 and segunda["tamano"] == 2
+    assert segunda["total"] == primera["total"] >= 3
+    assert len(primera["items"]) == 2
+    assert 1 <= len(segunda["items"]) <= 2
+    ids_primera = {n["id"] for n in primera["items"]}
+    ids_segunda = {n["id"] for n in segunda["items"]}
+    assert ids_primera.isdisjoint(ids_segunda)
 
 
 def test_noticia_manual_sin_vuelo_aparece_en_el_listado_y_en_el_detalle(client, adm, cab):

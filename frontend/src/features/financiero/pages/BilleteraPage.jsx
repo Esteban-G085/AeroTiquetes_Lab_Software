@@ -5,33 +5,30 @@ import { PageHeader } from '@/components/layout'
 import { maskCard, formatPrice } from '@/utils/format'
 import { useAsyncData } from '@/utils/useAsyncData'
 import {
-  actualizarTarjeta, agregarSaldo, crearTarjeta, eliminarTarjeta, establecerSaldo, listarTarjetas, obtenerBilletera,
+  actualizarTarjeta, agregarSaldo, crearTarjeta, eliminarTarjeta, listarTarjetas, obtenerBilletera,
 } from '../api'
 import { MONTOS_RAPIDOS, parseMonto, validarMonto } from '../validators'
 import TarjetaVisual from '../components/TarjetaVisual'
 import TarjetaDialog from '../components/TarjetaDialog'
 import '../financiero.css'
 
-const MODOS = [['agregar', 'Agregar saldo'], ['establecer', 'Establecer saldo']]
-
 function SaldoCard({ billetera, onChanged }) {
   const toast = useToast()
   const [visible, setVisible] = useState(true)
-  const [modo, setModo] = useState('agregar')
   const [monto, setMonto] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
   async function submit(e) {
     e.preventDefault()
-    const msg = validarMonto(monto, { permitirCero: modo === 'establecer' })
+    const msg = validarMonto(monto)
     setError(msg ?? '')
     if (msg) return
     setSaving(true)
     try {
       const valor = parseMonto(monto)
-      const r = modo === 'agregar' ? await agregarSaldo(valor) : await establecerSaldo(valor)
-      toast.success(modo === 'agregar' ? `Agregamos ${formatPrice(valor)} a tu saldo.` : 'Actualizamos tu saldo.')
+      const r = await agregarSaldo(valor)
+      toast.success(`Agregamos ${formatPrice(valor)} a tu saldo.`)
       setMonto('')
       onChanged(r)
     } catch (err) {
@@ -51,30 +48,22 @@ function SaldoCard({ billetera, onChanged }) {
         </button>
       </p>
 
-      <div className="fi-balance__modes" role="group" aria-label="Operación">
-        {MODOS.map(([id, label]) => (
-          <button key={id} type="button" className={`fi-mode${modo === id ? ' is-active' : ''}`} aria-pressed={modo === id} onClick={() => { setModo(id); setError('') }}>{label}</button>
-        ))}
-      </div>
-
       <form onSubmit={submit} noValidate className="fi-balance__form">
-        <Input label={modo === 'agregar' ? 'Monto a agregar' : 'Nuevo saldo'} name="monto" inputMode="numeric" autoComplete="off" placeholder="0"
+        <Input label="Monto a agregar" name="monto" inputMode="numeric" autoComplete="off" placeholder="0"
           value={monto} onChange={(e) => { setMonto(e.target.value); setError('') }} error={error} />
-        {modo === 'agregar' && (
-          <div className="fi-quick" role="group" aria-label="Montos sugeridos">
-            {MONTOS_RAPIDOS.map((m) => (
-              <button key={m} type="button" className="fi-quick__btn" onClick={() => { setMonto(String(m)); setError('') }}>{formatPrice(m)}</button>
-            ))}
-          </div>
-        )}
-        <Button type="submit" loading={saving}>Aplicar</Button>
+        <div className="fi-quick" role="group" aria-label="Montos sugeridos">
+          {MONTOS_RAPIDOS.map((m) => (
+            <button key={m} type="button" className="fi-quick__btn" onClick={() => { setMonto(String(m)); setError('') }}>{formatPrice(m)}</button>
+          ))}
+        </div>
+        <Button type="submit" loading={saving}>Agregar saldo</Button>
       </form>
       <p className="fi-balance__note">Saldo simulado: no está conectado a ningún banco.</p>
     </section>
   )
 }
 
-/** HU15 / HU16 / HU17 — Billetera virtual: saldo (agregar o establecer) y tarjetas de crédito y débito simuladas. */
+/** HU15 / HU16 / HU17 — Billetera virtual: recargas de saldo y tarjetas de crédito y débito simuladas. */
 export default function BilleteraPage() {
   const toast = useToast()
   const bil = useAsyncData(obtenerBilletera)

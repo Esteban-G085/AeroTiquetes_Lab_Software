@@ -70,16 +70,31 @@ const viajeroAlBackend = (v) => {
   return { ...resto, nombre_contacto: contacto_nombre, telefono_contacto: contacto_telefono }
 }
 
-/** Ítems del carrito (uno por vuelo) → cuerpo de POST /reservas y POST /compras. */
-const toPayload = (items) => ({
-  items: items.map((i) => ({
-    trayecto: 'unico',
-    vuelo_id: i.vuelo.id,
-    clase: i.clase,
-    viajeros: i.viajeros.map(viajeroAlBackend),
-    ...(i.asientos && i.asientos.length ? { asientos: i.asientos } : {}),
-  })),
-})
+/**
+ * Ítems del carrito (uno por vuelo, con `tramo`) → cuerpo de POST /reservas y POST /compras.
+ *
+ * El backend modela ida+vuelta como UN item `completo`, con `asientos` para la ida y
+ * `asientos_regreso` para la vuelta. El carrito sigue mostrando dos tramos, así que aquí se
+ * fusionan: el item de ida lleva la referencia al regreso y el item de vuelta se omite.
+ */
+const toPayload = (items) => {
+  const regresos = new Set(items.map((i) => i.vuelo_regreso_id).filter((v) => v != null).map(String))
+  const objetos = []
+  for (const i of items) {
+    if (regresos.has(String(i.vuelo.id))) continue
+    const completo = i.trayecto === 'ida_vuelta' && i.vuelo_regreso_id != null
+    objetos.push({
+      trayecto: completo ? 'completo' : 'unico',
+      vuelo_id: i.vuelo.id,
+      ...(completo ? { vuelo_regreso_id: i.vuelo_regreso_id } : {}),
+      clase: i.clase,
+      viajeros: i.viajeros.map(viajeroAlBackend),
+      ...(i.asientos?.length ? { asientos: i.asientos } : {}),
+      ...(completo && i.asientos_regreso?.length ? { asientos_regreso: i.asientos_regreso } : {}),
+    })
+  }
+  return { items: objetos }
+}
 
 const CAMPOS_DEL_FORMULARIO = { nombre_contacto: 'contacto_nombre', telefono_contacto: 'contacto_telefono' }
 const normalizarDocumento = (d) => String(d ?? '').replace(/[\s.-]/g, '').toUpperCase()
@@ -145,6 +160,7 @@ export function agruparOperacion(op) {
       id: idGrupo(op, mostrados),
       vuelo,
       clase: primero.clase,
+      tramo: primero.trayecto === 'regreso' ? 'vuelta' : 'ida',
       estado,
       creada_en: op.creada_en,
       expira_en: op.expira_en,
@@ -165,21 +181,17 @@ const correosDe = (op) => [...new Set((op.tiquetes ?? []).map((t) => t.viajero?.
 // ───────────────────────────── llamadas ─────────────────────────────
 
 /**
- * POST /reservas (una por ítem: cada vuelo se reserva, se paga y se cancela por separado) → { reservas: [...] }.
- * Si falla una de varias, se cancelan las ya creadas para no dejar reservas sueltas.
+ * POST /reservas (todo el carrito en una sola operación atómica) → { reservas: [...] }.
+ * Un trayecto completo es un solo item del backend, con dos tiquetes que comparten código.
  */
 export async function crearReserva(items) {
-  const creadas = []
+  let data
   try {
-    for (const item of items) {
-      const { data } = await http.post('/reservas', toPayload([item]))
-      creadas.push(data)
-    }
+    ;({ data } = await http.post('/reservas', toPayload(items)))
   } catch (err) {
-    await Promise.allSettled(creadas.map((r) => http.post(`/reservas/${r.id}/cancelar`)))
     throw adaptarError(err, items)
   }
-  return { reservas: creadas.flatMap(agruparOperacion) }
+  return { reservas: agruparOperacion(data) }
 }
 
 /** POST /compras (todo el carrito en una sola operación atómica) → { compras: [...], total, saldo, correo }. */

@@ -86,7 +86,11 @@ class ItemSolicitud(BaseModel):
     viajeros: list[ViajeroIn] = Field(min_length=1, max_length=MAX_VIAJEROS_POR_ITEM)
     asientos: list[int] | None = Field(
         None,
-        description="IDs de asientos individuales, uno por viajero. Si se omite, el sistema asigna automaticamente.",
+        description="IDs de asiento para la ida (o el vuelo unico), uno por viajero. Si se omite, se asignan automaticamente.",
+    )
+    asientos_regreso: list[int] | None = Field(
+        None,
+        description="IDs de asiento para el regreso en un trayecto completo, uno por viajero.",
     )
 
     @model_validator(mode="after")
@@ -96,8 +100,12 @@ class ItemSolicitud(BaseModel):
                 raise ValueError("vuelo_regreso_id es obligatorio en un trayecto completo.")
             if self.vuelo_regreso_id == self.vuelo_id:
                 raise ValueError("El vuelo de regreso debe ser distinto al de ida.")
+            if self.asientos_regreso is not None and len(self.asientos_regreso) != len(self.viajeros):
+                raise ValueError("La cantidad de asientos de regreso debe coincidir con la cantidad de viajeros.")
         elif self.vuelo_regreso_id is not None:
             raise ValueError("vuelo_regreso_id solo se envia en un trayecto completo.")
+        elif self.asientos_regreso is not None:
+            raise ValueError("asientos_regreso solo se envia en un trayecto completo.")
 
         if self.asientos is not None and len(self.asientos) != len(self.viajeros):
             raise ValueError("La cantidad de asientos debe coincidir con la cantidad de viajeros.")
@@ -150,7 +158,7 @@ class TiqueteOut(BaseModel):
     estado: EstadoTiquete
     clase: ClaseTiquete
     trayecto: TrayectoTiquete
-    numero_silla: int | None = Field(description="Silla asignada al azar; null si el tiquete ya no esta activo.")
+    numero_silla: str | None = Field(description="Silla asignada (ej. '12A'); null si el tiquete ya no esta activo.")
     precio: int
     vuelo: VueloResumen
     viajero: ViajeroOut

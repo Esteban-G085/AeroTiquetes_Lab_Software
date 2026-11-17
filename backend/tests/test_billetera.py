@@ -35,11 +35,10 @@ def test_la_billetera_se_crea_con_saldo_cero_en_el_primer_acceso(client, cab, db
     assert db_session.query(Billetera).count() == 1  # no se duplica
 
 
-def test_agregar_saldo_suma_y_editar_saldo_reemplaza(client, cab):
+def test_agregar_saldo_suma(client, cab):
     assert client.post("/mi-billetera/agregar-saldo", json={"monto": 500_000}, headers=cab).json() == {"saldo": 500_000}
     assert client.post("/mi-billetera/agregar-saldo", json={"monto": 250_000}, headers=cab).json() == {"saldo": 750_000}
-    assert client.put("/mi-billetera", json={"saldo": 100_000}, headers=cab).json() == {"saldo": 100_000}
-    assert client.get("/mi-billetera", headers=cab).json() == {"saldo": 100_000}
+    assert client.get("/mi-billetera", headers=cab).json() == {"saldo": 750_000}
 
 
 @pytest.mark.parametrize("cuerpo", [{"monto": 0}, {"monto": -5}, {"monto": 2_000_000_000}, {"monto": "mucho"}, {}])
@@ -48,8 +47,10 @@ def test_monto_invalido_a_agregar(client, cab, cuerpo):
     assert resp.status_code == 422 and resp.json()["error"]["code"] == "validacion"
 
 
-def test_el_saldo_no_puede_quedar_negativo(client, cab):
-    assert client.put("/mi-billetera", json={"saldo": -1}, headers=cab).status_code == 422
+def test_no_se_puede_fijar_el_saldo(client, cab):
+    # Solo recargas: no existe PUT /mi-billetera (antes permitia editar el saldo libremente).
+    assert client.put("/mi-billetera", json={"saldo": -1}, headers=cab).status_code == 405
+    assert client.get("/mi-billetera", headers=cab).json() == {"saldo": 0}
 
 
 def test_cada_cliente_tiene_su_propia_billetera(client):
@@ -127,7 +128,10 @@ def test_no_se_puede_tocar_la_tarjeta_de_otro_cliente(client, cab):
 
 
 # ------------------------------------------------------------------------- permisos
-@pytest.mark.parametrize("metodo,ruta", [("get", "/mi-billetera"), ("get", "/mi-billetera/tarjetas"), ("put", "/mi-billetera")])
+@pytest.mark.parametrize("metodo,ruta", [
+    ("get", "/mi-billetera"), ("get", "/mi-billetera/tarjetas"),
+    ("post", "/mi-billetera/agregar-saldo"),
+])
 def test_visitante_sin_token_recibe_401(client, metodo, ruta):
     resp = getattr(client, metodo)(ruta)
     assert resp.status_code == 401

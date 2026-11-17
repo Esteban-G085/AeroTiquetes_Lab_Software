@@ -76,6 +76,12 @@ select:focus-visible,
   margin-bottom: var(--at-space-4);
 }
 
+.not-mas {
+  display: flex;
+  justify-content: center;
+  margin: var(--at-space-2) 0 var(--at-space-4);
+}
+
 .not-card {
   border: 1px solid var(--at-border);
   border-radius: var(--at-radius);

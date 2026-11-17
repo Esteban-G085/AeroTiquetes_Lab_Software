@@ -13,7 +13,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core import email as email_module  # se llama como atributo: la suite de pruebas reemplaza `_enviar`
@@ -29,6 +29,7 @@ logger = logging.getLogger("aerotiquetes.noticias")
 
 DIAS_PUBLICADA = 8
 TAMANO_PAGINA = 50
+TAMANO_MAXIMO = 100
 
 
 # ---------------------------------------------------------------------------
@@ -96,15 +97,18 @@ def crear_noticia_manual(
 
 def publicar_noticias_faltantes(db: Session) -> int:
     """Crea la noticia de los vuelos `programado` futuros que no la tienen (por ejemplo, los de los seeds)."""
-    con_noticia = select(Noticia.id_vuelo)
     ahora = datetime.now(timezone.utc)
+    # `NOT IN` con una subconsulta que contiene NULL (noticias manuales sin vuelo)
+    # devuelve UNKNOWN para todas las filas y no publica ninguna noticia.
+    # EXISTS correlacionado ignora esos NULL y ademas es mas rapido.
+    sin_noticia = ~exists(select(Noticia.id).where(Noticia.id_vuelo == Vuelo.id))
     vuelos = db.scalars(
         select(Vuelo)
         .where(
             Vuelo.estado == EstadoVuelo.PROGRAMADO,
             Vuelo.salida_utc > ahora,
             Vuelo.fecha_programacion > ahora - timedelta(days=DIAS_PUBLICADA),
-            Vuelo.id.not_in(con_noticia),
+            sin_noticia,
         )
         .order_by(Vuelo.id)
     ).unique()
@@ -129,15 +133,17 @@ def _visibles(ahora: datetime) -> list:
     ]
 
 
-def listar_noticias(db: Session, pagina: int = 1, ahora: datetime | None = None) -> tuple[int, list[Noticia]]:
-    """Noticias vigentes, la mas reciente primero."""
+def listar_noticias(
+    db: Session, pagina: int = 1, tamano: int = TAMANO_PAGINA, ahora: datetime | None = None
+) -> tuple[int, list[Noticia]]:
+    """Noticias vigentes, la mas reciente primero, paginadas."""
     ahora = ahora or datetime.now(timezone.utc)
     base = select(Noticia).outerjoin(Vuelo, Vuelo.id == Noticia.id_vuelo).where(*_visibles(ahora))
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
     filas = db.scalars(
         base.order_by(Noticia.publicada_en.desc(), Noticia.id.desc())
-        .limit(TAMANO_PAGINA)
-        .offset((pagina - 1) * TAMANO_PAGINA)
+        .limit(tamano)
+        .offset((pagina - 1) * tamano)
     ).unique()
     return total, list(filas)
 

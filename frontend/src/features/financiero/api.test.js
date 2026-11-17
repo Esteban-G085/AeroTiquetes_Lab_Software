@@ -1,7 +1,7 @@
 import { http } from '@/services/http'
 import { ApiError } from '@/services/apiError'
 import {
-  actualizarTarjeta, adaptarTarjeta, agregarSaldo, crearTarjeta, eliminarTarjeta, establecerSaldo, listarTarjetas, obtenerBilletera,
+  actualizarTarjeta, adaptarTarjeta, agregarSaldo, crearTarjeta, eliminarTarjeta, listarTarjetas, obtenerBilletera,
 } from './api'
 
 vi.mock('@/services/http', () => ({ http: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }))
@@ -20,13 +20,10 @@ describe('billetera', () => {
     expect(http.get).toHaveBeenCalledWith('/mi-billetera')
   })
 
-  it('agregarSaldo suma y establecerSaldo reemplaza', async () => {
+  it('agregarSaldo es la unica operacion de saldo (POST /agregar-saldo)', async () => {
     http.post.mockResolvedValue({ data: { saldo: 750000 } })
-    http.put.mockResolvedValue({ data: { saldo: 300000 } })
     expect((await agregarSaldo(500000)).saldo).toBe(750000)
     expect(http.post).toHaveBeenCalledWith('/mi-billetera/agregar-saldo', { monto: 500000 })
-    expect((await establecerSaldo(300000)).saldo).toBe(300000)
-    expect(http.put).toHaveBeenCalledWith('/mi-billetera', { saldo: 300000 })
   })
 })
 

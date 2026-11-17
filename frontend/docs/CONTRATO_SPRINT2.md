@@ -38,7 +38,7 @@ Solo el rol `cliente` puede comprar/reservar/usar billetera (403 para root y adm
 
 ---
 ## 2. Compra y reserva — B1-11 … B1-15  (`src/features/compra/api.js`)
-**Ítem** = un vuelo (un tramo). Un trayecto completo (ida y vuelta) son **dos ítems**; cada uno genera su propia compra o reserva.
+**Ítem** = un viaje (uno o dos tramos). Un trayecto completo (ida y vuelta) es **un solo ítem** con `vuelo_id` y `vuelo_regreso_id`; genera una sola compra o reserva.
 ```json
 { "items": [ { "vuelo_id": 12, "clase": "economica",
                "viajeros": [ { "documento": "A12345", "nombres": "Ana María", "apellidos": "Gómez", "fecha_nacimiento": "1990-04-20",
@@ -63,7 +63,7 @@ Mismo cuerpo. Verifica saldo, descuenta de la billetera (precio × viajeros de c
   "total": 500000, "saldo": 1300000, "correo": "ana@correo.com" }
 ```
 Una compra por ítem. `correo` = dirección a la que se enviaron los códigos. **Atómico:** si un ítem falla, no se cobra nada.
-`tiquetes[].silla` (entero) es **opcional**: si B1-13 asigna silla aleatoria, el front la muestra cuando viene; las sillas y el mapa son de la Iteración 3.
+`tiquetes[].numero_silla` es **texto** (`"12A"`). El mapa de selección ya está integrado: se envían IDs de `Asiento` en `asientos` / `asientos_regreso` (uno por viajero y tramo); sin ellos, el backend elige sillas disponibles.
 
 ### Errores de reserva y compra
 | Regla del SRS / plan §7 | HTTP | `code` sugerido | Notas |
@@ -153,8 +153,8 @@ Array (o `{ "items": [...] }`) de vuelos con `estado` `sucedido` | `realizado`, 
 
 ---
 ## Preguntas abiertas (necesitamos respuesta para cerrar el Sprint)
-1. **B1 — Depositar saldo.** B1-16 solo lista consultar saldo y tarjetas. Con saldo inicial 0 y sin pasarela real, **¿cómo recarga el cliente?** El front trae «Agregar saldo» (`POST /mi-billetera/saldo/agregar`, SRS RF02). Si no se implementa, un cliente nuevo no podrá comprar nunca. Decidir: ¿se agrega ese endpoint? (el botón se retira en `BilleteraPage.jsx` si no.)
-2. **B1 — «Establecer saldo».** El SRS RF03 pide poder *editar* el saldo (`PUT /mi-billetera/saldo`). En un sistema «listo para producción» editar el saldo libremente es un riesgo de fraude; recomendamos **solo** el depósito. Si ustedes no lo implementan, se quita el modo «Establecer saldo» del front.
+1. ✅ **B1 — Depositar saldo (resuelto).** Se implementa `POST /mi-billetera/agregar-saldo` (`monto > 0`); la billetera se crea con saldo 0 en el primer acceso. Sin esa recarga un cliente nuevo no podría comprar.
+2. ✅ **B1 — «Establecer saldo» (resuelto).** Se eligió **solo recargas**: se retiró `PUT /mi-billetera` y el modo «Establecer saldo» del front para evitar edición libre de saldo (SRS RF03). Todo cambio de saldo queda auditado internamente (recarga, compra o reintegro), sin exponer historial al cliente (RF19/RF20).
 3. **B1 — Rutas de tarjetas.** ¿`/tarjetas`, o `/mi-billetera/tarjetas`? El front usa `/tarjetas` (un solo cambio en `financiero/api.js`).
 4. **B1 — Enum de `genero`** y regla de `documento` (ver arriba).
 5. **B2 — `estado` en la edición.** B2-12 lista `estado` entre los campos editables, pero el documento de HU (HU20) y el SRS RF09 solo permiten editar **fecha, hora y costo**, y solo si el vuelo no ha sucedido ni tiene tiquetes. El front manda los seis campos del plan salvo `estado`, y bloquea el formulario cuando no se puede editar. El estado cambia por acciones propias (cancelar; sucedido/realizado automático). ¿Se confirma? Si el PO decide que solo fecha/hora/costo son editables, se quitan origen, destino y duración del formulario.

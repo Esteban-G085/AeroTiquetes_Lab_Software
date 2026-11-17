@@ -4,6 +4,7 @@ import { useToast } from '@/components/feedback'
 import { BackLink, PageHeader } from '@/components/layout'
 import { ConfirmDialog } from '@/components/ui'
 import useVueloAdmin from '../hooks/useVueloAdmin'
+import { MOTIVO_MIN, evaluarCancelacion, validarMotivo } from '../rules'
 import { cancelarVuelo } from '../api'
 import '../vuelos.css'
 
@@ -51,21 +52,17 @@ export default function CancelarVueloPage() {
     )
   }
 
-  const tieneTiquetes = (vuelo.tiquetes_vendidos ?? 0) > 0
-  const yaRealizado = vuelo.estado === 'realizado' || vuelo.estado === 'sucedido'
-  const yaCancelado = vuelo.estado === 'cancelado'
+  // Una sola regla de cancelación para el panel y esta pantalla (HU13/HU21): la aplica `rules.js`.
+  const evaluacion = evaluarCancelacion(vuelo)
+  const requiereMotivo = evaluacion.requiereMotivo
 
-  if (yaRealizado || yaCancelado) {
+  if (!evaluacion.puede) {
     return (
       <div className="vu-page">
         {volver}
         <PageHeader eyebrow="Administración" title={`Vuelo ${vuelo.codigo}`} subtitle="No se puede cancelar" />
         <div className="at-card at-card--empty">
-          <p>
-            {yaRealizado
-              ? 'Este vuelo ya fue realizado y no se puede cancelar.'
-              : 'Este vuelo ya está cancelado.'}
-          </p>
+          <p>{evaluacion.motivo}</p>
         </div>
       </div>
     )
@@ -74,8 +71,9 @@ export default function CancelarVueloPage() {
   async function manejarCancelar() {
     const causa = motivo.trim()
     setErrorMotivo('')
-    if (tieneTiquetes && causa.length < 10) {
-      setErrorMotivo('Causa de fuerza mayor obligatoria (mínimo 10 caracteres).')
+    const problema = validarMotivo(causa, requiereMotivo)
+    if (problema) {
+      setErrorMotivo(problema)
       return
     }
     setConfirmar((prev) => ({ ...prev, loading: true }))
@@ -101,22 +99,22 @@ export default function CancelarVueloPage() {
       />
 
       <div className="at-card at-card--padded">
-        {tieneTiquetes && (
+        {requiereMotivo && (
           <div className="vu-cancelar__aviso">
             <p><strong>{vuelo.tiquetes_vendidos} tiquetes vendidos</strong> en este vuelo.</p>
-            <p>Se requiere registrar una causa de fuerza mayor (mínimo 10 caracteres).</p>
+            <p>Se requiere registrar una causa de fuerza mayor (mínimo {MOTIVO_MIN} caracteres).</p>
           </div>
         )}
 
         <label className="form-label" htmlFor="vu-motivo">
-          Causa de fuerza mayor {tieneTiquetes ? <span aria-hidden="true">*</span> : <span className="text-muted">(opcional)</span>}
+          Causa de fuerza mayor {requiereMotivo ? <span aria-hidden="true">*</span> : <span className="text-muted">(opcional)</span>}
         </label>
         <textarea
           id="vu-motivo"
           className="form-control"
           aria-invalid={Boolean(errorMotivo)}
           aria-describedby={errorMotivo ? 'vu-motivo-error' : undefined}
-          placeholder={tieneTiquetes ? 'Ej. Cierre del aeropuerto por tormenta' : 'Opcional'}
+          placeholder={requiereMotivo ? 'Ej. Cierre del aeropuerto por tormenta' : 'Opcional'}
           value={motivo}
           onChange={(e) => { setMotivo(e.target.value); if (errorMotivo) setErrorMotivo('') }}
           rows={3}
@@ -128,10 +126,7 @@ export default function CancelarVueloPage() {
           <button
             type="button"
             className="btn btn-outline-danger"
-            disabled={
-              confirmar.loading ||
-              (tieneTiquetes && (!motivo.trim() || motivo.trim().length < 10))
-            }
+            disabled={confirmar.loading || Boolean(validarMotivo(motivo, requiereMotivo))}
             onClick={() => setConfirmar({ open: true, loading: false })}
           >
             Cancelar vuelo

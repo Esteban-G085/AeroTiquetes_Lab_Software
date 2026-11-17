@@ -56,7 +56,7 @@ def operacion_out(op: Reserva | Compra) -> OperacionOut:
 @router.post("/reservas", response_model=OperacionOut, status_code=status.HTTP_201_CREATED)
 def reservar(payload: SolicitudOperacion, db: DbSession, tareas: BackgroundTasks, cliente=_cliente):
     reserva = service.crear_reserva(db, cliente.id, payload.items)
-    tareas.add_task(notificaciones.enviar_codigos, notificaciones.preparar_codigos(reserva))
+    notificaciones.programar_codigos(db, tareas, reserva)
     return operacion_out(reserva)
 
 
@@ -68,7 +68,7 @@ def ver_reserva(id_reserva: int, db: DbSession, cliente=_cliente):
 @router.post("/reservas/{id_reserva}/comprar", response_model=OperacionOut, status_code=status.HTTP_201_CREATED)
 def pagar_reserva(id_reserva: int, db: DbSession, tareas: BackgroundTasks, cliente=_cliente):
     compra = service.comprar_reserva(db, cliente.id, id_reserva)
-    tareas.add_task(notificaciones.enviar_codigos, notificaciones.preparar_codigos(compra))
+    notificaciones.programar_codigos(db, tareas, compra)
     return operacion_out(compra)
 
 
@@ -82,7 +82,7 @@ def cancelar_reserva(id_reserva: int, db: DbSession, cliente=_cliente):
 @router.post("/compras", response_model=OperacionOut, status_code=status.HTTP_201_CREATED)
 def comprar(payload: SolicitudOperacion, db: DbSession, tareas: BackgroundTasks, cliente=_cliente):
     compra = service.crear_compra(db, cliente.id, payload.items)
-    tareas.add_task(notificaciones.enviar_codigos, notificaciones.preparar_codigos(compra))
+    notificaciones.programar_codigos(db, tareas, compra)
     return operacion_out(compra)
 
 
@@ -104,10 +104,8 @@ def cancelar_compra(
     )
     if reintegro and cliente.correo:
         nombre = " ".join(filter(None, [cliente.nombres, cliente.apellidos])) or cliente.usuario or "cliente"
-        tareas.add_task(
-            notificaciones.enviar_cancelacion,
-            notificaciones.preparar_cancelacion(compra, cancelados, reintegro, cliente.correo, nombre),
-        )
+        datos = notificaciones.preparar_cancelacion(compra, cancelados, reintegro, cliente.correo, nombre)
+        notificaciones.programar_cancelacion(db, tareas, compra, datos)
     saldo = financiero.obtener_o_crear_billetera(db, cliente.id).saldo
     return CancelacionOut(operacion=operacion_out(compra), reintegro=reintegro, saldo=saldo)
 

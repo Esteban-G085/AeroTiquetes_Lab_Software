@@ -1,13 +1,13 @@
 # Estado del Sprint 2 — Frontend (F1 + F2)
 
 > **Actualización tras la integración:** la parte de compra, reserva, historial y billetera **ya se ejecutó y se probó** contra el backend real de B1
-> (Vitest 386/386, ESLint limpio, `vite build`, recorrido en navegador sobre PostgreSQL). La tabla "Lo que se verificó" de abajo es la del entregable
+> (Vitest 401/401, ESLint limpio, `vite build`, recorrido en navegador sobre PostgreSQL). La tabla "Lo que se verificó" de abajo es la del entregable
 > original, escrita sin internet; se conserva como historia. Noticias y la administración de vuelos (editar, cancelar, realizados) también quedaron conectadas: el backend se implementó en la integración (`CONTRATO_ADMIN_VUELOS_NOTICIAS.md`).
 
 Alcance según `Plan_Sprint_2_nuevo.md`: **producción real** (API real, sin mocks), HU 6–14:
 compra y reserva (6–9), billetera y tarjetas (10), noticias y suscripción (11), y administración de vuelos: editar (12), cancelar (13) y realizados (14).
 Las tareas de backend (B1-11 … B2-16) **no** están en este entregable: el front las consume según **`CONTRATO_SPRINT2.md`** (documento para B1 y B2, con 11 preguntas abiertas).
-Fuera de alcance, y por eso **no existen** en el código: check-in, pasabordo, sillas y mapa (Iteración 3), recomendación y chatbot (Iteración 4).
+Fuera de alcance, y por eso **no existen** en el código: check-in y pasabordo (Iteración 3), recomendación y chatbot (Iteración 4). La selección de sillas con mapa sí quedó integrada en compra/reserva.
 
 ## ⚠️ Lo que se verificó y lo que NO (leer primero)
 Este entregable se armó en un entorno **sin acceso a internet**: no se pudo ejecutar `npm install`, así que **Vitest, ESLint y `vite build` no se corrieron aquí**.
@@ -56,7 +56,7 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 - [x] Máximo 5 tiquetes por vuelo y cliente, evaluado por vuelo (descuenta `tiquetes_cliente`).
 - [x] Los 9 datos obligatorios del viajero, validados antes de enviar.
 - [x] Sin viajeros duplicados en un vuelo · menor de edad no puede ser viajero único (18 años, a la fecha del vuelo).
-- [x] Trayecto único y completo (dos tramos independientes).
+- [x] Trayecto único y completo (un solo ítem con ida y regreso; un par de tiquetes por viajero).
 - [x] Compra y reserva simultáneas del mismo vuelo: al reservar se saca del carrito; el backend impone la regla (`COMPRA_Y_RESERVA`).
 - [x] Pago con billetera: se verifica el saldo antes de pagar; si no alcanza, dice cuánto falta y enlaza a la billetera.
 - [x] Cancelar compra hasta 1 h antes (reintegro explícito) y reserva dentro de las 24 h; fuera de plazo se explica por qué.
@@ -86,8 +86,8 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 |---|---|---|
 | Edición de vuelo | Se editan fecha, hora, origen, destino, duración y costo (plan nuevo); **no se envía `estado`** | El plan lo pide; el mockup/SRS RF09 solo permiten fecha, hora y costo → pregunta 5 |
 | «Pagar reserva» | Botón en el historial → `POST /reservas/{id}/pagar` | Sin él, la regla de no tener compra y reserva del mismo vuelo obliga a cancelar la reserva → pregunta 8 |
-| Saldo | «Agregar saldo» y «Establecer saldo» en la billetera | SRS RF02/RF03; el plan no los lista → preguntas 1 y 2. Sin recarga un cliente nuevo no puede comprar |
-| Silla | No se muestra (solo si el backend la envía) | Sillas y mapa son de la Iteración 3 |
+| Saldo | Solo «Agregar saldo» en la billetera | Decisión: solo recargas (RF02); se retiró «Establecer saldo» por riesgo de fraude (RF03) → preguntas 1 y 2 |
+| Silla | Se elige en el mapa; `numero_silla` es texto | Se mantuvo y arregló la selección: `Asiento` es la fuente de verdad |
 | Impuestos y cargos | No se muestran | El SRS fija un costo único por persona |
 | Billetera en el menú | En el menú de cuenta | Mantiene la barra principal corta |
 | Un ítem del carrito | Un vuelo (un tramo) | Cada tramo se cancela y se consulta por separado |

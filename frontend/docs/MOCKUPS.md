@@ -67,10 +67,10 @@ Mockups de referencia: `Historias_de_Usuario.docx`. Las HU del plan (6–14) se 
 | 8 | «Número de reservas» y «Comprar» | Cantidad de viajeros (máx. 5 menos los que ya tiene) y dos acciones: «Agregar al carrito» y «Reservar sin pagar» | Cada viajero requiere sus 9 datos |
 | 7 | Adultos 2, 3… solo con nombres, apellidos, nacimiento, género, teléfono, correo | Los 9 datos obligatorios por viajero | SRS Compra RF06 |
 | 9–10 | «Mi carrito» como panel lateral | Página `/carrito` con resumen y pago | Espacio para revisar viajeros y total; accesible en móvil |
-| 10 | «Silla: A006» | No se muestra silla (solo si el backend la envía) | Sillas, mapa y check-in son de la Iteración 3 |
+| 10 | «Silla: A006» | Se elige silla en el mapa y se muestra `numero_silla` (`"12A"`) | Se mantuvo y arregló la selección; check-in sigue en la Iteración 3 |
 | 12 | «Confirmar reserva» | «Pagar reserva» | Evita confundir con «reserva ya creada»; depende de una pregunta abierta (contrato, 8) |
 | 14 | Dos columnas Compras / Reservas | Pestañas con filtro Todas / Activas / Canceladas | Mejor en móvil |
 | 15–17 | Logos de bancos | Tarjeta genérica «Crédito / Débito» con •••• últimos 4 | No se validan bancos y los logos son marcas de terceros |
-| 15 | Solo «Depositar» | «Agregar saldo» y «Establecer saldo» | SRS RF02/RF03; ver preguntas 1 y 2 del contrato |
+| 15 | Solo «Depositar» | Solo «Agregar saldo» (se retiró «Establecer saldo») | Decisión: solo recargas, por riesgo de fraude; ver preguntas 1 y 2 del contrato |
 
 > Noticias (HU11) y administración de vuelos (HU12–HU14): pantallas de F1 integradas en `features/noticias` y `features/vuelos`, con el backend implementado en la integración del Sprint 2.

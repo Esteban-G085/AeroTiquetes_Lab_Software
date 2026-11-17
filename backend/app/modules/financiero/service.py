@@ -4,6 +4,9 @@ Logica de la billetera simulada (HU10, B1-16).
 `debitar` y `acreditar` las usa el modulo de compras (pago y reintegro). Son operaciones
 atomicas en SQL (`UPDATE ... WHERE saldo >= monto`), asi dos compras simultaneas nunca dejan
 el saldo en negativo. No hacen commit: el que llama controla la transaccion.
+
+Cada cambio de saldo deja un `MovimientoBilletera` de auditoria interna (no se expone en la
+API: R19/R20 excluyen historial y comprobantes visibles para el cliente).
 """
 from fastapi import status
 from sqlalchemy import select, update
@@ -11,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.modules.financiero.models import Billetera, Tarjeta
+from app.modules.financiero.models import Billetera, MovimientoBilletera, Tarjeta, TipoMovimiento
 
 
 def obtener_o_crear_billetera(db: Session, id_cliente: int) -> Billetera:
@@ -32,26 +35,50 @@ def obtener_o_crear_billetera(db: Session, id_cliente: int) -> Billetera:
 
 def agregar_saldo(db: Session, id_cliente: int, monto: int) -> Billetera:
     billetera = obtener_o_crear_billetera(db, id_cliente)
-    acreditar(db, billetera.id, monto)
+    acreditar(db, billetera.id, monto, tipo=TipoMovimiento.RECARGA, referencia="recarga")
     db.commit()
     db.refresh(billetera)
     return billetera
 
 
-def editar_saldo(db: Session, id_cliente: int, saldo: int) -> Billetera:
-    billetera = obtener_o_crear_billetera(db, id_cliente)
-    billetera.saldo = saldo
-    db.commit()
-    return billetera
+def _registrar_movimiento(
+    db: Session, id_billetera: int, tipo: TipoMovimiento, monto: int, referencia: str | None
+) -> None:
+    """Audita el cambio ya aplicado, leyendo el saldo dentro de la misma transaccion."""
+    saldo = db.scalar(select(Billetera.saldo).where(Billetera.id == id_billetera))
+    db.add(
+        MovimientoBilletera(
+            id_billetera=id_billetera,
+            tipo=tipo,
+            monto=monto,
+            saldo_resultante=saldo,
+            referencia=referencia,
+        )
+    )
 
 
-def acreditar(db: Session, id_billetera: int, monto: int) -> None:
+def acreditar(
+    db: Session,
+    id_billetera: int,
+    monto: int,
+    *,
+    tipo: TipoMovimiento = TipoMovimiento.REINTEGRO,
+    referencia: str | None = None,
+) -> None:
     db.flush()
     db.execute(update(Billetera).where(Billetera.id == id_billetera).values(saldo=Billetera.saldo + monto))
+    _registrar_movimiento(db, id_billetera, tipo, monto, referencia)
     db.expire_all()
 
 
-def debitar(db: Session, id_billetera: int, monto: int) -> None:
+def debitar(
+    db: Session,
+    id_billetera: int,
+    monto: int,
+    *,
+    tipo: TipoMovimiento = TipoMovimiento.COMPRA,
+    referencia: str | None = None,
+) -> None:
     """Descuenta `monto`; 402 si no alcanza el saldo (R14-R16)."""
     db.flush()
     res = db.execute(
@@ -63,6 +90,7 @@ def debitar(db: Session, id_billetera: int, monto: int) -> None:
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             code="saldo_insuficiente",
         )
+    _registrar_movimiento(db, id_billetera, tipo, -monto, referencia)
     db.expire_all()
 
 

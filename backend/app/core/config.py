@@ -14,6 +14,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
+    # --- Entorno ---
+    # "desarrollo" (default) o "produccion". Solo produccion endurece CORS y secretos.
+    APP_ENV: str = "desarrollo"
+
     # --- Base de datos ---
     DATABASE_URL: str = "postgresql+psycopg://aerotiquetes:aerotiquetes@localhost:5432/aerotiquetes"
 
@@ -32,6 +36,12 @@ class Settings(BaseSettings):
     SMTP_USER: str | None = None
     SMTP_PASSWORD: str | None = None
     SMTP_FROM: str = "no-responder@aerotiquetes.local"
+    # 587 -> STARTTLS (SMTP_USE_TLS); 465 -> SSL directo (SMTP_USE_SSL).
+    # SMTP_FORCE_TLS=true convierte la falla de negociacion en error (la bandeja
+    # de salida conserva el correo para reintentarlo) en vez de enviar en claro.
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+    SMTP_FORCE_TLS: bool = False
 
     # --- Integracion con el frontend ---
     FRONTEND_URL: str = "http://localhost:5173"
@@ -50,6 +60,24 @@ class Settings(BaseSettings):
     @property
     def is_sqlite(self) -> bool:
         return self.DATABASE_URL.startswith("sqlite")
+
+    @property
+    def es_produccion(self) -> bool:
+        return self.APP_ENV.strip().lower() in {"produccion", "production", "prod"}
+
+    def validar_seguridad_produccion(self) -> None:
+        """Se llama al arrancar: en produccion no se aceptan los secretos de ejemplo."""
+        if not self.es_produccion:
+            return
+        inseguros = []
+        if self.JWT_SECRET == "cambia-este-secreto-en-produccion":
+            inseguros.append("JWT_SECRET")
+        if self.ROOT_PASSWORD == "root1234":
+            inseguros.append("ROOT_PASSWORD")
+        if inseguros:
+            raise RuntimeError(
+                "Configuracion insegura en produccion: cambia " + ", ".join(inseguros) + " antes de arrancar."
+            )
 
 
 @lru_cache

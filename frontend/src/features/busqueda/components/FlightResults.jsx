@@ -8,9 +8,9 @@ import { disponibilidadTexto } from '@/domain/vuelo'
  * Resultados de la búsqueda (HU5). Muestra TODOS los vuelos programados con salida futura
  * —la falta de cupo no los oculta, solo se advierte en la tarjeta (D13)— con la información
  * completa que exige la historia: código, ruta, salida, llegada en hora local, duración,
- * costo y disponibilidad por clase.
+ * tarifa cobrada (`precio_efectivo`, segun la clase pedida) y disponibilidad por clase.
  */
-export default function FlightResults({ vuelos = [], huboBusqueda = false }) {
+export default function FlightResults({ vuelos = [], clase = '', huboBusqueda = false }) {
   if (!huboBusqueda) return null
 
   if (vuelos.length === 0) {
@@ -40,8 +40,13 @@ export default function FlightResults({ vuelos = [], huboBusqueda = false }) {
             salidaZona={vuelo.origen?.zona_horaria}
             llegadaZona={vuelo.destino?.zona_horaria}
             duracionMin={vuelo.duracion_min}
-            precio={vuelo.costo}
-            detalles={`Vuelo ${TIPO_LABEL[vuelo.tipo] ?? vuelo.tipo}`}
+            precio={
+              vuelo.precio_efectivo ??
+              (clase === 'primera' ? (vuelo.costo_primera ?? vuelo.costo) : vuelo.costo)
+            }
+            detalles={`Vuelo ${TIPO_LABEL[vuelo.tipo] ?? vuelo.tipo}${
+              clase === 'primera' ? ' · Tarifa primera' : ''
+            }`}
             disponibilidad={disponibilidadTexto(vuelo)}
             action={<Link className="btn btn-outline-primary" to={`/vuelos/${vuelo.id}`}>Ver detalle</Link>}
           />

@@ -86,7 +86,7 @@ describe('agruparOperacion', () => {
   it('una compra con tiquetes de dos vuelos se ve como dos compras, una por vuelo', () => {
     const grupos = agruparOperacion(OPERACION())
     expect(grupos).toHaveLength(2)
-    expect(grupos[0]).toMatchObject({ id: '9:1,2', estado: 'confirmada', clase: 'economica', total: 600000 })
+    expect(grupos[0]).toMatchObject({ id: '9:1,2', estado: 'confirmada', clase: 'economica', tramo: 'ida', total: 600000 })
     expect(grupos[0].vuelo.codigo).toBe('AT-0007')
     expect(grupos[0].tiquetes.map((t) => [t.codigo_reserva, t.silla])).toEqual([['COD1', 14], ['COD2', 14]])
     expect(grupos[1]).toMatchObject({ id: '9:3', total: 300000 })
@@ -100,6 +100,11 @@ describe('agruparOperacion', () => {
     const todos = agruparOperacion(OPERACION({ tiquetes: [TIQUETE(1, 7, { estado: 'cancelado', numero_silla: null })] }))
     expect(todos[0]).toMatchObject({ estado: 'cancelada', reintegro: 300000 })
     expect(todos[0].tiquetes[0].silla).toBeUndefined()
+  })
+
+  it('el tramo del historial se toma del trayecto del tiquete', () => {
+    const op = OPERACION({ tiquetes: [TIQUETE(1, 7, { trayecto: 'regreso' })] })
+    expect(agruparOperacion(op)[0].tramo).toBe('vuelta')
   })
 
   it('una compra de un vuelo que ya ocurrió figura realizada', () => {
@@ -137,22 +142,35 @@ describe('crearCompra', () => {
 })
 
 describe('crearReserva', () => {
-  it('hace una reserva por vuelo y devuelve una reserva por vuelo', async () => {
-    http.post
-      .mockResolvedValueOnce({ data: OPERACION({ tipo: 'reserva', id: 20, estado: 'activa', tiquetes: [TIQUETE(1, 7, { estado: 'reservado' })] }) })
-      .mockResolvedValueOnce({ data: OPERACION({ tipo: 'reserva', id: 21, estado: 'activa', tiquetes: [TIQUETE(2, 8, { estado: 'reservado' })] }) })
+  it('envía todo el carrito en una sola reserva atómica y devuelve un grupo por vuelo', async () => {
+    http.post.mockResolvedValue({
+      data: OPERACION({
+        tipo: 'reserva', id: 20, estado: 'activa',
+        tiquetes: [TIQUETE(1, 7, { estado: 'reservado' }), TIQUETE(2, 8, { estado: 'reservado' })],
+      }),
+    })
     const r = await crearReserva([ITEM(7), ITEM(8)])
-    expect(http.post.mock.calls.map((c) => c[0])).toEqual(['/reservas', '/reservas'])
-    expect(r.reservas.map((x) => x.id)).toEqual(['20:1', '21:2'])
+    expect(http.post.mock.calls.map((c) => c[0])).toEqual(['/reservas'])
+    expect(http.post.mock.calls[0][1].items).toHaveLength(2)
+    expect(r.reservas.map((x) => x.id)).toEqual(['20:1', '20:2'])
   })
 
-  it('si falla la segunda, cancela la primera para no dejar una reserva suelta', async () => {
-    http.post
-      .mockResolvedValueOnce({ data: OPERACION({ tipo: 'reserva', id: 20, estado: 'activa', tiquetes: [TIQUETE(1, 7, { estado: 'reservado' })] }) })
-      .mockRejectedValueOnce(new ApiError({ status: 409, code: 'sin_cupos', message: 'Sin cupos' }))
-      .mockResolvedValue({ data: {} })
+  it('un fallo del backend no dispara cancelaciones compensatorias', async () => {
+    http.post.mockRejectedValue(new ApiError({ status: 409, code: 'sin_cupos', message: 'Sin cupos' }))
     await expect(crearReserva([ITEM(7), ITEM(8)])).rejects.toMatchObject({ code: 'sin_cupos' })
-    expect(http.post).toHaveBeenLastCalledWith('/reservas/20/cancelar')
+    expect(http.post).toHaveBeenCalledTimes(1)
+  })
+
+  it('ida y vuelta se envían como un único item completo con sillas por tramo', async () => {
+    http.post.mockResolvedValue({ data: OPERACION({ tipo: 'reserva', id: 21, estado: 'activa', tiquetes: [TIQUETE(1, 7, { estado: 'reservado' })] }) })
+    const ida = { ...ITEM(7), tramo: 'ida', trayecto: 'ida_vuelta', vuelo_regreso_id: 8, asientos: [3, 4], asientos_regreso: [7, 8] }
+    const vuelta = { ...ITEM(8), tramo: 'vuelta', asientos: [7, 8] }
+    await crearReserva([ida, vuelta])
+    const [, cuerpo] = http.post.mock.calls[0]
+    expect(cuerpo.items).toHaveLength(1)
+    expect(cuerpo.items[0]).toMatchObject({
+      trayecto: 'completo', vuelo_id: 7, vuelo_regreso_id: 8, asientos: [3, 4], asientos_regreso: [7, 8],
+    })
   })
 })
 

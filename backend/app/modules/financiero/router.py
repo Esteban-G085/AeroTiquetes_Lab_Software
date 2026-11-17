@@ -2,8 +2,7 @@
 Rutas de Gestion financiera (HU10). Solo clientes (R16): administrador y root no compran.
 
     GET    /mi-billetera                  saldo (la crea con saldo 0 si es la primera vez)
-    POST   /mi-billetera/agregar-saldo    suma un monto al saldo           (R02)
-    PUT    /mi-billetera                  fija el saldo (editar)           (R03)
+    POST   /mi-billetera/agregar-saldo    suma un monto al saldo (unica forma de cambiarlo, R02)
     GET    /mi-billetera/tarjetas         lista las tarjetas
     POST   /mi-billetera/tarjetas         agrega una tarjeta (credito o debito)
     PUT    /mi-billetera/tarjetas/{id}    edita una tarjeta
@@ -16,7 +15,6 @@ from app.modules.financiero import service
 from app.modules.financiero.schemas import (
     AgregarSaldoRequest,
     BilleteraOut,
-    EditarSaldoRequest,
     ListaTarjetas,
     TarjetaCrear,
     TarjetaEditar,
@@ -36,11 +34,6 @@ def ver_billetera(db: DbSession, cliente=_cliente):
 @router.post("/agregar-saldo", response_model=BilleteraOut)
 def agregar_saldo(payload: AgregarSaldoRequest, db: DbSession, cliente=_cliente):
     return BilleteraOut.model_validate(service.agregar_saldo(db, cliente.id, payload.monto))
-
-
-@router.put("", response_model=BilleteraOut)
-def editar_saldo(payload: EditarSaldoRequest, db: DbSession, cliente=_cliente):
-    return BilleteraOut.model_validate(service.editar_saldo(db, cliente.id, payload.saldo))
 
 
 @router.get("/tarjetas", response_model=ListaTarjetas)

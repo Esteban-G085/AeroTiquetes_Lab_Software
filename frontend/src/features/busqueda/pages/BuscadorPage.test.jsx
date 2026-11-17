@@ -43,6 +43,19 @@ describe('BuscadorPage (HU5)', () => {
     expect(screen.getByRole('link', { name: 'Ver detalle' })).toHaveAttribute('href', '/vuelos/7')
   })
 
+  it('muestra la tarifa de primera cuando la búsqueda pide clase=primera', async () => {
+    api.buscarVuelos.mockResolvedValue({
+      total: 1,
+      items: [{ ...VUELO, costo_primera: 550000, precio_efectivo: 550000 }],
+    })
+    renderWithProviders(<AppRouter />, { route: '/?clase=primera' })
+
+    const card = await screen.findByRole('article', { name: 'Vuelo AT-0007: Bogotá a Medellín' })
+    expect(card).toHaveTextContent(/550\.000/)
+    expect(card).toHaveTextContent('Tarifa primera')
+    expect(api.buscarVuelos).toHaveBeenCalledWith(expect.objectContaining({ clase: 'primera' }))
+  })
+
   it('aplica los criterios: viajan a la URL y a la consulta', async () => {
     await abrirResultados()
     api.buscarVuelos.mockClear()
@@ -73,8 +86,9 @@ describe('BuscadorPage (HU5)', () => {
     expect(screen.getByLabelText('Origen')).toBeInTheDocument()
   })
 
-  it('abre bajo la franja de marca con el título de la pantalla', () => {
+  it('abre bajo la franja de marca con el título de la pantalla', async () => {
     renderWithProviders(<AppRouter />, { route: '/' })
+    await screen.findByRole('article', { name: 'Vuelo AT-0007: Bogotá a Medellín' })
     const titulo = screen.getByRole('heading', { level: 1, name: 'Buscar vuelos' })
     expect(titulo.closest('.at-hero')).not.toBeNull()
   })

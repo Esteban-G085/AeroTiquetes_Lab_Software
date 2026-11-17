@@ -5,59 +5,13 @@ import { TZ_COLOMBIA, clasificarVuelo, getCiudad } from '@/domain/ciudades'
 import { CAPACIDAD_POR_TIPO, TIPO_LABEL } from '@/domain/estados'
 import { ciudadesDeColombia, gruposDeCiudades } from '@/utils/ciudadesOpciones'
 import { formatDateTime, formatDuration, formatPrice, timeToMinutes, todayISO } from '@/utils/format'
+import { duracionDe, evaluarEdicion, fechaHoraColombia, payloadEditarVuelo, valoresDesdeVuelo } from '../rules'
+
+// Estas dos funciones las exportaba este archivo y las pruebas/consumidores las siguen importando de aquí.
+// La implementación única vive en `rules.js` (misma fecha/hora y mismo cuerpo de PUT que el resto del front).
+export { fechaHoraColombia, payloadEditarVuelo }
 
 const INICIAL = { origen: '', destino: '', fecha: '', hora: '08:00', horas: '1', minutos: '30', costo: '', costoPrimera: '' }
-
-const duracionDe = (horas, minutos) => {
-  const h = Number(horas)
-  const m = Number(minutos)
-  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0)
-}
-
-const horasMinutosDe = (duracionMin) => {
-  const d = Number(duracionMin)
-  if (!Number.isFinite(d) || d <= 0) return { horas: '1', minutos: '30' }
-  const h = Math.floor(d / 60)
-  const m = d % 60
-  return { horas: String(h), minutos: String(m).padStart(2, '0') }
-}
-
-/**
- * Fecha y hora en hora de Colombia a partir de un instante ISO (UTC).
- * `toISOString().slice(...)` mezcla zonas: el backend interpreta `fecha`+`hora` como hora local
- * de Bogotá (-05:00), no como UTC. `Intl` con la zona IANA evita depender del reloj del navegador.
- */
-export function fechaHoraColombia(iso) {
-  if (!iso) return null
-  const instante = new Date(iso)
-  if (Number.isNaN(instante.getTime())) return null
-  const partes = Object.fromEntries(
-    new Intl.DateTimeFormat('es-CO', {
-      timeZone: TZ_COLOMBIA,
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-    })
-      .formatToParts(instante)
-      .filter((p) => p.type !== 'literal')
-      .map((p) => [p.type, p.value]),
-  )
-  if (!partes.year || !partes.month || !partes.day || !partes.hour || !partes.minute) return null
-  return { fecha: `${partes.year}-${partes.month}-${partes.day}`, hora: `${partes.hour}:${partes.minute}` }
-}
-
-/** Precarga del formulario en modo edición, con la salida convertida a hora de Colombia. */
-function valoresIniciales(vuelo) {
-  const local = fechaHoraColombia(vuelo.salida_utc ?? vuelo.salida)
-  return {
-    origen: vuelo.origen?.codigo ?? '',
-    destino: vuelo.destino?.codigo ?? '',
-    fecha: local?.fecha ?? '',
-    hora: local?.hora ?? '08:00',
-    ...horasMinutosDe(vuelo.duracion_min),
-    costo: String(vuelo.costo ?? ''),
-    costoPrimera: String(vuelo.costo_primera ?? ''),
-  }
-}
 
 /** Cuerpo exacto de `POST /admin/vuelos` (HU18). */
 export function payloadCrearVuelo(f) {
@@ -70,19 +24,6 @@ export function payloadCrearVuelo(f) {
     duracion: duracionDe(f.horas, f.minutos),
     costo: Number(f.costo),
     costo_primera: Number(f.costoPrimera) || Number(f.costo),
-  }
-}
-
-/** Cuerpo exacto de `PUT /admin/vuelos/{id}` (HU12): sin `tipo` (se deduce) y con `precio_primera`. */
-export function payloadEditarVuelo(f) {
-  return {
-    origen: f.origen,
-    destino: f.destino,
-    fecha: f.fecha,
-    hora: f.hora,
-    duracion_min: duracionDe(f.horas, f.minutos),
-    precio: Number(f.costo),
-    precio_primera: Number(f.costoPrimera) || Number(f.costo),
   }
 }
 
@@ -130,20 +71,15 @@ function validar(f, esEdicion = false) {
  */
 export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
   const esEdicion = Boolean(vuelo)
-  const [f, setF] = useState(esEdicion ? valoresIniciales(vuelo) : INICIAL)
+  const [f, setF] = useState(esEdicion ? valoresDesdeVuelo(vuelo) : INICIAL)
   const [errores, setErrores] = useState({})
   const [errorGeneral, setErrorGeneral] = useState('')
   const [enviando, setEnviando] = useState(false)
 
-  const tiquetesVendidos = Number(vuelo?.tiquetes_vendidos ?? 0)
-  const bloqueado = esEdicion && (vuelo.estado !== 'programado' || tiquetesVendidos > 0)
-  const razonBloqueo = !esEdicion ? ''
-    : vuelo.estado === 'realizado' ? 'Este vuelo ya fue realizado y no se puede editar.'
-    : vuelo.estado === 'sucedido' ? 'Este vuelo ya sucedió y no se puede editar.'
-    : vuelo.estado === 'cancelado' ? 'Este vuelo está cancelado y no se puede editar.'
-    : tiquetesVendidos > 0
-      ? `Este vuelo tiene ${tiquetesVendidos} ${tiquetesVendidos === 1 ? 'tiquete vendido' : 'tiquetes vendidos'}: solo se puede consultar.`
-      : ''
+  // Una sola regla de edición para el form y el panel (HU12/HU20): la aplica `rules.js`.
+  const evaluacion = esEdicion ? evaluarEdicion(vuelo) : null
+  const bloqueado = Boolean(evaluacion && !evaluacion.puede)
+  const razonBloqueo = evaluacion?.motivo ?? ''
 
   const set = (campo) => (e) => setF((prev) => ({ ...prev, [campo]: e.target.value }))
 

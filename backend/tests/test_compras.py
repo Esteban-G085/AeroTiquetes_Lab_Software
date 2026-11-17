@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.modules.compras import service
 from app.modules.compras.models import Compra, EstadoReserva, EstadoTiquete, Reserva, Tiquete
 from app.modules.financiero.models import Billetera
-from app.modules.vuelos.models import Ciudad, TipoVuelo, Vuelo
+from app.modules.vuelos.models import Asiento, Ciudad, ClaseAsiento, EstadoAsiento, TipoVuelo, Vuelo
 from app.modules.vuelos.service import crear_vuelo, tipo_entre
 from tests.conftest import auth_headers, datos_registro_cliente, login
 
@@ -55,6 +55,11 @@ def _cuerpo(*items) -> dict:
     return {"items": list(items)}
 
 
+def _numero(silla: str) -> int:
+    """Convierte la etiqueta de asiento ('6A') al numero de cupo historico (26)."""
+    return (int(silla[:-1]) - 1) * 5 + "ABCDE".index(silla[-1]) + 1
+
+
 @pytest.fixture()
 def cab(client):
     return auth_headers(_token(client))
@@ -95,7 +100,7 @@ def test_reservar_crea_una_reserva_activa_por_24_horas(client, db_session, cab, 
 
     [t] = r["tiquetes"]
     assert t["estado"] == "reservado" and t["trayecto"] == "unico" and t["clase"] == "economica"
-    assert len(t["codigo_reserva"]) == 8 and 26 <= t["numero_silla"] <= 150
+    assert len(t["codigo_reserva"]) == 8 and 26 <= _numero(t["numero_silla"]) <= 150
     assert t["vuelo"]["codigo"] == v1.codigo and t["viajero"]["documento"] == "1000000001"
 
     assert _cupos(db_session, v1) == (25, 124)  # un cupo de economica retenido
@@ -127,7 +132,80 @@ def test_la_silla_se_asigna_al_azar_dentro_del_rango_de_la_clase(client, db_sess
     v = _vuelo(db_session, origen, destino)
     assert v.tipo == (TipoVuelo.INTERNACIONAL if destino == "MIA" else TipoVuelo.NACIONAL)
     t = client.post("/reservas", json=_cuerpo(_item(v, clase=clase)), headers=cab).json()["tiquetes"][0]
-    assert rango[0] <= t["numero_silla"] <= rango[1]
+    assert rango[0] <= _numero(t["numero_silla"]) <= rango[1]
+
+
+def _asientos_libres(db, vuelo, clase="economica", cantidad=1):
+    return list(db.scalars(
+        select(Asiento)
+        .where(
+            Asiento.id_vuelo == vuelo.id,
+            Asiento.estado == EstadoAsiento.DISPONIBLE,
+            Asiento.clase == ClaseAsiento(clase),
+        )
+        .order_by(Asiento.fila, Asiento.columna)
+        .limit(cantidad)
+    ))
+
+
+def test_reservar_con_sillas_explicitas_actualiza_el_mapa(client, db_session, cab, v1):
+    elegidos = _asientos_libres(db_session, v1, cantidad=2)
+    ids = [a.id for a in elegidos]
+    resp = client.post(
+        "/reservas",
+        json=_cuerpo(_item(v1, [_viajero(1), _viajero(2)], asientos=ids)),
+        headers=cab,
+    )
+    assert resp.status_code == 201, resp.text
+    assert {t["numero_silla"] for t in resp.json()["tiquetes"]} == {a.numero for a in elegidos}
+
+    db_session.expire_all()
+    actuales = db_session.scalars(select(Asiento).where(Asiento.id.in_(ids))).all()
+    assert all(a.estado == EstadoAsiento.OCUPADO and a.id_tiquete is not None for a in actuales)
+
+
+def test_cancelar_libera_las_sillas_del_mapa(client, db_session, cab, v1):
+    elegidos = _asientos_libres(db_session, v1)
+    ids = [a.id for a in elegidos]
+    resp = client.post(
+        "/reservas",
+        json=_cuerpo(_item(v1, asientos=ids)),
+        headers=cab,
+    )
+    assert resp.status_code == 201, resp.text
+    assert client.post(f"/reservas/{resp.json()['id']}/cancelar", headers=cab).status_code == 200
+
+    db_session.expire_all()
+    actuales = db_session.scalars(select(Asiento).where(Asiento.id.in_(ids))).all()
+    assert all(a.estado == EstadoAsiento.DISPONIBLE and a.id_tiquete is None for a in actuales)
+
+
+def test_trayecto_completo_usa_sillas_distintas_por_tramo(client, db_session, cab, v1):
+    regreso = _vuelo(db_session, "MDE", "BOG", en=timedelta(days=3, hours=3))
+    ida = _asientos_libres(db_session, v1, cantidad=2)
+    vuelta = _asientos_libres(db_session, regreso, cantidad=2)
+    resp = client.post(
+        "/reservas",
+        json=_cuerpo(_item(
+            v1,
+            [_viajero(1), _viajero(2)],
+            trayecto="completo",
+            vuelo_regreso_id=regreso.id,
+            asientos=[a.id for a in ida],
+            asientos_regreso=[a.id for a in vuelta],
+        )),
+        headers=cab,
+    )
+    assert resp.status_code == 201, resp.text
+    tiquetes = resp.json()["tiquetes"]
+    assert len(tiquetes) == 4
+    assert len({t["codigo_reserva"] for t in tiquetes}) == 2
+    por_tramo = {
+        tramo: {t["numero_silla"] for t in tiquetes if t["trayecto"] == tramo}
+        for tramo in ("ida", "regreso")
+    }
+    assert por_tramo["ida"] == {a.numero for a in ida}
+    assert por_tramo["regreso"] == {a.numero for a in vuelta}
 
 
 def test_reservar_requiere_datos_obligatorios_del_viajero(client, cab, v1):
@@ -324,7 +402,7 @@ def test_comprar_descuenta_el_saldo_y_envia_el_codigo(client, db_session, con_sa
     c = resp.json()
     assert c["tipo"] == "compra" and c["estado"] == "pagada" and c["total"] == 200_000 and c["expira_en"] is None
     [t] = c["tiquetes"]
-    assert t["estado"] == "comprado" and 1 <= t["numero_silla"] <= 25
+    assert t["estado"] == "comprado" and 1 <= _numero(t["numero_silla"]) <= 25
     assert _saldo(client, con_saldo) == 4_800_000
     assert _cupos(db_session, v1) == (24, 125)
     [correo] = correos[antes:]

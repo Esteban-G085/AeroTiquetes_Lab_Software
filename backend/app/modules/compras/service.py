@@ -19,6 +19,7 @@ Concurrencia: los cupos, el saldo y los cambios de estado se modifican con `UPDA
 (y la base de datos tiene restricciones unicas de silla y de persona por vuelo), asi dos peticiones
 simultaneas no pueden vender dos veces el mismo cupo ni reintegrar dos veces.
 """
+import logging
 import random
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -44,7 +45,8 @@ from app.modules.compras.models import (
 )
 from app.modules.compras.schemas import ItemSolicitud, TrayectoSolicitado
 from app.modules.financiero import service as financiero
-from app.modules.vuelos.models import Asiento, CUPOS_POR_TIPO, EstadoAsiento, EstadoVuelo, Vuelo
+from app.modules.financiero.models import TipoMovimiento
+from app.modules.vuelos.models import Asiento, ClaseAsiento, EstadoAsiento, EstadoVuelo, Vuelo
 
 RESERVA_VIGENCIA = timedelta(hours=24)
 CANCELACION_COMPRA_ANTICIPACION = timedelta(hours=1)
@@ -54,6 +56,11 @@ MAX_TIQUETES_POR_VUELO = 5
 _ALFABETO_CODIGO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # sin 0/O ni 1/I para que no se confundan
 _LARGO_CODIGO = 8
 _azar = random.SystemRandom()
+logger = logging.getLogger(__name__)
+
+
+class _ChoqueSilla(Exception):
+    """Otra peticion tomo el asiento entre la validacion y el UPDATE; se reintenta."""
 
 
 def _ahora() -> datetime:
@@ -134,8 +141,9 @@ def _planear(db: Session, id_cliente: int, items: list[ItemSolicitud], ahora: da
             )
 
         for vuelo, trayecto in tramos:
+            ids_asientos = item.asientos if trayecto in (TrayectoTiquete.UNICO, TrayectoTiquete.IDA) else item.asientos_regreso
             for i, viajero in enumerate(item.viajeros):
-                asiento_id = item.asientos[i] if item.asientos else None
+                asiento_id = ids_asientos[i] if ids_asientos else None
                 lineas.append(_Linea(n, vuelo, item.clase, trayecto, viajero.model_dump(), asiento_id))
 
     # El mismo documento no puede repetirse dentro del pedido para un mismo vuelo.
@@ -221,12 +229,6 @@ def _devolver_cupos(db: Session, id_vuelo: int, clase: ClaseTiquete, n: int) -> 
     db.execute(update(Vuelo).where(Vuelo.id == id_vuelo).values(**val))
 
 
-def _rango_sillas(vuelo: Vuelo, clase: ClaseTiquete) -> range:
-    """Nacional: primera 1-25, economica 26-150. Internacional: primera 1-50, economica 51-250."""
-    economica, primera = CUPOS_POR_TIPO[vuelo.tipo]
-    return range(1, primera + 1) if clase == ClaseTiquete.PRIMERA else range(primera + 1, primera + economica + 1)
-
-
 def _generar_codigo(db: Session, usados: set[str]) -> str:
     while True:
         codigo = "".join(_azar.choice(_ALFABETO_CODIGO) for _ in range(_LARGO_CODIGO))
@@ -253,14 +255,42 @@ def _crear_tiquetes(
     db: Session, id_cliente: int, lineas: list[_Linea], estado: EstadoTiquete, *,
     reserva: Reserva | None = None, compra: Compra | None = None,
 ) -> list[Tiquete]:
-    # 1) Validar y reservar asientos solicitados (si los hay)
+    """Crea los tiquetes y toma su silla. `Asiento` es la fuente de verdad.
+
+    Los IDs explicitos se validan (vuelo, clase y disponibilidad); si no se envian, se elige un
+    asiento disponible al azar. El `UPDATE ... WHERE estado = DISPONIBLE` final es atomico: si otra
+    peticion tomo la silla mientras tanto, se lanza `_ChoqueSilla` y `_transaccion` reintenta con
+    una silla distinta, sin dejar cupos ni tiquetes a medias.
+    """
+    # 1) cupos (atomico, por vuelo y clase)
+    pedidos = Counter((l.vuelo.id, l.clase) for l in lineas)
+    vuelos = {l.vuelo.id: l.vuelo for l in lineas}
+    for (id_vuelo, clase), n in pedidos.items():
+        _tomar_cupos(db, vuelos[id_vuelo], clase, n)
+
+    # 2) elegir un Asiento distinto por tiquete (explicito o aleatorio)
     asientos_por_vuelo: dict[int, dict[int, Asiento]] = {}
+    ids_en_pedido: set[int] = set()
+    elegidos: list[Asiento] = []
     for l in lineas:
-        if l.asiento_id is not None:
+        clase_asiento = ClaseAsiento(l.clase.value)
+        if l.asiento_id is None:
+            libres = [
+                a for a in db.scalars(
+                    select(Asiento).where(
+                        Asiento.id_vuelo == l.vuelo.id,
+                        Asiento.estado == EstadoAsiento.DISPONIBLE,
+                        Asiento.clase == clase_asiento,
+                    )
+                )
+                if a.id not in ids_en_pedido
+            ]
+            if not libres:
+                raise _error(f"No quedan sillas libres en {l.clase.value} para {l.vuelo.codigo}.", "sin_cupos")
+            asiento = _azar.choice(libres)
+        else:
             if l.vuelo.id not in asientos_por_vuelo:
-                filas = db.scalars(
-                    select(Asiento).where(Asiento.id_vuelo == l.vuelo.id)
-                ).all()
+                filas = db.scalars(select(Asiento).where(Asiento.id_vuelo == l.vuelo.id))
                 asientos_por_vuelo[l.vuelo.id] = {a.id: a for a in filas}
             asiento = asientos_por_vuelo[l.vuelo.id].get(l.asiento_id)
             if asiento is None:
@@ -268,50 +298,26 @@ def _crear_tiquetes(
                     f"El asiento {l.asiento_id} no existe en el vuelo {l.vuelo.codigo}.",
                     "asiento_no_encontrado", status.HTTP_404_NOT_FOUND,
                 )
-            if asiento.estado != EstadoAsiento.DISPONIBLE:
+            if asiento.estado != EstadoAsiento.DISPONIBLE or asiento.id in ids_en_pedido:
                 raise _error(
                     f"El asiento {asiento.numero} ya no esta disponible.",
                     "asiento_no_disponible", status.HTTP_409_CONFLICT,
                 )
-            if asiento.clase.value != l.clase.value:
+            if asiento.clase != clase_asiento:
                 raise _error(
                     f"El asiento {asiento.numero} no es de clase {l.clase.value}.",
                     "asiento_clase_invalida", status.HTTP_422_UNPROCESSABLE_ENTITY,
                 )
+        ids_en_pedido.add(asiento.id)
+        elegidos.append(asiento)
 
-    # 2) cupos (atomico, por vuelo y clase)
-    pedidos = Counter((l.vuelo.id, l.clase) for l in lineas)
-    vuelos = {l.vuelo.id: l.vuelo for l in lineas}
-    for (id_vuelo, clase), n in pedidos.items():
-        _tomar_cupos(db, vuelos[id_vuelo], clase, n)
-
-    # 3) sillas: usar asiento_id si se provino, si no asignar al azar
-    ocupadas = {
-        id_vuelo: set(
-            db.scalars(select(Tiquete.numero_silla).where(Tiquete.id_vuelo == id_vuelo, Tiquete.numero_silla.is_not(None)))
-        )
-        for id_vuelo in vuelos
-    }
-
-    # 4) un codigo por viajero de cada item (la ida y el regreso comparten codigo)
+    # 3) un codigo por viajero de cada item (la ida y el regreso comparten codigo)
     codigos: dict[tuple[int, str], str] = {}
     usados: set[str] = set()
     viajeros: dict[str, Viajero] = {}
 
     tiquetes: list[Tiquete] = []
-    asientos_reservados: list[int] = []
-    for l in lineas:
-        if l.asiento_id is not None:
-            asiento = asientos_por_vuelo[l.vuelo.id][l.asiento_id]
-            silla = asiento.numero
-            asientos_reservados.append(l.asiento_id)
-        else:
-            libres = [n for n in _rango_sillas(l.vuelo, l.clase) if n not in ocupadas[l.vuelo.id]]
-            if not libres:
-                raise _error(f"No quedan sillas libres en {l.clase.value} para {l.vuelo.codigo}.", "sin_cupos")
-            silla = _azar.choice(libres)
-            ocupadas[l.vuelo.id].add(silla)
-
+    for l, asiento in zip(lineas, elegidos):
         doc = l.viajero["documento"]
         if doc not in viajeros:
             viajeros[doc] = _guardar_viajero(db, id_cliente, l.viajero)
@@ -323,23 +329,24 @@ def _crear_tiquetes(
         t = Tiquete(
             id_cliente=id_cliente, reserva=reserva, compra=compra, id_viajero=viajeros[doc].id, vuelo=l.vuelo,
             documento=doc, codigo_reserva=codigos[clave], clase=l.clase, trayecto=l.trayecto,
-            numero_silla=silla,
+            numero_silla=asiento.numero,
             precio=l.vuelo.costo_primera if l.clase == ClaseTiquete.PRIMERA else l.vuelo.costo,
             estado=estado,
         )
         db.add(t)
         tiquetes.append(t)
 
-    # 5) Marcar los asientos como OCUPADO y vincularlos al tiquete (se hace despuevo de crear tiquetes para tener el id)
-    if asientos_reservados:
-        for a_id, t in zip(asientos_reservados, [t for t in tiquetes if t.numero_silla is not None][:len(asientos_reservados)]):
-            db.execute(
-                sa_update(Asiento)
-                .where(Asiento.id == a_id, Asiento.estado == EstadoAsiento.DISPONIBLE)
-                .values(estado=EstadoAsiento.OCUPADO, id_tiquete=t.id)
-            )
-        db.flush()
+    db.flush()  # necesitamos los ids antes de vincular los asientos
 
+    # 4) marcar los asientos como OCUPADO y vincularlos al tiquete
+    for t, asiento in zip(tiquetes, elegidos):
+        res = db.execute(
+            update(Asiento)
+            .where(Asiento.id == asiento.id, Asiento.estado == EstadoAsiento.DISPONIBLE)
+            .values(estado=EstadoAsiento.OCUPADO, id_tiquete=t.id)
+        )
+        if res.rowcount != 1:
+            raise _ChoqueSilla(f"El asiento {asiento.numero} fue tomado por otra operacion.")
     db.flush()
     return tiquetes
 
@@ -365,6 +372,17 @@ def _liberar(
     if devolver_cupos:
         for (id_vuelo, clase), n in Counter((t.id_vuelo, t.clase) for t in cambiados).items():
             _devolver_cupos(db, id_vuelo, clase, n)
+    if cambiados:
+        # El Asiento es la fuente de verdad: liberarlo aqui cubre vencimiento, cancelacion
+        # de reserva/compra y cancelacion de vuelo con una sola regla.
+        try:
+            from app.modules.vuelos.service import liberar_asientos
+            ids_asientos = list(db.scalars(
+                select(Asiento.id).where(Asiento.id_tiquete.in_([t.id for t in cambiados]))
+            ))
+            liberar_asientos(db, ids_asientos)
+        except Exception:
+            logger.exception("No se pudieron liberar los asientos de los tiquetes %s", [t.id for t in cambiados])
     db.expire_all()
     return cambiados
 
@@ -407,6 +425,12 @@ def _transaccion(db: Session, funcion):
                 raise _error(
                     "Hay mucha demanda en este vuelo. Intenta de nuevo.", "conflicto_concurrencia"
                 ) from exc
+        except _ChoqueSilla:
+            db.rollback()
+            if intento == _INTENTOS_POR_CHOQUE_DE_SILLA - 1:
+                raise _error(
+                    "Hay mucha demanda por esas sillas. Intenta de nuevo.", "asiento_no_disponible"
+                )
         except Exception:
             db.rollback()
             raise
@@ -477,7 +501,10 @@ def crear_compra(db: Session, id_cliente: int, items: list[ItemSolicitud]) -> Co
         db.add(compra)
         db.flush()
         _crear_tiquetes(db, id_cliente, lineas, EstadoTiquete.COMPRADO, compra=compra)
-        financiero.debitar(db, billetera.id, total)  # 402 si el saldo no alcanza (deshace todo)
+        financiero.debitar(
+            db, billetera.id, total,
+            tipo=TipoMovimiento.COMPRA, referencia=f"compra:{compra.id}",
+        )  # 402 si el saldo no alcanza (deshace todo)
         _guardar(db)
         return compra
 
@@ -540,7 +567,10 @@ def comprar_reserva(db: Session, id_cliente: int, id_reserva: int) -> Compra:
             .where(Tiquete.id.in_([t.id for t in tiquetes]), Tiquete.estado == EstadoTiquete.RESERVADO)
             .values(estado=EstadoTiquete.COMPRADO, id_compra=compra.id)
         )
-        financiero.debitar(db, billetera.id, total)
+        financiero.debitar(
+            db, billetera.id, total,
+            tipo=TipoMovimiento.COMPRA, referencia=f"compra:{compra.id}",
+        )
         _guardar(db)
         return compra
 
@@ -564,17 +594,6 @@ def cancelar_reserva(db: Session, id_cliente: int, id_reserva: int) -> Reserva:
         _pasar_reserva(db, reserva, EstadoReserva.CANCELADA)
         reserva = db.get(Reserva, id_reserva)
         _liberar(db, list(reserva.tiquetes), EstadoTiquete.RESERVADO, EstadoTiquete.CANCELADO, ahora)
-        # Liberar los asientos vinculados a los tiquetes cancelados
-        try:
-            from app.modules.vuelos.service import liberar_asientos
-            ids_asientos = [
-                t.id for t in db.scalars(
-                    select(Asiento).where(Asiento.id_tiquete.in_([t.id for t in reserva.tiquetes]))
-                )
-            ]
-            liberar_asientos(db, ids_asientos)
-        except Exception:
-            pass  # no fallar la cancelación por un problema de asientos
         _guardar(db)
         return reserva
 
@@ -628,19 +647,11 @@ def cancelar_compra(
         cambiados = _liberar(db, seleccion, EstadoTiquete.COMPRADO, EstadoTiquete.CANCELADO, ahora)
         ids_cancelados = {t.id for t in cambiados}
         reintegro = sum(t.precio for t in cambiados)
-        # Liberar los asientos vinculados a los tiquetes cancelados
-        try:
-            from app.modules.vuelos.service import liberar_asientos
-            ids_asientos = [
-                t.id for t in db.scalars(
-                    select(Asiento).where(Asiento.id_tiquete.in_(ids_cancelados))
-                )
-            ]
-            liberar_asientos(db, ids_asientos)
-        except Exception:
-            pass  # no fallar la cancelación por un problema de asientos
         if reintegro:
-            financiero.acreditar(db, billetera.id, reintegro)
+            financiero.acreditar(
+                db, billetera.id, reintegro,
+                tipo=TipoMovimiento.REINTEGRO, referencia=f"cancelacion-compra:{compra.id}",
+            )
         compra = db.get(Compra, id_compra)
         compra.estado = _estado_de_compra(compra)
         _guardar(db)
@@ -679,7 +690,10 @@ def reintegrar_vuelo_cancelado(db: Session, id_vuelo: int, *, devolver_cupos: bo
         if id_compra:
             ids_compras.add(id_compra)
     for cliente, monto in por_cliente.items():
-        financiero.acreditar(db, financiero.obtener_o_crear_billetera(db, cliente).id, monto)
+        financiero.acreditar(
+            db, financiero.obtener_o_crear_billetera(db, cliente).id, monto,
+            tipo=TipoMovimiento.REINTEGRO, referencia=f"cancelacion-vuelo:{id_vuelo}",
+        )
 
     _liberar(db, reservados, EstadoTiquete.RESERVADO, EstadoTiquete.CANCELADO, ahora, devolver_cupos=devolver_cupos)
 

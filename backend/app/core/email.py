@@ -3,9 +3,10 @@ Servicio de correo (B2-03 en el plan, pero B1 lo necesita desde ya para
 invitacion de admin y verificacion de cambio de correo, asi que se deja
 implementado aqui en core/ para que cualquier modulo lo use).
 
-En desarrollo apunta a Mailpit (localhost:1025, sin TLS ni auth). El envio
-nunca lanza excepcion hacia arriba si falla: se registra en el logger para no
-tumbar la operacion de negocio por un problema de correo.
+En desarrollo apunta a Mailpit (localhost:1025, sin TLS ni auth). Si falla,
+lanza `CorreoError`: el llamador decide si lo registra o si deja el correo en
+la bandeja de salida para reintentarlo. Nunca se tumba una compra por correo
+porque el envio ocurre fuera de la transaccion (o en la bandeja).
 """
 import html
 import logging
@@ -15,6 +16,10 @@ from email.message import EmailMessage
 from app.core.config import get_settings
 
 logger = logging.getLogger("aerotiquetes.email")
+
+
+class CorreoError(Exception):
+    """El SMTP no pudo entregar el mensaje (o no pudo negociar TLS obligatorio)."""
 
 
 def _get_settings():
@@ -33,30 +38,36 @@ def _enviar(destinatario: str, asunto: str, cuerpo_html: str) -> None:
     msg.add_alternative(cuerpo_html, subtype="html")
 
     try:
-        # Puerto 465: SSL directo. Puerto 587 (Gmail, Brevo, etc.): STARTTLS.
-        if settings.SMTP_PORT == 465:
+        # Puerto 465 (o SMTP_USE_SSL): SSL directo. El resto: STARTTLS si SMTP_USE_TLS.
+        if settings.SMTP_USE_SSL or settings.SMTP_PORT == 465:
             with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
                 if settings.SMTP_USER and settings.SMTP_PASSWORD:
                     smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
                 smtp.send_message(msg)
-            logger.info("Correo enviado a %s (SMTP_SSL 465)", destinatario)
+            logger.info("Correo enviado a %s (SMTP_SSL)", destinatario)
             return
 
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
             smtp.ehlo()
-            # Mailpit local no negocia TLS: si el servidor no lo soporta se sigue en claro.
-            try:
-                smtp.starttls()
-                smtp.ehlo()
-            except (OSError, smtplib.SMTPException) as exc:
-                logger.debug("starttls no aplicado en %s:%s (%s)", settings.SMTP_HOST, settings.SMTP_PORT, exc)
+            if settings.SMTP_USE_TLS or settings.SMTP_FORCE_TLS:
+                try:
+                    smtp.starttls()
+                    smtp.ehlo()
+                except (OSError, smtplib.SMTPException) as exc:
+                    if settings.SMTP_FORCE_TLS:
+                        raise CorreoError(
+                            f"TLS obligatorio y el servidor {settings.SMTP_HOST}:{settings.SMTP_PORT} no lo negocio"
+                        ) from exc
+                    # Mailpit local no negocia TLS: se sigue en claro solo en desarrollo.
+                    logger.debug(
+                        "starttls no aplicado en %s:%s (%s)", settings.SMTP_HOST, settings.SMTP_PORT, exc
+                    )
             if settings.SMTP_USER and settings.SMTP_PASSWORD:
                 smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             smtp.send_message(msg)
-        logger.info("Correo enviado a %s (STARTTLS %s)", destinatario, settings.SMTP_PORT)
+        logger.info("Correo enviado a %s (SMTP %s)", destinatario, settings.SMTP_PORT)
     except (OSError, smtplib.SMTPException) as exc:
-        # No tumbamos la peticion HTTP por un fallo de correo; solo se registra.
-        logger.warning("No se pudo enviar el correo a %s: %s", destinatario, exc)
+        raise CorreoError(f"No se pudo enviar el correo a {destinatario}: {exc}") from exc
 
 
 def _plantilla(titulo: str, mensaje_html: str, boton_texto: str, boton_url: str) -> str:
@@ -120,10 +131,10 @@ def _esc(texto) -> str:
     return html.escape(str(texto))
 
 
-def enviar_codigo_reserva(
+def armar_codigo_reserva(
     *, correo: str, nombre: str, codigo: str, es_compra: bool, tramos: list[dict], expira_en_texto: str | None
-) -> None:
-    """Un correo por viajero con SU codigo de reserva (R24-R25). `tramos`: [{vuelo, ruta, salida, clase, silla}]."""
+) -> tuple[str, str]:
+    """Devuelve (asunto, HTML) para enviar ahora o guardar en la bandeja de salida."""
     filas = "".join(
         f"<tr><td style='padding:4px 8px'>{_esc(t['vuelo'])}</td><td style='padding:4px 8px'>{_esc(t['ruta'])}</td>"
         f"<td style='padding:4px 8px'>{_esc(t['salida'])}</td><td style='padding:4px 8px'>{_esc(t['clase'])}</td>"
@@ -150,10 +161,16 @@ def enviar_codigo_reserva(
       <p style="font-size:12px; color:#666;">Guarda este codigo: lo necesitas para hacer el check-in.</p>
     </div>
     """
-    _enviar(correo, f"Tu codigo de reserva {codigo} - AeroTiquetes", cuerpo)
+    return f"Tu codigo de reserva {codigo} - AeroTiquetes", cuerpo
 
 
-def enviar_aviso_cancelacion(*, correo: str, nombre: str, tiquetes: list[str], reintegro: int) -> None:
+def enviar_codigo_reserva(**datos) -> None:
+    """Un correo por viajero con SU codigo de reserva (R24-R25)."""
+    asunto, cuerpo = armar_codigo_reserva(**datos)
+    _enviar(datos["correo"], asunto, cuerpo)
+
+
+def armar_aviso_cancelacion(*, correo: str, nombre: str, tiquetes: list[str], reintegro: int) -> tuple[str, str]:
     """Aviso (no es un comprobante, RF20) de que se cancelo la compra y el dinero volvio a la billetera."""
     lista = "".join(f"<li>{_esc(t)}</li>" for t in tiquetes)
     valor = f"{reintegro:,}".replace(",", ".")
@@ -165,7 +182,17 @@ def enviar_aviso_cancelacion(*, correo: str, nombre: str, tiquetes: list[str], r
       <p>El valor (<b>${valor} COP</b>) ya esta de vuelta en tu billetera de AeroTiquetes.</p>
     </div>
     """
-    _enviar(correo, "Cancelacion de compra - AeroTiquetes", cuerpo)
+    return "Cancelacion de compra - AeroTiquetes", cuerpo
+
+
+def enviar_aviso_cancelacion(**datos) -> None:
+    asunto, cuerpo = armar_aviso_cancelacion(**datos)
+    _enviar(datos["correo"], asunto, cuerpo)
+
+
+def enviar_crudo(destinatario: str, asunto: str, cuerpo_html: str) -> None:
+    """Envia un mensaje ya armado (lo usa la bandeja de salida al reintentar)."""
+    _enviar(destinatario, asunto, cuerpo_html)
 
 
 def enviar_noticia_vuelo(*, correo: str, codigo: str, ruta: str, salida: str, precio: int) -> None:

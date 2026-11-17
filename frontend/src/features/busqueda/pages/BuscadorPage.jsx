@@ -80,7 +80,13 @@ export default function BuscadorPage() {
         {resultado.status === 'error' && (
           <ErrorState message={resultado.error?.message} onRetry={() => setIntento((n) => n + 1)} />
         )}
-        {resultado.status === 'ready' && <FlightResults vuelos={resultado.vuelos} huboBusqueda={huboBusqueda} />}
+        {resultado.status === 'ready' && (
+          <FlightResults
+            vuelos={resultado.vuelos}
+            clase={filtrosDeLaUrl(searchParams).clase}
+            huboBusqueda={huboBusqueda}
+          />
+        )}
       </div>
     </div>
   )

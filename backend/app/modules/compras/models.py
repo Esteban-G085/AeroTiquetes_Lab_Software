@@ -156,7 +156,7 @@ class Tiquete(Base):
     codigo_reserva: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     clase: Mapped[ClaseTiquete] = mapped_column(Enum(ClaseTiquete, name="clase_tiquete"), nullable=False)
     trayecto: Mapped[TrayectoTiquete] = mapped_column(Enum(TrayectoTiquete, name="trayecto_tiquete"), nullable=False)
-    numero_silla: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    numero_silla: Mapped[str | None] = mapped_column(String(5), nullable=True)  # ej. "12A"
     precio: Mapped[int] = mapped_column(Integer, nullable=False)  # COP, el costo del vuelo al momento
     estado: Mapped[EstadoTiquete] = mapped_column(Enum(EstadoTiquete, name="estado_tiquete"), nullable=False)
     creado_en: Mapped[datetime] = mapped_column(FechaUTC, nullable=False, server_default=func.now())

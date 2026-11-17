@@ -30,7 +30,7 @@ export default {
       path: '/cancelar-suscripcion',
       title: 'Cancelar suscripción',
       Component: lazy(() => import('./pages/CancelarSuscripcionPage')),
-      roles: [], // pública: se abre desde el enlace del correo sin sesión
+      // Sin `roles` = pública: se abre desde el enlace del correo sin sesión.
     },
   ],
 }

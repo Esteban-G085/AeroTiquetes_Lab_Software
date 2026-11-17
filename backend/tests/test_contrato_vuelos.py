@@ -17,7 +17,7 @@ from tests.conftest import auth_headers, datos_registro_cliente, login
 
 CAMPOS_VUELO = {
     "id", "codigo", "tipo", "estado", "origen", "destino", "salida_utc", "llegada_utc",
-    "duracion_min", "costo", "costo_primera", "cupos_economica", "cupos_primera",
+    "duracion_min", "costo", "costo_primera", "precio_efectivo", "cupos_economica", "cupos_primera",
     "fecha_programacion", "tiquetes_vendidos",
 }
 CAMPOS_CIUDAD = {"codigo", "nombre", "pais", "zona_horaria", "es_capital_departamento", "grupo_internacional"}
@@ -64,11 +64,15 @@ def token_cliente(client):
     return login(client, "anagomez", "clavesegura123")
 
 
-def _agregar_vuelo(db, origen: str, destino: str, *, dias: int, estado=EstadoVuelo.PROGRAMADO, costo=100_000):
+def _agregar_vuelo(
+    db, origen: str, destino: str, *, dias: int, estado=EstadoVuelo.PROGRAMADO,
+    costo=100_000, costo_primera=None,
+):
     o, d = service.obtener_ciudad(db, origen), service.obtener_ciudad(db, destino)
     vuelo = service.crear_vuelo(
         db, origen=o, destino=d, tipo=service.tipo_entre(o, d), estado=estado,
-        salida_utc=datetime.now(timezone.utc) + timedelta(days=dias), duracion_min=60, costo=costo,
+        salida_utc=datetime.now(timezone.utc) + timedelta(days=dias), duracion_min=60,
+        costo=costo, costo_primera=costo_primera,
     )
     db.commit()
     return vuelo
@@ -181,6 +185,33 @@ def test_busqueda_orden_por_defecto_es_salida_ascendente(client, vuelos):
 def test_busqueda_ordena_por_precio_y_duracion(client, vuelos, orden, campo, descendente):
     valores = [v[campo] for v in client.get("/vuelos", params={"orden": orden}).json()["items"]]
     assert valores == sorted(valores, reverse=descendente)
+
+
+def test_clase_primera_usa_costo_primera_en_filtros_orden_y_respuesta(client, db_session):
+    economica_barata = _agregar_vuelo(
+        db_session, "BOG", "MDE", dias=2, costo=100_000, costo_primera=900_000
+    )
+    economica_cara = _agregar_vuelo(
+        db_session, "BOG", "CLO", dias=3, costo=800_000, costo_primera=200_000
+    )
+
+    sin_clase = client.get("/vuelos", params={"orden": "precio_asc"}).json()["items"]
+    assert [v["id"] for v in sin_clase] == [economica_barata.id, economica_cara.id]
+    assert [v["precio_efectivo"] for v in sin_clase] == [100_000, 800_000]
+
+    con_primera = client.get("/vuelos", params={"clase": "primera", "orden": "precio_asc"}).json()
+    # La clase NO oculta vuelos (D13), pero cambia la tarifa por la que se ordena y se cobra.
+    assert [v["id"] for v in con_primera["items"]] == [economica_cara.id, economica_barata.id]
+    assert [v["precio_efectivo"] for v in con_primera["items"]] == [200_000, 900_000]
+    assert all(v["costo"] != v["precio_efectivo"] for v in con_primera["items"])
+
+    rango_primera = client.get(
+        "/vuelos", params={"clase": "primera", "precioMin": 150_000, "precioMax": 300_000}
+    ).json()["items"]
+    assert [v["id"] for v in rango_primera] == [economica_cara.id]
+
+    # El mismo rango con tarifa economica no coincide con ninguno de los dos vuelos.
+    assert client.get("/vuelos", params={"precioMin": 150_000, "precioMax": 300_000}).json()["items"] == []
 
 
 def test_busqueda_combina_criterios(client, vuelos):

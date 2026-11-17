@@ -88,7 +88,8 @@ def listar_vuelos_realizados(
     """Vuelos realizados (HU14): los que estan en estado `sucedido` o `realizado`, el mas reciente primero.
 
     Antes de listar se actualizan los estados por el paso del tiempo (`programado` -> `sucedido` ->
-    `realizado`). Para marcar a mano un vuelo como `realizado` use `PUT /admin/vuelos/{id}` con `estado`.
+    `realizado`). No se marcan a mano: `PUT /admin/vuelos/{id}` solo edita datos y `PATCH .../cancelar`
+    solo cancela; `sucedido`/`realizado` los decide el backend por la hora (HU14).
     """
     if estado is not None and estado not in (EstadoVuelo.SUCEDIDO, EstadoVuelo.REALIZADO):
         raise AppError(
@@ -145,9 +146,8 @@ def editar_vuelo(id: int, datos: VueloEditar, db: DbSession):
 
     * Solo se editan los vuelos `programado` (409 `vuelo_no_editable`).
     * Mismas reglas que al programar (422 `validacion` con `error.fields`). El tipo se deduce de las ciudades.
-    * Si `estado` viene y es distinto del actual, el vuelo SOLO cambia de estado y se ignoran los demas
-      datos: `cancelado` (libera cupos), `sucedido` (si ya salio) o `realizado` (si ya llego).
-      Una transicion no permitida da 409 `transicion_invalida`.
+    * El `estado` NO se puede cambiar aqui: se usa `PATCH /admin/vuelos/{id}/cancelar` (HU13) o el
+      paso automatico a sucedido/realizado por el tiempo (HU14).
     * El codigo no cambia; la llegada se recalcula.
     """
     vuelo = service.editar_vuelo(db, id, datos)

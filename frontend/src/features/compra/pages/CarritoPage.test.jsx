@@ -30,7 +30,7 @@ describe('CarritoPage (HU7)', () => {
   })
 
   it('lista los vuelos con viajeros y muestra el total (precio × viajeros) y el saldo', async () => {
-    sessionStorage.setItem('at.cart', JSON.stringify([ITEM]))
+    sessionStorage.setItem('at.cart.v2', JSON.stringify([ITEM]))
     open()
     expect(await screen.findByText('Saldo disponible')).toBeInTheDocument()
     expect(screen.getAllByText(/500\.000/).length).toBeGreaterThan(0) // 2 × 250.000
@@ -41,7 +41,7 @@ describe('CarritoPage (HU7)', () => {
 
   it('RF14–RF16: con saldo insuficiente avisa cuánto falta y no deja comprar', async () => {
     api.obtenerSaldo.mockResolvedValue({ saldo: 100_000, moneda: 'COP' })
-    sessionStorage.setItem('at.cart', JSON.stringify([ITEM]))
+    sessionStorage.setItem('at.cart.v2', JSON.stringify([ITEM]))
     open()
     expect(await screen.findByText(/Tu saldo es insuficiente/)).toBeInTheDocument()
     expect(screen.getByText(/400\.000/)).toBeInTheDocument()
@@ -50,7 +50,7 @@ describe('CarritoPage (HU7)', () => {
   })
 
   it('quitar un vuelo pide confirmación y lo saca del carrito', async () => {
-    sessionStorage.setItem('at.cart', JSON.stringify([ITEM]))
+    sessionStorage.setItem('at.cart.v2', JSON.stringify([ITEM]))
     open()
     await userEvent.click(await screen.findByRole('button', { name: 'Quitar vuelo AT-204' }))
     const dialog = await screen.findByRole('dialog')
@@ -69,7 +69,7 @@ describe('CarritoPage (HU7)', () => {
         ],
       }],
     })
-    sessionStorage.setItem('at.cart', JSON.stringify([ITEM]))
+    sessionStorage.setItem('at.cart.v2', JSON.stringify([ITEM]))
     open()
     await userEvent.click(await screen.findByRole('button', { name: 'Confirmar compra' }))
     const dialog = await screen.findByRole('dialog')
@@ -82,21 +82,21 @@ describe('CarritoPage (HU7)', () => {
     expect(screen.getByText('Saldo restante')).toBeInTheDocument()
     expect(screen.getByText('ana@correo.com')).toBeInTheDocument()
     expect(api.crearCompra).toHaveBeenCalledWith([ITEM])
-    expect(JSON.parse(sessionStorage.getItem('at.cart'))).toEqual([]) // el carrito queda vacío
+    expect(JSON.parse(sessionStorage.getItem('at.cart.v2'))).toEqual([]) // el carrito queda vacío
   })
 
   it('si el backend rechaza la compra, muestra el motivo y conserva el carrito', async () => {
     api.crearCompra.mockRejectedValue(new ApiError({ status: 409, code: 'CUPO_AGOTADO', message: 'El vuelo AT-204 no tiene cupos suficientes.' }))
-    sessionStorage.setItem('at.cart', JSON.stringify([ITEM]))
+    sessionStorage.setItem('at.cart.v2', JSON.stringify([ITEM]))
     open()
     await userEvent.click(await screen.findByRole('button', { name: 'Confirmar compra' }))
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^Pagar/ }))
     expect(await screen.findByText('El vuelo AT-204 no tiene cupos suficientes.')).toBeInTheDocument()
-    expect(JSON.parse(sessionStorage.getItem('at.cart'))).toHaveLength(1)
+    expect(JSON.parse(sessionStorage.getItem('at.cart.v2'))).toHaveLength(1)
   })
 
   it('el ícono del carrito de la cabecera dice cuántos tiquetes hay', async () => {
-    sessionStorage.setItem('at.cart', JSON.stringify([ITEM]))
+    sessionStorage.setItem('at.cart.v2', JSON.stringify([ITEM]))
     open()
     expect(await screen.findByRole('link', { name: 'Carrito, 2 tiquetes' })).toBeInTheDocument()
   })

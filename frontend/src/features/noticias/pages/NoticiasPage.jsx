@@ -15,6 +15,7 @@ import {
 import '../noticias.css'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+const TAMANO_NOTICIAS = 6
 
 /** "Bogotá a Medellín" con la forma de ciudad/código que envía el backend. */
 const rutaDe = (n) => {
@@ -33,6 +34,9 @@ export default function NoticiasPage() {
   const { rol } = useAuth()
   const toast = useToast()
   const [noticias, setNoticias] = useState([])
+  const [total, setTotal] = useState(0)
+  const [pagina, setPagina] = useState(0)
+  const [cargandoMas, setCargandoMas] = useState(false)
   const [status, setStatus] = useState('loading') // loading | ready | error
   const [suscrito, setSuscrito] = useState(false)
   const [correo, setCorreo] = useState('')
@@ -45,13 +49,33 @@ export default function NoticiasPage() {
   const cargarNoticias = useCallback(async () => {
     setStatus('loading')
     try {
-      const { items } = await listarNoticias()
-      setNoticias(items)
+      const respuesta = await listarNoticias({ pagina: 1, tamano: TAMANO_NOTICIAS })
+      setNoticias(respuesta.items)
+      setTotal(respuesta.total)
+      setPagina(1)
       setStatus('ready')
     } catch {
       setStatus('error')
     }
   }, [])
+
+  const cargarMas = useCallback(async () => {
+    if (cargandoMas || noticias.length >= total) return
+    setCargandoMas(true)
+    try {
+      const respuesta = await listarNoticias({ pagina: pagina + 1, tamano: TAMANO_NOTICIAS })
+      setNoticias((prev) => {
+        const vistos = new Set(prev.map((n) => n.id))
+        return [...prev, ...respuesta.items.filter((n) => !vistos.has(n.id))]
+      })
+      setTotal(respuesta.total)
+      setPagina((p) => p + 1)
+    } catch {
+      toast.error('No se pudieron cargar más noticias.')
+    } finally {
+      setCargandoMas(false)
+    }
+  }, [cargandoMas, noticias.length, total, pagina, toast])
 
   const cargarSuscripcion = useCallback(async () => {
     if (!esCliente) return
@@ -206,6 +230,18 @@ export default function NoticiasPage() {
                 )
               })}
             </div>
+            {noticias.length < total && (
+              <div className="not-mas">
+                <Button
+                  type="button"
+                  variant="outline-secondary"
+                  loading={cargandoMas}
+                  onClick={cargarMas}
+                >
+                  Cargar más noticias
+                </Button>
+              </div>
+            )}
           </section>
         )}
 

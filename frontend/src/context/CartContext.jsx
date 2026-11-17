@@ -7,11 +7,12 @@ import { useAuth } from './AuthContext'
  * y se vacía al cerrar sesión, igual que el token. El backend no guarda carritos: recibe el contenido en POST /compras.
  *
  * Un ítem = un VUELO (un tramo) con sus viajeros:
- *   { vuelo: { id, codigo, origen, destino, salida, llegada, ..., precio }, clase, viajeros: [...], tramo: 'ida' | 'vuelta' }
- * Un trayecto completo (ida y vuelta) son dos ítems independientes (cada uno con su check-in y su silla, SRS 3.2.7 RF10).
+ *   { vuelo: {...}, clase, viajeros: [...], tramo: 'ida' | 'vuelta', asientos: [...], vuelo_regreso_id?, asientos_regreso? }
+ * Un trayecto completo se muestra como dos tramos, pero el item de ida guarda `vuelo_regreso_id` y
+ * `asientos_regreso`; `api.js` lo envía al backend como un único item `completo`.
  */
 const CartContext = createContext(null)
-const KEY = 'at.cart'
+const KEY = 'at.cart.v2'  // v2: selección de sillas por tramo (invalid carritos con una sola silla compartida)
 
 const safe = (fn, fallback) => { try { return fn() } catch { return fallback } }
 const read = () => safe(() => {

@@ -1,9 +1,14 @@
 """
 Seguridad: hashing de contrasenas (bcrypt) y JWT (B1-02).
 
-JWT: firmado con JWT_SECRET, payload minimo {sub, rol, exp, iat}.
-Expiracion corta (30 min, RNF06) y sin refresh token: el frontend debe volver
-a pedir login cuando expire o cuando detecte inactividad.
+JWT: firmado con JWT_SECRET. Hay tres tipos con claims incompatibles entre si:
+
+* `access`: {sub, rol, tipo, exp, iat} — autentica las APIs (30 min, RNF06).
+* `invitacion_admin`: enlace de primer ingreso del administrador (D6).
+* `verificacion_correo`: enlace para confirmar el cambio de correo.
+
+`decode_access_token` exige `tipo=access` y `rol`, asi un token de correo nunca
+puede usarse como credencial de API aunque tenga la misma firma.
 """
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -37,47 +42,77 @@ class TokenError(Exception):
     """Token invalido, mal formado o expirado."""
 
 
-def create_access_token(*, subject: str, rol: str, extra_claims: dict[str, Any] | None = None) -> str:
-    now = datetime.now(timezone.utc)
-    expire = now + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
-    payload: dict[str, Any] = {
-        "sub": subject,
-        "rol": rol,
-        "iat": now,
-        "exp": expire,
-    }
-    if extra_claims:
-        payload.update(extra_claims)
+def _firmar(payload: dict[str, Any]) -> str:
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-def decode_access_token(token: str) -> dict[str, Any]:
+def _decodificar(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
     except JWTError as exc:
         raise TokenError(str(exc)) from exc
 
 
+def create_access_token(*, subject: str, rol: str, extra_claims: dict[str, Any] | None = None) -> str:
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
+    payload: dict[str, Any] = {
+        "sub": subject,
+        "rol": rol,
+        "tipo": "access",
+        "iat": now,
+        "exp": expire,
+    }
+    if extra_claims:
+        # Un claim extra nunca debe poder cambiar el tipo del token.
+        payload.update({k: v for k, v in extra_claims.items() if k != "tipo"})
+    return _firmar(payload)
+
+
+def decode_access_token(token: str) -> dict[str, Any]:
+    payload = _decodificar(token)
+    if payload.get("tipo") != "access" or not payload.get("rol") or not payload.get("sub"):
+        raise TokenError("Tipo de token invalido")
+    return payload
+
+
 # ---------- Tokens de un solo uso (enlace de primer ingreso del admin, D6) ----------
 
 def create_invite_token(*, administrador_id: int, expire_hours: int) -> str:
     now = datetime.now(timezone.utc)
-    expire = now + timedelta(hours=expire_hours)
     payload = {
         "sub": str(administrador_id),
         "tipo": "invitacion_admin",
         "iat": now,
-        "exp": expire,
+        "exp": now + timedelta(hours=expire_hours),
     }
-    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    return _firmar(payload)
 
 
 def decode_invite_token(token: str) -> int:
     """Devuelve el id de administrador si el token es valido; lanza TokenError si no."""
-    try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
-    except JWTError as exc:
-        raise TokenError(str(exc)) from exc
-    if payload.get("tipo") != "invitacion_admin":
+    payload = _decodificar(token)
+    if payload.get("tipo") != "invitacion_admin" or not payload.get("sub"):
+        raise TokenError("Tipo de token invalido")
+    return int(payload["sub"])
+
+
+# ---------- Token de un solo uso para verificar el cambio de correo (HU5) ----------
+
+def create_verification_token(*, usuario_id: int, expire_hours: int = 48) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(usuario_id),
+        "tipo": "verificacion_correo",
+        "iat": now,
+        "exp": now + timedelta(hours=expire_hours),
+    }
+    return _firmar(payload)
+
+
+def decode_verification_token(token: str) -> int:
+    """Devuelve el id de usuario si el token es de verificacion; lanza TokenError si no."""
+    payload = _decodificar(token)
+    if payload.get("tipo") != "verificacion_correo" or not payload.get("sub"):
         raise TokenError("Tipo de token invalido")
     return int(payload["sub"])

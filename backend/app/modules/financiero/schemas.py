@@ -23,10 +23,6 @@ class AgregarSaldoRequest(BaseModel):
     monto: int = Field(gt=0, le=MONTO_MAXIMO, description="COP a sumar al saldo actual.")
 
 
-class EditarSaldoRequest(BaseModel):
-    saldo: int = Field(ge=0, le=MONTO_MAXIMO, description="Nuevo saldo total en COP (reemplaza al actual).")
-
-
 def _solo_digitos(v: str) -> str:
     return re.sub(r"[\s-]", "", v)
 

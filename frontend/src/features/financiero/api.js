@@ -23,12 +23,6 @@ export async function agregarSaldo(monto) {
   return saldoDe(data)
 }
 
-/** PUT /mi-billetera { saldo } → { saldo }  (fija el saldo) */
-export async function establecerSaldo(saldo) {
-  const { data } = await http.put('/mi-billetera', { saldo })
-  return saldoDe(data)
-}
-
 /** "12/2030" → "12/30" (así lo muestra y lo edita la pantalla). */
 const vencimientoCorto = (v) => {
   const m = /^(\d{2})\/(\d{2})(\d{2})?$/.exec(String(v ?? ''))

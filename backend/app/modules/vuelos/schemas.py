@@ -8,7 +8,7 @@ las muestra en la zona horaria de cada ciudad.
 from datetime import date, datetime, time
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Los enums de dominio viven en models.py (una sola definicion para la API y la base de datos).
 from app.modules.vuelos.models import (
@@ -88,10 +88,20 @@ class VueloOut(BaseModel):
     duracion_min: int
     costo: int = Field(description="Por persona, en COP. Clase economica (D3).")
     costo_primera: int = Field(description="Por persona, en COP. Clase primera. Si no se indica, igual que economica.")
+    precio_efectivo: int | None = Field(
+        None, description="Tarifa cobrada por persona segun la clase pedida en la busqueda."
+    )
     cupos_economica: int
     cupos_primera: int
     fecha_programacion: datetime
     tiquetes_vendidos: int = Field(0, description="Tiquetes activos (reservados o comprados).")
+
+    @model_validator(mode="after")
+    def _precio_por_defecto(self):
+        # Los detalles y otras respuestas que no piden clase muestran la tarifa economica.
+        if self.precio_efectivo is None:
+            self.precio_efectivo = self.costo
+        return self
 
 
 class PaginaVuelos(BaseModel):
@@ -101,9 +111,17 @@ class PaginaVuelos(BaseModel):
     items: list[VueloOut]
 
     @classmethod
-    def armar(cls, total: int, vuelos: list, pagina: int, tamano: int) -> "PaginaVuelos":
+    def armar(
+        cls, total: int, vuelos: list, pagina: int, tamano: int, clase: ClaseVuelo | None = None
+    ) -> "PaginaVuelos":
         """Pagina de respuesta a partir de modelos `Vuelo` de SQLAlchemy."""
-        return cls(total=total, pagina=pagina, tamano=tamano, items=[VueloOut.model_validate(v) for v in vuelos])
+        items = []
+        for vuelo in vuelos:
+            item = VueloOut.model_validate(vuelo)
+            if clase == ClaseVuelo.PRIMERA:
+                item = item.model_copy(update={"precio_efectivo": vuelo.costo_primera})
+            items.append(item)
+        return cls(total=total, pagina=pagina, tamano=tamano, items=items)
 
 
 def vuelo_con_tiquetes_vendidos(vuelo: Vuelo, tiquetes_vendidos: int = 0) -> VueloOut:
@@ -166,9 +184,11 @@ class VueloEditar(BaseModel):
     """Cuerpo de `PUT /admin/vuelos/{id}` (HU12). Es un reemplazo: se envian todos los datos del vuelo.
 
     El `tipo` NO se envia: se deduce de las ciudades (si alguna es del exterior, es internacional).
-    `estado` es opcional; si se omite o es el actual se editan los datos, y si es distinto el
-    vuelo solo cambia de estado (ver `service.editar_vuelo`).
+    El `estado` NO se envia: se cambia solo con `PATCH /admin/vuelos/{id}/cancelar` o por el paso
+    automatico del tiempo (`sincronizar_estados`, HU14).
     """
+
+    model_config = ConfigDict(extra="forbid")  # rechaza `estado`: ese campo no es editable aqui
 
     origen: str = Field(min_length=3, max_length=3, description="Codigo de ciudad, ej. BOG")
     destino: str = Field(min_length=3, max_length=3, description="Codigo de ciudad, ej. MDE")
@@ -177,7 +197,6 @@ class VueloEditar(BaseModel):
     duracion_min: int = Field(gt=0, description="Minutos")
     precio: int = Field(gt=0, description="Por persona, en COP. Clase economica.")
     precio_primera: int | None = Field(None, gt=0, description="Por persona, en COP. Clase primera. Si se omite, igual que economica.")
-    estado: EstadoVuelo | None = None
 
 
 class VueloCancelar(BaseModel):

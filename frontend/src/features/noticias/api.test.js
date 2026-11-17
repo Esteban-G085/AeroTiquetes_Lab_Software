@@ -15,13 +15,26 @@ const reply = (data, status = 200) => {
 
 describe('API de noticias (HU11)', () => {
   it('listarNoticias -> GET /noticias', async () => {
-    reply({ total: 2, items: [{ id: 1, titulo: 'Nueva ruta Bogotá-Madrid' }] })
+    reply({ total: 2, pagina: 1, tamano: 50, items: [{ id: 1, titulo: 'Nueva ruta Bogotá-Madrid' }] })
     await expect(listarNoticias()).resolves.toEqual({
       total: 2,
+      pagina: 1,
+      tamano: 50,
       items: [{ id: 1, titulo: 'Nueva ruta Bogotá-Madrid' }],
     })
     expect(seen.method).toBe('get')
     expect(seen.url).toBe('/noticias')
+  })
+
+  it('listarNoticias envía pagina y tamano como query params', async () => {
+    reply({ total: 9, pagina: 2, tamano: 3, items: [{ id: 4, titulo: 'Tercera página' }] })
+    await expect(listarNoticias({ pagina: 2, tamano: 3 })).resolves.toEqual({
+      total: 9,
+      pagina: 2,
+      tamano: 3,
+      items: [{ id: 4, titulo: 'Tercera página' }],
+    })
+    expect(seen.params).toEqual({ pagina: 2, tamano: 3 })
   })
 
   it('obtenerNoticia -> GET /noticias/{id}', async () => {

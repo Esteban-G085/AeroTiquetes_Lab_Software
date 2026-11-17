@@ -32,8 +32,11 @@ function Formulario({ vuelo }) {
   const [regresoError, setRegresoError] = useState('')
   const [clase, setClase] = useState(existing?.clase ?? 'economica')
   const [viajeros, setViajeros] = useState(existing?.viajeros ?? [{ ...VIAJERO_VACIO }])
-  const [asientosSeleccionados, setAsientosSeleccionados] = useState(existing?.asientos ?? [])
-  const [erroresAsientos, setErroresAsientos] = useState('')
+  const [asientosPorTramo, setAsientosPorTramo] = useState({
+    ida: existing?.asientos ?? [],
+    vuelta: existing?.asientos_regreso ?? [],
+  })
+  const [erroresAsientos, setErroresAsientos] = useState({ ida: '', vuelta: '' })
   const [errors, setErrors] = useState([])
   const [general, setGeneral] = useState([])
   const [busy, setBusy] = useState(false)
@@ -46,25 +49,34 @@ function Formulario({ vuelo }) {
   const sinCupos = vuelo.cupos_disponibles === 0
 
   // El mapa (AsientoMapa) carga los asientos de la clase y gestiona su propio estado de carga.
+  // Hay una selección independiente por tramo porque ida y vuelta son vuelos distintos.
 
-  // Limpiar selección de asientos cuando cambie la clase o el número de viajeros
+  // Limpiar selección cuando cambie la clase, el número de viajeros o el vuelo de regreso
   useEffect(() => {
-    setAsientosSeleccionados([])
-  }, [clase, viajeros.length])
+    setAsientosPorTramo({ ida: [], vuelta: [] })
+    setErroresAsientos({ ida: '', vuelta: '' })
+  }, [clase, viajeros.length, regreso?.id, vuelo.id])
 
-  // Validar que haya suficientes asientos seleccionados para los viajeros
   const validarAsientos = () => {
     if (viajeros.length === 0) return true
-    if (asientosSeleccionados.length < viajeros.length) {
-      setErroresAsientos(`Selecciona ${viajeros.length - asientosSeleccionados.length} silla${viajeros.length - asientosSeleccionados.length > 1 ? 's' : ''} más.`)
-      return false
+    const tramosAValidar = trayecto === 'ida_vuelta' ? ['ida', 'vuelta'] : ['ida']
+    const errores = {}
+    for (const tramo of tramosAValidar) {
+      const cantidad = asientosPorTramo[tramo].length
+      if (cantidad < viajeros.length) {
+        const faltan = viajeros.length - cantidad
+        errores[tramo] = `Selecciona ${faltan} silla${faltan > 1 ? 's' : ''} más para la ${tramo === 'ida' ? 'ida' : 'vuelta'}.`
+      } else if (cantidad > viajeros.length) {
+        errores[tramo] = `Seleccionaste más sillas que viajeros en la ${tramo === 'ida' ? 'ida' : 'vuelta'}.`
+      }
     }
-    if (asientosSeleccionados.length > viajeros.length) {
-      setErroresAsientos(`Seleccionaste más sillas que viajeros.`)
-      return false
-    }
-    setErroresAsientos('')
-    return true
+    setErroresAsientos({ ida: errores.ida ?? '', vuelta: errores.vuelta ?? '' })
+    return Object.keys(errores).length === 0
+  }
+
+  const cambiarAsientos = (tramo, ids) => {
+    setAsientosPorTramo((prev) => ({ ...prev, [tramo]: ids }))
+    setErroresAsientos((prev) => ({ ...prev, [tramo]: '' }))
   }
 
   const setCampo = (i, campo, valor) => {
@@ -93,10 +105,21 @@ function Formulario({ vuelo }) {
     }
   }
 
-  const items = () => [
-    { vuelo, clase, viajeros, tramo: 'ida', asientos: asientosSeleccionados },
-    ...(trayecto === 'ida_vuelta' && regreso ? [{ vuelo: regreso, clase, viajeros, tramo: 'vuelta', asientos: asientosSeleccionados }] : []),
-  ]
+  const items = () => {
+    const completo = trayecto === 'ida_vuelta' && regreso
+    return [
+      {
+        vuelo,
+        clase,
+        viajeros,
+        tramo: 'ida',
+        trayecto: completo ? 'ida_vuelta' : 'ida',
+        asientos: asientosPorTramo.ida,
+        ...(completo ? { vuelo_regreso_id: regreso.id, asientos_regreso: asientosPorTramo.vuelta } : {}),
+      },
+      ...(completo ? [{ vuelo: regreso, clase, viajeros, tramo: 'vuelta', asientos: asientosPorTramo.vuelta }] : []),
+    ]
+  }
 
   function validar() {
     const res = validarViajeros(viajeros, { salidaIso: vuelo.salida, tiquetesCliente })
@@ -134,9 +157,7 @@ function Formulario({ vuelo }) {
       const lista = items()
       const r = await crearReserva(lista)
       lista.forEach((i) => cart.removeItem(i.vuelo.id)) // no puede haber compra y reserva activas del mismo vuelo
-      setResultado({
-        reservas: (r.reservas ?? []).map((x) => ({ ...x, tramo: String(x.vuelo?.id) === String(vuelo.id) ? 'ida' : 'vuelta' })),
-      })
+      setResultado({ reservas: r.reservas ?? [] })
     } catch (err) {
       onApiError(err)
     } finally {
@@ -181,7 +202,7 @@ function Formulario({ vuelo }) {
             </div>
             {trayecto === 'ida_vuelta' && (
               <div className="mt-3">
-                <p className="co-section__hint">Cada tramo es un tiquete independiente: se paga, se cancela y se consulta por separado.</p>
+                <p className="co-section__hint">Los dos tramos comparten código de reserva y se pagan en una sola operación; cada tiquete tiene su propia silla.</p>
                 <RegresoSelector status={reg.status === 'idle' ? 'loading' : reg.status} vuelos={reg.vuelos} error={reg.error}
                   clase={clase} value={regreso?.id} onChange={(v) => { setRegreso(v); setRegresoError('') }} />
                 {regresoError && <div role="alert" tabIndex={-1} className="at-field__error mt-2">{regresoError}</div>}
@@ -223,19 +244,28 @@ function Formulario({ vuelo }) {
           {viajeros.length > 0 && (
             <section className="at-card co-section" aria-labelledby="co-asientos">
               <h2 id="co-asientos" className="co-section__title">Selección de sillas</h2>
-              {erroresAsientos && <div role="alert" tabIndex={-1} className="at-field__error mt-2">{erroresAsientos}</div>}
-              <AsientoMapa
-                idVuelo={vuelo.id}
-                clase={clase}
-                asientosSeleccionados={asientosSeleccionados}
-                maxSelecciones={viajeros.length}
-                onCambio={(ids) => {
-                  setAsientosSeleccionados(ids)
-                  setErroresAsientos('')
-                }}
-              />
+              {['ida', ...(trayecto === 'ida_vuelta' ? ['vuelta'] : [])].map((tramo) => {
+                const idVuelo = tramo === 'ida' ? vuelo.id : regreso?.id
+                if (!idVuelo) return null
+                const codigo = tramo === 'ida' ? vuelo.codigo : regreso.codigo
+                return (
+                  <div key={tramo} className="mt-3">
+                    <h3 className="h6">{tramo === 'ida' ? 'Ida' : 'Vuelta'} · <span className="at-mono">{codigo}</span></h3>
+                    {erroresAsientos[tramo] && (
+                      <div role="alert" tabIndex={-1} className="at-field__error mt-2">{erroresAsientos[tramo]}</div>
+                    )}
+                    <AsientoMapa
+                      idVuelo={idVuelo}
+                      clase={clase}
+                      asientosSeleccionados={asientosPorTramo[tramo]}
+                      maxSelecciones={viajeros.length}
+                      onCambio={(ids) => cambiarAsientos(tramo, ids)}
+                    />
+                  </div>
+                )
+              })}
               <p className="co-section__hint">
-                Elige una silla por viajero. Las sillas en rojo ya están ocupadas.
+                Elige una silla por viajero y tramo. Las sillas en rojo ya están ocupadas.
               </p>
             </section>
           )}

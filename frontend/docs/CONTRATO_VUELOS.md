@@ -48,14 +48,13 @@ Criterios por query string, **todos opcionales y combinables**; los vacíos no s
 |---|---|---|
 | `origen`, `destino` | código de ciudad | |
 | `fecha` | `YYYY-MM-DD` | Día de salida en zona de Colombia |
-| `precioMin`, `precioMax` | entero (COP) | Rango de `costo` |
+| `precioMin`, `precioMax` | entero (COP) | Rango de la tarifa cobrada (`costo_primera` si `clase=primera`) |
 | `duracionMin`, `duracionMax` | entero (minutos) | Rango de `duracion_min` |
-| `clase` | `economica` \| `primera` | |
-| `orden` | `fecha_asc` \| `precio_asc` \| `precio_desc` \| `duracion_asc` \| `duracion_desc` | Por defecto `fecha_asc` |
-| `pagina` | entero | 1-based (el front aún no lo usa) |
+| `clase` | `economica` \| `primera` | No oculta vuelos: elige la tarifa de filtros, orden y `precio_efectivo` |
+| `orden` | `fecha_asc` \| `precio_asc` \| `precio_desc` \| `duracion_asc` \| `duracion_desc` | Por defecto `fecha_asc`; `precio_*` usa la tarifa cobrada |
+| `pagina` | entero | 1-based |
 
-Respuesta (**supuesto actual**): `{ "total": 12, "items": [Vuelo] }`
-(también se acepta un arreglo plano; el front calcula `total`).
+Respuesta: `{ "total": 12, "pagina": 1, "tamano": 50, "items": [Vuelo] }`.
 
 * Solo vuelos **programados con salida futura**. **No se ocultan los vuelos sin cupo**: la
   disponibilidad se muestra por clase y la ausencia de cupo solo se advierte (D13).
@@ -68,7 +67,8 @@ Respuesta (**supuesto actual**): `{ "total": 12, "items": [Vuelo] }`
   "origen":  { "codigo": "BOG", "nombre": "Bogotá", "pais": "Colombia", "zona_horaria": "America/Bogota" },
   "destino": { "codigo": "MDE", "nombre": "Medellín", "pais": "Colombia", "zona_horaria": "America/Bogota" },
   "salida_utc": "2026-11-10T13:10:00Z", "llegada_utc": "2026-11-10T14:15:00Z", "duracion_min": 65,
-  "costo": 300000, "cupos_economica": 125, "cupos_primera": 25,
+  "costo": 300000, "costo_primera": 450000, "precio_efectivo": 300000,
+  "cupos_economica": 125, "cupos_primera": 25,
   "fecha_programacion": "2026-10-01T15:00:00Z" }
 ```
 
@@ -78,7 +78,8 @@ Respuesta (**supuesto actual**): `{ "total": 12, "items": [Vuelo] }`
 | `tipo` | `nacional` \| `internacional` (derivado por el backend, RF04–RF06) |
 | `estado` | `programado` \| `sucedido` \| `realizado` \| `cancelado` |
 | `llegada_utc`, `duracion_min` | Calculados por el backend a partir de salida + duración (D3) |
-| `costo` | **Único por persona**, no depende de la clase (D3) |
+| `costo`, `costo_primera` | Tarifas por persona en COP: económica y primera |
+| `precio_efectivo` | Tarifa cobrada según la `clase` pedida (o `costo` si no se pide). Es la que muestra la tarjeta |
 | `cupos_economica`, `cupos_primera` | Asignados por el sistema al crear (D4): nacional 125/25, internacional 200/50 |
 
 ## ✅ GET `/vuelos/{id}` — detalle público (HU5)
@@ -122,6 +123,37 @@ Request JSON con **solo** lo que digita el administrador:
 
 Devuelve un objeto `Vuelo` (incluye `fecha_programacion`). **404** si no existe.
 
+## ✅ PUT `/admin/vuelos/{id}` — editar (HU12) · rol `administrador`
+
+Cuerpo (reemplazo completo; **no** se envían `tipo` ni `estado`):
+
+```json
+{ "origen": "BOG", "destino": "CLO", "fecha": "2030-01-15", "hora": "09:30",
+  "duracion_min": 70, "precio": 300000, "precio_primera": 450000 }
+```
+
+| Campo | Regla |
+|---|---|
+| `origen`, `destino` | Códigos de 3 letras; el `tipo` se deduce de la combinación (RF04–RF06) |
+| `fecha`, `hora` | Hora de **Colombia** (`America/Bogota`), no la del aeropuerto de origen |
+| `duracion_min` | Entero > 0; el backend recalcula `llegada_utc` |
+| `precio`, `precio_primera` | Enteros > 0 en COP. Si se omite `precio_primera`, vale `precio` |
+| `estado` | **Rechazado (422, `error.fields.estado`)**. No es editable desde esta ruta |
+
+* Solo se edita un vuelo `programado` sin tiquetes ni reservas activas (409 `vuelo_no_editable` /
+  `vuelo_con_tiquetes`). El código y los cupos no cambian.
+* Éxito: **200** con el `Vuelo` actualizado. Validaciones: mismos códigos que `POST /admin/vuelos`.
+
+## ✅ PATCH `/admin/vuelos/{id}/cancelar` — cancelar (HU13) · rol `administrador`
+
+Cuerpo: `{ "motivo": "Cierre del aeropuerto por tormenta" }` (o `{}` / sin cuerpo).
+
+* Sin tiquetes vendidos: el `motivo` es opcional. Con tiquetes: **obligatorio**, 10–300 caracteres
+  (422 `error.fields.motivo`). El front lo valida antes de abrir el diálogo de confirmación.
+* Éxito: **200** con el vuelo `cancelado`. Se liberan los cupos y se reintegra a los clientes; no se puede deshacer.
+* Solo aplica a vuelos `programado`; uno `sucedido`, `realizado` o ya `cancelado` da **409**.
+* El paso `programado → sucedido → realizado` es **automático por tiempo (HU14)**, no se hace con `PUT`.
+
 ## Respuestas de B2 (B2-00)
 
 Las lecturas ya salen de la **base de datos** (ciudades, búsqueda, detalle y panel del administrador). Para tener datos
@@ -137,9 +169,9 @@ se cargan solas al arrancar el backend y `/ciudades` las devuelve en orden alfab
    catálogo completo. Respuesta `{ "items": [Ciudad] }`. El front puede seguir pidiendo todo.
 4. **`GET /vuelos/{id}`:** solo el `id` numérico (el que trae cada `Vuelo`). Para abrir por código habría que
    agregar una ruta aparte; no es necesario en el Sprint 1.
-5. **`estado`:** en el Sprint 1 el backend **no cambia** el estado por el paso del tiempo (el proceso automático
-   `sucedido → realizado` es de la Iteración 2). La búsqueda excluye por sí misma los vuelos cuya salida ya pasó (D16);
-   el panel del administrador muestra el `estado` almacenado.
+5. **`estado`:** el backend lo actualiza automáticamente por tiempo (HU14): `programado → sucedido` al llegar la
+   salida y `sucedido → realizado` al llegar la llegada. La búsqueda excluye los vuelos cuya salida ya pasó (D16);
+   el panel del administrador muestra el `estado` actual. `PUT` no permite cambiarlo: use `PATCH .../cancelar`.
 6. **Orígenes internacionales:** exactamente PEI, BOG, MDE, CLO y CTG (grupo `colombia`, D5). Los del grupo
    `exterior` son MAD, LON, NYC, BUE y MIA, con los códigos que ya usa `src/domain/ciudades.js`.
 
@@ -149,7 +181,7 @@ se cargan solas al arrancar el backend y `/ciudades` las devuelve en orden alfab
 |---|---|
 | Respuesta de listados | `{ total, pagina, tamano, items }`. `tamano` es **50** por ahora (el front todavía no pagina y solo lee `items`; si hay más de 50 resultados se mostrarán 50). |
 | `orden` | `fecha_asc` (por defecto), `precio_asc`, `precio_desc`, `duracion_asc`, `duracion_desc`. Un valor distinto da 422. |
-| `clase` | Se acepta y valida (`economica` \| `primera`) pero **no oculta vuelos** (D13): el front destaca la disponibilidad. |
+| `clase` | Se acepta y valida (`economica` \| `primera`) pero **no oculta vuelos** (D13): elige la tarifa cobrada en `precio_efectivo`, filtros y orden. |
 | Historial de búsquedas (B2-11) | Si `GET /vuelos` lleva `Authorization: Bearer` de un **cliente**, el backend guarda origen, destino y fecha (solo la página 1, y solo si hay alguno de esos tres criterios). El front **no hace nada extra**: basta con enviar el token como ya hace. El visitante busca igual, sin rastro; un token inválido o vencido se trata como visitante (nunca 401 en la búsqueda). |
 | `GET /admin/vuelos` | Filtros `estado`, `origen`, `destino`, `pagina`. Orden: salida descendente. |
 | `POST /admin/vuelos` | **Guarda** el vuelo (B2-05) y responde 201 con el `Vuelo` completo (`id`, `codigo` `AT-####` consecutivo, llegada, cupos, `programado`) y registra al administrador. La `hora` es hora de Colombia. Errores **422** `validacion` con el mensaje en `error.fields`: `destino` (igual al origen, o combinación no permitida), `origen`/`destino` (ciudad inexistente o no apta para el tipo), `fecha` (salida no futura), `duracion`/`costo` (≤ 0), `hora` (formato). Varios errores llegan juntos. |

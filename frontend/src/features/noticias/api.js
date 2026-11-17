@@ -9,11 +9,19 @@ import { http } from '@/services/http'
 //   POST /noticias/suscripcion/cancelar   → cancelar desde enlace del correo (público, con token)
 // Solo clientes autenticados pueden suscribirse/cancelar; consultar es público.
 
-/** HU11 — Listar noticias de vuelos publicadas. */
-export async function listarNoticias() {
-  const { data } = await http.get('/noticias')
+/** HU11 — Listar noticias vigentes (paginado; el backend max. 100 por página). */
+export async function listarNoticias({ pagina, tamano } = {}) {
+  const params = {}
+  if (pagina != null) params.pagina = pagina
+  if (tamano != null) params.tamano = tamano
+  const { data } = await http.get('/noticias', Object.keys(params).length ? { params } : undefined)
   const items = Array.isArray(data) ? data : data?.items ?? []
-  return { total: Number(data?.total ?? items.length), items }
+  return {
+    total: Number(data?.total ?? items.length),
+    pagina: Number(data?.pagina ?? pagina ?? 1),
+    tamano: Number(data?.tamano ?? tamano ?? 0),
+    items,
+  }
 }
 
 /** HU11 — Consultar el detalle de una noticia. */

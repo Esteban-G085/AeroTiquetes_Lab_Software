@@ -38,7 +38,7 @@ describe('BilleteraPage (HU15–HU17)', () => {
   it('agregar saldo valida que el monto sea mayor a 0', async () => {
     await open()
     await type('Monto a agregar', '0')
-    await userEvent.click(screen.getByRole('button', { name: 'Aplicar' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar saldo' }))
     expect(await screen.findByText('El monto debe ser mayor a 0.')).toBeInTheDocument()
     expect(api.agregarSaldo).not.toHaveBeenCalled()
   })
@@ -48,18 +48,15 @@ describe('BilleteraPage (HU15–HU17)', () => {
     await open()
     await userEvent.click(await screen.findByRole('button', { name: /50\.000/ }))
     expect(screen.getByLabelText('Monto a agregar')).toHaveValue('50000')
-    await userEvent.click(screen.getByRole('button', { name: 'Aplicar' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar saldo' }))
     expect(api.agregarSaldo).toHaveBeenCalledWith(50000)
     expect(api.obtenerBilletera).toHaveBeenCalledTimes(2)
   })
 
-  it('establecer saldo (RF03) acepta 0 y usa otra operación', async () => {
-    api.establecerSaldo.mockResolvedValue({ saldo: 0 })
+  it('solo ofrece recargas: no hay modo de establecer saldo', async () => {
     await open()
-    await userEvent.click(await screen.findByRole('button', { name: 'Establecer saldo' }))
-    await type('Nuevo saldo', '0')
-    await userEvent.click(screen.getByRole('button', { name: 'Aplicar' }))
-    expect(api.establecerSaldo).toHaveBeenCalledWith(0)
+    expect(screen.queryByRole('button', { name: /Establecer saldo|Nuevo saldo/i })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Monto a agregar')).toBeInTheDocument()
   })
 
   it('registrar una tarjeta valida los campos antes de enviar', async () => {

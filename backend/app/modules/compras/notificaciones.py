@@ -1,15 +1,22 @@
 """
-Correos de Compra y reserva (B1-17). Se envian en segundo plano DESPUES de responder la peticion
-(ver `BackgroundTasks` en el router): si el SMTP esta lento o caido, el cliente no espera ni se deshace
-la operacion. `core.email._enviar` registra el error y no lo propaga.
+Correos de Compra y reserva (B1-17). Los datos se copian a estructuras simples en
+`preparar_*` (con la sesion de BD aun abierta); el cuerpo se guarda en la bandeja
+de salida antes de responder y el envio ocurre en `BackgroundTasks`.
 
-Los datos se copian a estructuras simples en `preparar_*` (con la sesion de BD aun abierta); el envio
-no vuelve a tocar la base de datos.
+Si SMTP falla, la fila queda pendiente y el worker de `app.main` la reintenta:
+el codigo de reserva no se pierde y la compra NO se deshace por un problema de correo.
 """
+import logging
 from zoneinfo import ZoneInfo
+
+from fastapi import BackgroundTasks
+from sqlalchemy.orm import Session
 
 from app.core import email as correo
 from app.modules.compras.models import Compra, EstadoTiquete, Reserva
+from app.modules.notificaciones import service as bandeja
+
+logger = logging.getLogger("aerotiquetes.compras.notificaciones")
 
 _BOGOTA = ZoneInfo("America/Bogota")
 
@@ -43,9 +50,28 @@ def preparar_codigos(operacion: Reserva | Compra) -> list[dict]:
     return list(envios.values())
 
 
-def enviar_codigos(envios: list[dict]) -> None:
-    for e in envios:
-        correo.enviar_codigo_reserva(**e)
+def programar_codigos(db: Session, tareas: BackgroundTasks, operacion: Reserva | Compra) -> None:
+    """Persiste los correos en la bandeja y programa el primer intento."""
+    envios = preparar_codigos(operacion)
+    try:
+        ids = bandeja.encolar_codigos(db, envios)
+    except Exception:
+        # Un problema al registrar el correo no puede deshacer una compra ya confirmada.
+        logger.exception("No se pudieron encolar los correos de la operacion %s", operacion.id)
+        ids = None
+    tareas.add_task(enviar_codigos, envios, ids)
+
+
+def enviar_codigos(envios: list[dict], ids: list[int] | None = None) -> None:
+    """Primer intento de entrega. Sin ids (bandeja no disponible) se envia directo."""
+    for indice, envio in enumerate(envios):
+        if not ids or indice >= len(ids):
+            try:
+                correo.enviar_codigo_reserva(**envio)
+            except correo.CorreoError:
+                logger.exception("No se pudo enviar el codigo a %s", envio["correo"])
+            continue
+        bandeja.procesar(ids[indice])
 
 
 def preparar_cancelacion(compra: Compra, ids_cancelados: set[int], reintegro: int, destinatario: str, nombre: str) -> dict:
@@ -57,5 +83,22 @@ def preparar_cancelacion(compra: Compra, ids_cancelados: set[int], reintegro: in
     return dict(correo=destinatario, nombre=nombre, tiquetes=tiquetes, reintegro=reintegro)
 
 
-def enviar_cancelacion(datos: dict) -> None:
-    correo.enviar_aviso_cancelacion(**datos)
+def programar_cancelacion(
+    db: Session, tareas: BackgroundTasks, operacion: Reserva | Compra, datos: dict
+) -> None:
+    try:
+        id_fila = bandeja.encolar_cancelacion(db, datos)
+    except Exception:
+        logger.exception("No se pudo encolar el aviso de cancelacion de la compra %s", operacion.id)
+        id_fila = None
+    tareas.add_task(enviar_cancelacion, datos, id_fila)
+
+
+def enviar_cancelacion(datos: dict, id_notificacion: int | None = None) -> None:
+    if id_notificacion is None:
+        try:
+            correo.enviar_aviso_cancelacion(**datos)
+        except correo.CorreoError:
+            logger.exception("No se pudo enviar el aviso de cancelacion a %s", datos["correo"])
+        return
+    bandeja.procesar(id_notificacion)

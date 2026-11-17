@@ -23,12 +23,12 @@ export const parseMonto = (v) => {
   return d ? Number(d) : Number.NaN
 }
 
-/** `agregar`: debe ser > 0. `establecer`: puede ser 0 (RF02 y RF03). */
-export function validarMonto(valor, { permitirCero = false } = {}) {
+/** Recarga (RF02): debe ser > 0. No hay operacion de "establecer saldo". */
+export function validarMonto(valor) {
   if (!text(valor)) return REQUIRED
   const n = parseMonto(valor)
   if (Number.isNaN(n)) return 'Escribe solo números.'
-  if (!permitirCero && n <= 0) return 'El monto debe ser mayor a 0.'
+  if (n <= 0) return 'El monto debe ser mayor a 0.'
   if (n > MONTO_MAX) return 'El monto máximo por operación es $100.000.000.'
   return null
 }

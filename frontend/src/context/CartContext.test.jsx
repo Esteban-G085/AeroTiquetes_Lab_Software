@@ -50,7 +50,7 @@ describe('CartContext (carrito del cliente)', () => {
 
 describe('CartContext sin sesión', () => {
   it('un visitante nunca conserva un carrito', () => {
-    sessionStorage.setItem('at.cart', JSON.stringify([item(1, 2)]))
+    sessionStorage.setItem('at.cart.v2', JSON.stringify([item(1, 2)]))
     renderWithProviders(<Probe />)
     expect(screen.getByText('0 tiquetes · $0')).toBeInTheDocument()
   })

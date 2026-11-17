@@ -17,7 +17,9 @@ from app.core.errors import AppError
 from app.core.security import (
     create_access_token,
     create_invite_token,
+    create_verification_token,
     decode_invite_token,
+    decode_verification_token,
     hash_password,
     verify_password,
 )
@@ -264,13 +266,13 @@ def solicitar_cambio_correo(db: Session, usuario: Usuario, correo_nuevo: str, pa
     usuario.correo_pendiente = correo_nuevo
     db.commit()
 
-    token = create_invite_token(administrador_id=usuario.id, expire_hours=48)
+    token = create_verification_token(usuario_id=usuario.id, expire_hours=48)
     email.enviar_verificacion_cambio_correo(correo_nuevo=correo_nuevo, token=token)
 
 
 def verificar_cambio_correo(db: Session, token: str) -> Usuario:
     try:
-        usuario_id = decode_invite_token(token)
+        usuario_id = decode_verification_token(token)
     except TokenError as exc:
         raise AppError(
             "El enlace de verificacion no es valido o ha expirado.",

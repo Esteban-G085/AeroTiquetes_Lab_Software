@@ -8,9 +8,6 @@
 .fi-balance__amount { margin: 0; display: flex; align-items: center; gap: .6rem; font-family: var(--at-font-display); font-size: clamp(2rem, 1.4rem + 2vw, 2.8rem); font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
 .fi-balance__eye { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; border: 0; border-radius: var(--at-radius); background: rgb(255 255 255 / 12%); color: #fff; }
 .fi-balance__eye:hover { background: rgb(255 255 255 / 22%); }
-.fi-balance__modes { display: inline-flex; gap: .25rem; padding: .25rem; border-radius: var(--at-radius-pill); background: rgb(255 255 255 / 12%); justify-self: start; }
-.fi-mode { padding: .4rem .95rem; border: 0; border-radius: var(--at-radius-pill); background: transparent; color: #e4ecfd; font-size: var(--at-text-sm); font-weight: 600; }
-.fi-mode.is-active { background: #fff; color: var(--at-blue-800); }
 .fi-balance__form .form-label { color: #e4ecfd; }
 .fi-balance__form .at-field__error { color: #ffd0cb; }
 .fi-balance__form .form-control { border-color: transparent; }

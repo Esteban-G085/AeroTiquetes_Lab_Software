@@ -45,32 +45,29 @@ export default function AsientoMapa({
     cargarAsientos()
   }, [cargarAsientos])
 
+  // El padre puede cambiar la selección (otro tramo, cambio de clase, carrito restaurado, etc.).
+  useEffect(() => {
+    setSeleccionados(new Set(asientosSeleccionados))
+  }, [asientosSeleccionados])
+
   const estaSeleccionado = (idAsiento) => seleccionados.has(idAsiento)
   const estaOcupado = (a) => a.estado === 'OCUPADO' || a.estado === 'ocupado'
 
   const toggleAsiento = (idAsiento, asiento) => {
     if (estaOcupado(asiento)) return
 
-    const yaSeleccionado = estaSeleccionado(idAsiento)
-    if (yaSeleccionado) {
-      setSeleccionados((prev) => {
-        const siguiente = new Set(prev)
-        siguiente.delete(idAsiento)
-        onCambio?.([...siguiente])
-        return siguiente
-      })
+    const siguiente = new Set(seleccionados)
+    if (siguiente.has(idAsiento)) {
+      siguiente.delete(idAsiento)
     } else {
       if (seleccionados.size >= maxSelecciones) {
         toast.warning(`Solo puedes seleccionar ${maxSelecciones} asiento${maxSelecciones !== 1 ? 's' : ''}.`)
         return
       }
-      setSeleccionados((prev) => {
-        const siguiente = new Set(prev)
-        siguiente.add(idAsiento)
-        onCambio?.([...siguiente])
-        return siguiente
-      })
+      siguiente.add(idAsiento)
     }
+    setSeleccionados(siguiente)
+    onCambio?.([...siguiente])
   }
 
   if (cargando) {

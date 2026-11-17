@@ -60,7 +60,8 @@ def buscar_vuelos(
     duracion_min: DuracionQuery = None,
     duracion_max: DuracionQueryMax = None,
     clase: ClaseVuelo | None = Query(
-        None, description="NO oculta vuelos (D13): la pantalla destaca la disponibilidad de esa clase."
+        None,
+        description="NO oculta vuelos (D13): elige la tarifa cobrada en filtros, orden y precio_efectivo.",
     ),
     orden: OrdenVuelos = OrdenVuelos.FECHA_ASC,
     pagina: int = Query(1, ge=1),
@@ -75,7 +76,7 @@ def buscar_vuelos(
     Si quien busca es un cliente autenticado (`Authorization: Bearer`), se guarda en su historial el
     origen, destino y fecha de la busqueda (solo la primera pagina, para no repetirla al paginar).
     """
-    # `clase` se acepta y se valida pero no filtra: ver D13.
+    # `clase` no filtra vuelos (D13): selecciona la tarifa usada en precio, filtros y orden.
     total, vuelos = service.buscar_vuelos(
         db,
         origen=origen,
@@ -85,10 +86,11 @@ def buscar_vuelos(
         precio_max=precio_max,
         duracion_min=duracion_min,
         duracion_max=duracion_max,
+        clase=clase,
         orden=orden,
         pagina=pagina,
     )
-    resultado = PaginaVuelos.armar(total, vuelos, pagina, service.TAMANO_PAGINA)
+    resultado = PaginaVuelos.armar(total, vuelos, pagina, service.TAMANO_PAGINA, clase=clase)
     if cliente is not None and pagina == 1:
         service.registrar_busqueda(db, cliente.id, origen=origen, destino=destino, fecha=fecha)
     return resultado

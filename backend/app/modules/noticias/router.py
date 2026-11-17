@@ -36,23 +36,22 @@ def _estado(sus, cliente_correo: str | None = None) -> SuscripcionOut:
 
 
 @router.get("/noticias", response_model=PaginaNoticias)
-def listar_noticias(db: DbSession, pagina: int = Query(1, ge=1)):
+def listar_noticias(
+    db: DbSession,
+    pagina: int = Query(1, ge=1),
+    tamano: int = Query(service.TAMANO_PAGINA, ge=1, le=service.TAMANO_MAXIMO),
+):
     """Noticias vigentes (publico), la mas reciente primero.
 
     Una noticia se muestra mientras su vuelo siga `programado` con salida futura y no hayan pasado
-    8 dias desde que se publico.
+    8 dias desde que se publico. `tamano` permite paginar (maximo 100).
     """
-    total, noticias = service.listar_noticias(db, pagina)
+    total, noticias = service.listar_noticias(db, pagina, tamano)
     items = []
     for n in noticias:
         datos = service.noticia_a_schema(n, n.vuelo)
         items.append(NoticiaOut(**datos))
-    return PaginaNoticias(
-        total=total,
-        pagina=pagina,
-        tamano=service.TAMANO_PAGINA,
-        items=items,
-    )
+    return PaginaNoticias(total=total, pagina=pagina, tamano=tamano, items=items)
 
 
 # Las rutas de /noticias/suscripcion van ANTES de /noticias/{id}, para que "suscripcion" no se lea como un id.
