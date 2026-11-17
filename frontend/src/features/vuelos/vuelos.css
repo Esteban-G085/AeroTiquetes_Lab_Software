@@ -80,3 +80,95 @@
 .vu-stats dd { margin: 0; font-family: var(--at-font-display); font-size: 1.6rem; color: var(--at-blue-800); font-variant-numeric: lining-nums tabular-nums; }
 .vu-toolbar { display: grid; grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); gap: 1rem 1.5rem; align-items: end; margin-bottom: .5rem; }
 @media (max-width: 767.98px) { .vu-toolbar { grid-template-columns: 1fr; } }
+
+/* ═══ Mapa de asientos (selección de silla) ═════════════════════════════════ */
+.asiento-mapa {
+  max-width: 42rem;
+  margin-inline: auto;
+}
+.asiento-mapa--cargando {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+.asiento-mapa__leyenda {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  font-size: var(--at-text-sm);
+}
+.asiento-mapa__item {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+.asiento-mapa__dot {
+  display: inline-block;
+  width: .9rem;
+  height: .9rem;
+  border-radius: 50%;
+}
+.asiento-mapa__dot.disponible { background: var(--at-green-500); }
+.asiento-mapa__dot.ocupado { background: var(--at-red-500); }
+.asiento-mapa__dot.seleccionado { background: var(--at-blue-500); }
+
+.asiento-mapa__grid {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  margin-bottom: 1rem;
+}
+.asiento-mapa__fila {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+.asiento-mapa__numero-fila {
+  min-width: 2rem;
+  font-size: var(--at-text-xs);
+  color: var(--at-muted);
+  text-align: right;
+}
+.asiento-mapa__vacio {
+  width: 2.2rem;
+  height: 2.2rem;
+}
+.asiento-mapa__silla {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--at-line);
+  border-radius: var(--at-radius);
+  background: #fff;
+  color: var(--at-gray-700);
+  font-size: var(--at-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+}
+.asiento-mapa__silla.disponible:hover:not(:disabled) {
+  background: var(--at-blue-50);
+  border-color: var(--at-blue-300);
+}
+.asiento-mapa__silla.seleccionado {
+  background: var(--at-blue-500);
+  color: #fff;
+  border-color: var(--at-blue-500);
+}
+.asiento-mapa__silla.ocupado {
+  background: var(--at-red-100);
+  color: var(--at-red-400);
+  border-color: var(--at-red-200);
+  cursor: not-allowed;
+}
+.asiento-mapa__resumen {
+  margin-top: 1rem;
+  padding: .75rem 1rem;
+  background: var(--at-blue-50);
+  border-radius: var(--at-radius);
+  font-size: var(--at-text-sm);
+  color: var(--at-blue-700);
+  font-weight: 600;
+}

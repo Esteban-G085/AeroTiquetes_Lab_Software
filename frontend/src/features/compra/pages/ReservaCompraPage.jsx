@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, Icon, Notice, Skeleton } from '@/components/ui'
 import { EmptyState, ErrorState, useToast } from '@/components/feedback'
@@ -7,6 +7,8 @@ import { FlightCard, Stepper, toFlightProps } from '@/components/travel'
 import { useCart } from '@/context'
 import { useAsyncData } from '@/utils/useAsyncData'
 import { crearReserva, obtenerMisDatos, obtenerVuelo } from '../api'
+import { obtenerAsientosVuelo } from '@/features/vuelos/api'
+import AsientoMapa from '@/features/vuelos/components/AsientoMapa'
 import { CLASES, MAX_TIQUETES_VUELO, VIAJERO_VACIO, cupoRestante, validarViajeros } from '../rules'
 import { useRegreso } from '../hooks/useRegreso'
 import ViajeroFields from '../components/ViajeroFields'
@@ -30,6 +32,8 @@ function Formulario({ vuelo }) {
   const [regresoError, setRegresoError] = useState('')
   const [clase, setClase] = useState(existing?.clase ?? 'economica')
   const [viajeros, setViajeros] = useState(existing?.viajeros ?? [{ ...VIAJERO_VACIO }])
+  const [asientosSeleccionados, setAsientosSeleccionados] = useState(existing?.asientos ?? [])
+  const [erroresAsientos, setErroresAsientos] = useState('')
   const [errors, setErrors] = useState([])
   const [general, setGeneral] = useState([])
   const [busy, setBusy] = useState(false)
@@ -40,6 +44,48 @@ function Formulario({ vuelo }) {
   const tiquetesCliente = Math.max(vuelo.tiquetes_cliente ?? 0, regreso?.tiquetes_cliente ?? 0)
   const maximo = Math.max(cupoRestante(tiquetesCliente), 0)
   const sinCupos = vuelo.cupos_disponibles === 0
+
+  // Cargar asientos disponibles del vuelo para esta clase
+  const [asientosVuelo, setAsientosVuelo] = useState([])
+  const [asientosCargando, setAsientosCargando] = useState(false)
+
+  const cargarAsientos = async () => {
+    if (!vuelo?.id) return
+    setAsientosCargando(true)
+    try {
+      const datos = await obtenerAsientosVuelo(vuelo.id)
+      setAsientosVuelo(datos.filter((a) => a.clase === clase))
+    } catch (err) {
+      setErroresAsientos('No se pudieron cargar los asientos del vuelo.')
+    } finally {
+      setAsientosCargando(false)
+    }
+  }
+
+  // Recargar asientos cuando cambie la clase o el vuelo
+  useEffect(() => {
+    cargarAsientos()
+  }, [clase, vuelo?.id])
+
+  // Limpiar selección de asientos cuando cambie la clase o el número de viajeros
+  useEffect(() => {
+    setAsientosSeleccionados([])
+  }, [clase, viajeros.length])
+
+  // Validar que haya suficientes asientos seleccionados para los viajeros
+  const validarAsientos = () => {
+    if (viajeros.length === 0) return true
+    if (asientosSeleccionados.length < viajeros.length) {
+      setErroresAsientos(`Selecciona ${viajeros.length - asientosSeleccionados.length} silla${viajeros.length - asientosSeleccionados.length > 1 ? 's' : ''} más.`)
+      return false
+    }
+    if (asientosSeleccionados.length > viajeros.length) {
+      setErroresAsientos(`Seleccionaste más sillas que viajeros.`)
+      return false
+    }
+    setErroresAsientos('')
+    return true
+  }
 
   const setCampo = (i, campo, valor) => {
     setViajeros((list) => list.map((v, idx) => (idx === i ? { ...v, [campo]: valor } : v)))
@@ -68,8 +114,8 @@ function Formulario({ vuelo }) {
   }
 
   const items = () => [
-    { vuelo, clase, viajeros, tramo: 'ida' },
-    ...(trayecto === 'ida_vuelta' && regreso ? [{ vuelo: regreso, clase, viajeros, tramo: 'vuelta' }] : []),
+    { vuelo, clase, viajeros, tramo: 'ida', asientos: asientosSeleccionados },
+    ...(trayecto === 'ida_vuelta' && regreso ? [{ vuelo: regreso, clase, viajeros, tramo: 'vuelta', asientos: asientosSeleccionados }] : []),
   ]
 
   function validar() {
@@ -94,6 +140,7 @@ function Formulario({ vuelo }) {
 
   const agregarAlCarrito = () => {
     if (!validar()) return
+    if (!validarAsientos()) return
     cart.upsertItems(items())
     toast.success(existing ? 'Actualizamos tu carrito.' : 'Agregamos el vuelo a tu carrito.')
     navigate('/carrito')
@@ -101,6 +148,7 @@ function Formulario({ vuelo }) {
 
   async function reservar() {
     if (!validar()) return
+    if (!validarAsientos()) return
     setBusy(true)
     try {
       const lista = items()
@@ -190,6 +238,32 @@ function Formulario({ vuelo }) {
               <Icon name="plus" size={16} /> Agregar otro viajero
             </Button>
           </section>
+
+          {viajeros.length > 0 && (
+            <section className="at-card co-section" aria-labelledby="co-asientos">
+              <h2 id="co-asientos" className="co-section__title">Selección de sillas</h2>
+              {erroresAsientos && <div role="alert" tabIndex={-1} className="at-field__error mt-2">{erroresAsientos}</div>}
+              {asientosCargando ? (
+                <div className="d-grid gap-3" style={{ minHeight: '10rem' }}>
+                  <Skeleton width="55%" height="2.4rem" /><Skeleton height="9rem" /><Skeleton height="14rem" />
+                </div>
+              ) : (
+                <AsientoMapa
+                  idVuelo={vuelo.id}
+                  clase={clase}
+                  asientosSeleccionados={asientosSeleccionados}
+                  maxSelecciones={viajeros.length}
+                  onCambio={(ids) => {
+                    setAsientosSeleccionados(ids)
+                    setErroresAsientos('')
+                  }}
+                />
+              )}
+              <p className="co-section__hint">
+                Elige una silla por viajero. Las sillas en rojo ya están ocupadas.
+              </p>
+            </section>
+          )}
         </form>
 
         <aside className="co-aside">

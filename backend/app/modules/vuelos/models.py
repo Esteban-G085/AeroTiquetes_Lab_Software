@@ -22,7 +22,17 @@ Decisiones a tener en cuenta:
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Date, Enum, ForeignKey, Integer, String, false, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    false,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -106,7 +116,8 @@ class Vuelo(Base):
     duracion_min: Mapped[int] = mapped_column(Integer, nullable=False)
     llegada_utc: Mapped[datetime] = mapped_column(FechaUTC, nullable=False)  # salida + duracion (D15)
 
-    costo: Mapped[int] = mapped_column(Integer, nullable=False)  # COP por persona; igual para todas las clases
+    costo: Mapped[int] = mapped_column(Integer, nullable=False)  # COP por persona, clase economica
+    costo_primera: Mapped[int] = mapped_column(Integer, nullable=False)  # COP por persona, clase primera
     estado: Mapped[EstadoVuelo] = mapped_column(
         Enum(EstadoVuelo, name="estado_vuelo"), nullable=False, default=EstadoVuelo.PROGRAMADO
     )
@@ -144,3 +155,53 @@ class Busqueda(Base):
 
     origen: Mapped[Ciudad | None] = relationship(foreign_keys=[id_origen], lazy="joined")
     destino: Mapped[Ciudad | None] = relationship(foreign_keys=[id_destino], lazy="joined")
+
+
+class ClaseAsiento(str, enum.Enum):
+    ECONOMICA = "economica"
+    PRIMERA = "primera"
+
+
+class EstadoAsiento(str, enum.Enum):
+    DISPONIBLE = "disponible"
+    OCUPADO = "ocupado"
+    BLOQUEADO = "bloqueado"
+
+
+class Asiento(Base):
+    """Asiento individual de un vuelo. El cliente elige su silla al comprar/reservar."""
+
+    __tablename__ = "asiento"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    id_vuelo: Mapped[int] = mapped_column(
+        ForeignKey("vuelo.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    numero: Mapped[str] = mapped_column(String(5), nullable=False)  # ej. "12A", "05F"
+    fila: Mapped[int] = mapped_column(Integer, nullable=False)
+    columna: Mapped[str] = mapped_column(String(1), nullable=False)  # "A", "B", ...
+    clase: Mapped[ClaseAsiento] = mapped_column(
+        Enum(ClaseAsiento, name="clase_asiento"), nullable=False
+    )
+    estado: Mapped[EstadoAsiento] = mapped_column(
+        Enum(EstadoAsiento, name="estado_asiento"),
+        nullable=False,
+        default=EstadoAsiento.DISPONIBLE,
+        server_default="disponible",
+    )
+    id_tiquete: Mapped[int | None] = mapped_column(
+        ForeignKey("tiquete.id", ondelete="SET NULL"), nullable=True
+    )
+
+    vuelo: Mapped["Vuelo"] = relationship(
+        foreign_keys=[id_vuelo], lazy="joined"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "fila > 0", name="ck_asiento_fila_positiva"
+        ),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<Asiento {self.numero} {self.clase.value} {self.estado.value}>"

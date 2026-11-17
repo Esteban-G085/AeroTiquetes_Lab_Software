@@ -1,11 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useToast } from '@/components/feedback'
 import { EstadoBadge } from '@/components/travel'
-import { ConfirmDialog } from '@/components/ui'
 import { TIPO_LABEL } from '@/domain/estados'
 import { formatDateShort, formatDuration, formatPrice, formatTime } from '@/utils/format'
-import { cancelarVuelo } from '../api'
 
 /**
  * Tabla de vuelos programados del panel (HU19). Solo presenta; los filtros y la carga son de la página.
@@ -13,21 +10,6 @@ import { cancelarVuelo } from '../api'
  * y una tarjeta por fila en móvil, donde cada celda se rotula con su data-label.
  */
 export default function VuelosTable({ vuelos = [] }) {
-  const toast = useToast()
-  const [cancelar, setCancelar] = useState({ open: false, id: null, loading: false })
-
-  async function confirmarCancelar(id) {
-    setCancelar((prev) => ({ ...prev, loading: true }))
-    try {
-      const actualizado = await cancelarVuelo(id)
-      toast.success(`Vuelo ${actualizado?.codigo ?? id} cancelado correctamente.`)
-      setCancelar({ open: false, id: null, loading: false })
-    } catch (err) {
-      toast.error(err?.message ?? 'No se pudo cancelar el vuelo.')
-      setCancelar((prev) => ({ ...prev, loading: false }))
-    }
-  }
-
   return (
     <div className="at-table at-table--cards at-card at-card--flush">
       <div className="at-table__scroll">
@@ -66,7 +48,7 @@ export default function VuelosTable({ vuelos = [] }) {
                   </span>
                 </td>
                 <td className="vu-table__val" data-label="Duración">{formatDuration(v.duracion_min)}</td>
-                <td className="text-end vu-table__val" data-label="Costo">{formatPrice(v.costo)}</td>
+                <td className="text-end vu-table__val" data-label="Costo (Econ./Prim.)">{formatPrice(v.costo ?? 0)} / {formatPrice(v.costo_primera ?? v.costo ?? 0)}</td>
                 <td className="vu-table__val" data-label="Cupos">{v.cupos_economica ?? 0} / {v.cupos_primera ?? 0}</td>
                 <td data-label="Estado"><EstadoBadge estado={v.estado} /></td>
                 <td className="text-end" data-label="">
@@ -74,14 +56,9 @@ export default function VuelosTable({ vuelos = [] }) {
                   {v.estado === 'programado' && (
                     <>
                       <Link className="btn btn-sm btn-outline-secondary ms-1" to={`/admin/vuelos/${v.id}/editar`}>Editar</Link>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger ms-1"
-                        onClick={() => setCancelar({ open: true, id: v.id, loading: false })}
-                        disabled={cancelar.loading}
-                      >
+                      <Link className="btn btn-sm btn-outline-danger ms-1" to={`/admin/vuelos/${v.id}/cancelar`}>
                         Cancelar
-                      </button>
+                      </Link>
                     </>
                   )}
                 </td>
@@ -90,18 +67,6 @@ export default function VuelosTable({ vuelos = [] }) {
           </tbody>
         </table>
       </div>
-
-      <ConfirmDialog
-        open={cancelar.open}
-        title={`Cancelar vuelo ${vuelos.find((v) => v.id === cancelar.id)?.codigo ?? ''}`.trim() || 'Cancelar vuelo'}
-        message="¿Estás seguro de que deseas cancelar este vuelo? Se liberarán los cupos por clase."
-        confirmLabel="Cancelar vuelo"
-        cancelLabel="No, mantener"
-        danger
-        loading={cancelar.loading}
-        onConfirm={() => confirmarCancelar(cancelar.id)}
-        onCancel={() => setCancelar({ open: false, id: null, loading: false })}
-      />
     </div>
   )
 }

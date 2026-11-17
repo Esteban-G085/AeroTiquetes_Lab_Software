@@ -13,13 +13,16 @@ from datetime import date, datetime, time, timedelta, timezone
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, update as sa_update
 from sqlalchemy.orm import Session
 
 from app.modules.vuelos.models import (
+    Asiento,
     CUPOS_POR_TIPO,
     Busqueda,
     Ciudad,
+    ClaseAsiento,
+    EstadoAsiento,
     EstadoVuelo,
     GrupoInternacional,
     TipoVuelo,
@@ -53,6 +56,7 @@ def crear_vuelo(
     salida_utc: datetime,
     duracion_min: int,
     costo: int,
+    costo_primera: int | None = None,
     estado: EstadoVuelo = EstadoVuelo.PROGRAMADO,
     id_administrador: int | None = None,
     cupos_economica: int | None = None,
@@ -76,6 +80,7 @@ def crear_vuelo(
         duracion_min=duracion_min,
         llegada_utc=salida_utc + timedelta(minutes=duracion_min),
         costo=costo,
+        costo_primera=costo_primera if costo_primera is not None else costo,
         estado=estado,
         cupos_economica=economica if cupos_economica is None else cupos_economica,
         cupos_primera=primera if cupos_primera is None else cupos_primera,
@@ -85,6 +90,7 @@ def crear_vuelo(
     db.flush()
     vuelo.codigo = codigo_para(vuelo.id)
     db.flush()
+    generar_asientos(db, vuelo)
     return vuelo
 
 
@@ -175,6 +181,7 @@ def programar_vuelo(
         salida_utc=salida_utc,
         duracion_min=datos.duracion,
         costo=datos.costo,
+        costo_primera=datos.costo_primera,
         id_administrador=id_administrador,
     )
     for gancho in ALPROGRAMAR_VUELO:
@@ -322,8 +329,8 @@ _TRANSICIONES = {
 }
 
 
-def _error(mensaje: str, estado_http: int, codigo: str) -> AppError:
-    return AppError(mensaje, status_code=estado_http, code=codigo)
+def _error(mensaje: str, estado_http: int, codigo: str, fields: dict | None = None) -> AppError:
+    return AppError(mensaje, status_code=estado_http, code=codigo, fields=fields)
 
 
 def _vuelo_o_404(db: Session, id_vuelo: int) -> Vuelo:
@@ -333,21 +340,41 @@ def _vuelo_o_404(db: Session, id_vuelo: int) -> Vuelo:
     return vuelo
 
 
-def cancelar_vuelo(db: Session, id_vuelo: int) -> Vuelo:
+def cancelar_vuelo(db: Session, id_vuelo: int, motivo: str | None = None) -> Vuelo:
     """HU13: cancela un vuelo `programado` y libera sus cupos (vuelven a la capacidad del tipo).
 
-    Cualquier otro estado da 409 `transicion_invalida`. Los ganchos de `ALCANCELAR_VUELO` corren en la
-    misma transaccion: si uno falla, el vuelo no queda cancelado.
+    Si el vuelo tiene tiquetes vendidos, `motivo` es obligatorio (causa de fuerza mayor, minimo 10
+    caracteres). Los ganchos de `ALCANCELAR_VUELO` corren en la misma transaccion: si uno falla, el
+    vuelo no queda cancelado.
     """
     vuelo = _vuelo_o_404(db, id_vuelo)
-    if vuelo.estado == EstadoVuelo.CANCELADO:
-        raise _error("El vuelo ya esta cancelado.", 409, "transicion_invalida")
+    sincronizar_estados(db)
+    vuelo = db.execute(select(Vuelo).where(Vuelo.id == id_vuelo)).scalar_one()  # recargar desde BD
     if vuelo.estado != EstadoVuelo.PROGRAMADO:
+        if vuelo.estado == EstadoVuelo.CANCELADO:
+            raise _error("El vuelo ya esta cancelado.", 409, "transicion_invalida")
+        if vuelo.estado == EstadoVuelo.SUCEDIDO:
+            raise _error("Solo se puede cancelar un vuelo programado.", 409, "vuelo_sucedido")
+        if vuelo.estado == EstadoVuelo.REALIZADO:
+            raise _error("Solo se puede cancelar un vuelo programado.", 409, "vuelo_realizado")
         raise _error("Solo se puede cancelar un vuelo programado.", 409, "transicion_invalida")
+
+    # Si hay tiquetes vendidos, se requiere motivo de fuerza mayor
+    ids = [vuelo.id]
+    conteo = contar_tiquetes_vendidos(db, ids)
+    if conteo.get(vuelo.id, 0) > 0:
+        if not motivo or len(motivo.strip()) < 10:
+            raise _error(
+                "Cuando el vuelo tiene tiquetes vendidos se requiere una causa de fuerza mayor (minimo 10 caracteres).",
+                422,
+                "validacion",
+                fields={"motivo": "Causa de fuerza mayor obligatoria (minimo 10 caracteres)."},
+            )
+
     vuelo.estado = EstadoVuelo.CANCELADO
     vuelo.cupos_economica, vuelo.cupos_primera = CUPOS_POR_TIPO[vuelo.tipo]
     for gancho in ALCANCELAR_VUELO:
-        gancho(db, vuelo)
+        gancho(db, vuelo.id)
     db.commit()
     db.refresh(vuelo)
     return vuelo
@@ -383,18 +410,41 @@ def editar_vuelo(db: Session, id_vuelo: int, datos: VueloEditar, *, ahora: datet
     """
     ahora = ahora or datetime.now(timezone.utc)
     vuelo = _vuelo_o_404(db, id_vuelo)
+    sincronizar_estados(db, ahora)
+    vuelo = db.execute(select(Vuelo).where(Vuelo.id == id_vuelo)).scalar_one()  # recargar desde BD
     if datos.estado is not None and datos.estado != vuelo.estado:
         return _cambiar_estado(db, vuelo, datos.estado, ahora)
     if vuelo.estado != EstadoVuelo.PROGRAMADO:
+        if vuelo.estado == EstadoVuelo.SUCEDIDO:
+            raise _error("Solo se pueden editar vuelos programados.", 409, "vuelo_sucedido")
+        if vuelo.estado == EstadoVuelo.REALIZADO:
+            raise _error("Solo se pueden editar vuelos programados.", 409, "vuelo_realizado")
+        if vuelo.estado == EstadoVuelo.CANCELADO:
+            raise _error("Solo se pueden editar vuelos programados.", 409, "vuelo_cancelado")
         raise _error("Solo se pueden editar los vuelos programados.", 409, "vuelo_no_editable")
+
+    # Si hay tiquetes vendidos, no se puede editar
+    conteo = contar_tiquetes_vendidos(db, [vuelo.id])
+    if conteo.get(vuelo.id, 0) > 0:
+        n = conteo[vuelo.id]
+        raise _error(
+            f"El vuelo ya tiene {n} {'tiquete vendido' if n == 1 else 'tiquetes vendidos'}: no se puede editar.",
+            409,
+            "vuelo_con_tiquetes",
+        )
 
     origen = obtener_ciudad(db, datos.origen)
     destino = obtener_ciudad(db, datos.destino)
+    if datos.origen == datos.destino:
+        raise AppError(
+            "Los datos enviados no son validos.", status_code=422, code="validacion",
+            fields={"destino": "El destino debe ser distinto del origen."},
+        )
     tipo = tipo_entre(origen, destino) if origen and destino else vuelo.tipo
     errores = validar_programacion(
         VueloCrear(
             tipo=tipo, origen=datos.origen, destino=datos.destino, fecha=datos.fecha, hora=datos.hora,
-            duracion=datos.duracion, costo=datos.costo,
+            duracion=datos.duracion_min, costo=datos.precio,
         ),
         origen,
         destino,
@@ -404,22 +454,21 @@ def editar_vuelo(db: Session, id_vuelo: int, datos: VueloEditar, *, ahora: datet
         raise AppError("Los datos enviados no son validos.", status_code=422, code="validacion", fields=errores)
 
     if tipo != vuelo.tipo:
-        if (vuelo.cupos_economica, vuelo.cupos_primera) != CUPOS_POR_TIPO[vuelo.tipo]:
-            raise _error(
-                "El vuelo ya tiene cupos ocupados: no se puede cambiar entre nacional e internacional.",
-                409,
-                "vuelo_con_ventas",
-            )
-        vuelo.tipo = tipo
-        vuelo.cupos_economica, vuelo.cupos_primera = CUPOS_POR_TIPO[tipo]
+        raise AppError(
+            "No se puede cambiar el tipo de vuelo (nacional/internacional) una vez programado.",
+            status_code=422,
+            code="validacion",
+            fields={"destino": "No se puede cambiar el tipo de vuelo una vez programado."},
+        )
 
     salida_utc = datetime.combine(datos.fecha, datos.hora, tzinfo=TZ_COLOMBIA).astimezone(timezone.utc)
     vuelo.origen = origen
     vuelo.destino = destino
     vuelo.salida_utc = salida_utc
-    vuelo.duracion_min = datos.duracion
-    vuelo.llegada_utc = salida_utc + timedelta(minutes=datos.duracion)
-    vuelo.costo = datos.costo
+    vuelo.duracion_min = datos.duracion_min
+    vuelo.llegada_utc = salida_utc + timedelta(minutes=datos.duracion_min)
+    vuelo.costo = datos.precio
+    vuelo.costo_primera = datos.precio_primera if datos.precio_primera is not None else datos.precio
     db.commit()
     db.refresh(vuelo)
     return vuelo
@@ -435,17 +484,21 @@ def sincronizar_estados(db: Session, ahora: datetime | None = None) -> int:
     """
     ahora = ahora or datetime.now(timezone.utc)
     salieron = db.execute(
-        update(Vuelo)
+        sa_update(Vuelo)
         .where(Vuelo.estado == EstadoVuelo.PROGRAMADO, Vuelo.salida_utc <= ahora)
         .values(estado=EstadoVuelo.SUCEDIDO)
     ).rowcount
     llegaron = db.execute(
-        update(Vuelo)
+        sa_update(Vuelo)
         .where(Vuelo.estado == EstadoVuelo.SUCEDIDO, Vuelo.llegada_utc <= ahora)
         .values(estado=EstadoVuelo.REALIZADO)
     ).rowcount
     db.commit()
     return (salieron or 0) + (llegaron or 0)
+
+
+# Alias para compatibilidad con pruebas y codigo existente.
+actualizar_estados = sincronizar_estados
 
 
 # ---------------------------------------------------------------------------
@@ -497,3 +550,155 @@ def listar_vuelos_realizados(
     if destino:
         condiciones.append(Vuelo.id_destino.in_(_ids_de_ciudad(destino)))
     return _pagina(db, condiciones, (Vuelo.salida_utc.desc(),), pagina)
+
+
+def contar_tiquetes_vendidos(db: Session, ids_vuelo: list[int]) -> dict[int, int]:
+    """Cuenta los tiquetes activos (RESERVADO o COMPRADO) por vuelo."""
+    from app.modules.compras.models import EstadoTiquete, Tiquete  # import diferido para evitar ciclo
+
+    if not ids_vuelo:
+        return {}
+    filas = db.execute(
+        select(Tiquete.id_vuelo, func.count())
+        .where(
+            Tiquete.id_vuelo.in_(ids_vuelo),
+            Tiquete.estado.in_([EstadoTiquete.RESERVADO, EstadoTiquete.COMPRADO]),
+        )
+        .group_by(Tiquete.id_vuelo)
+    ).all()
+    return {id_vuelo: count for id_vuelo, count in filas}
+
+
+# ---------------------------------------------------------------------------
+# Asientos individuales (selección de silla)
+# ---------------------------------------------------------------------------
+
+_COLUMNAS = ["A", "B", "C", "D", "E"]  # 5 columnas por fila
+
+
+def _numero_asiento(fila: int, columna: str) -> str:
+    """Formato del número de asiento: ej. '1A', '25E'."""
+    return f"{fila}{columna}"
+
+
+def generar_asientos(db: Session, vuelo: Vuelo) -> list[Asiento]:
+    """Genera los asientos individuales de un vuelo recién programado.
+
+    Distribución por clase según `CUPOS_POR_TIPO`:
+    - Primera clase: filas iniciales, 5 columnas por fila.
+    - Económica: filas restantes, 5 columnas por fila.
+    """
+    cupos_economica, cupos_primera = CUPOS_POR_TIPO[vuelo.tipo]
+    asientos: list[Asiento] = []
+
+    fila_actual = 1
+    # Primera clase primero
+    filas_primera = -(-cupos_primera // len(_COLUMNAS))  # techo
+    for f in range(fila_actual, fila_actual + filas_primera):
+        for col in _COLUMNAS:
+            if len([a for a in asientos if a.clase == ClaseAsiento.PRIMERA]) >= cupos_primera:
+                break
+            asientos.append(
+                Asiento(
+                    id_vuelo=vuelo.id,
+                    numero=_numero_asiento(f, col),
+                    fila=f,
+                    columna=col,
+                    clase=ClaseAsiento.PRIMERA,
+                    estado=EstadoAsiento.DISPONIBLE,
+                )
+            )
+    fila_actual += filas_primera
+
+    # Economica
+    filas_economica = -(-cupos_economica // len(_COLUMNAS))  # techo
+    for f in range(fila_actual, fila_actual + filas_economica):
+        for col in _COLUMNAS:
+            if len([a for a in asientos if a.clase == ClaseAsiento.ECONOMICA]) >= cupos_economica:
+                break
+            asientos.append(
+                Asiento(
+                    id_vuelo=vuelo.id,
+                    numero=_numero_asiento(f, col),
+                    fila=f,
+                    columna=col,
+                    clase=ClaseAsiento.ECONOMICA,
+                    estado=EstadoAsiento.DISPONIBLE,
+                )
+            )
+
+    db.add_all(asientos)
+    db.flush()
+    return asientos
+
+
+def obtener_asientos_vuelo(db: Session, id_vuelo: int) -> list[Asiento]:
+    """Devuelve todos los asientos de un vuelo ordenados por fila y columna."""
+    return list(
+        db.scalars(
+            select(Asiento)
+            .where(Asiento.id_vuelo == id_vuelo)
+            .order_by(Asiento.fila, Asiento.columna)
+        )
+    )
+
+
+def obtener_asientos_disponibles(db: Session, id_vuelo: int, clase: ClaseAsiento | None = None) -> list[Asiento]:
+    """Devuelve los asientos disponibles de un vuelo, opcionalmente filtrados por clase."""
+    condiciones = [Asiento.id_vuelo == id_vuelo, Asiento.estado == EstadoAsiento.DISPONIBLE]
+    if clase is not None:
+        condiciones.append(Asiento.clase == clase)
+    return list(
+        db.scalars(
+            select(Asiento)
+            .where(*condiciones)
+            .order_by(Asiento.fila, Asiento.columna)
+        )
+    )
+
+
+def reservar_asientos(db: Session, id_vuelo: int, ids_asientos: list[int]) -> list[Asiento]:
+    """Marca los asientos dados como OCUPADO en una transacción atomica.
+
+    Solo se reservan si siguen DISPONIBLES (evita doble venta por concurrencia).
+    Lanza AppError si alguno ya no esta disponible.
+    """
+    if not ids_asientos:
+        return []
+
+    asientos = db.scalars(select(Asiento).where(Asiento.id.in_(ids_asientos))).all()
+    if len(asientos) != len(ids_asientos):
+        raise AppError(
+            "Uno o más asientos no existen.",
+            status_code=404,
+            code="asiento_no_encontrado",
+        )
+
+    no_disponibles = [
+        a.numero for a in asientos if a.estado != EstadoAsiento.DISPONIBLE
+    ]
+    if no_disponibles:
+        raise AppError(
+            f"Los asientos ya no estan disponibles: {', '.join(no_disponibles)}.",
+            status_code=409,
+            code="asiento_no_disponible",
+            fields={a.numero: "ocupado" for a in asientos if a.estado != EstadoAsiento.DISPONIBLE},
+        )
+
+    for a in asientos:
+        a.estado = EstadoAsiento.OCUPADO
+    db.flush()
+    return asientos
+
+
+def liberar_asientos(db: Session, ids_asientos: list[int]) -> int:
+    """Libera asientos (pasa de OCUPADO a DISPONIBLE). Devuelve cuantos se liberaron."""
+    if not ids_asientos:
+        return 0
+    res = db.execute(
+        sa_update(Asiento)
+        .where(Asiento.id.in_(ids_asientos), Asiento.estado == EstadoAsiento.OCUPADO)
+        .values(estado=EstadoAsiento.DISPONIBLE, id_tiquete=None)
+    )
+    db.flush()
+    return res.rowcount or 0

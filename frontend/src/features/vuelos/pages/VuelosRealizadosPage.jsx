@@ -16,7 +16,10 @@ export default function VuelosRealizadosPage() {
     let vivo = true
     setResultado((r) => ({ ...r, status: 'loading', error: null }))
     listarVuelosRealizados()
-      .then(({ items }) => { if (vivo) setResultado({ status: 'ready', vuelos: items, error: null }) })
+      .then((data) => {
+        const items = Array.isArray(data) ? data : data?.items ?? []
+        if (vivo) setResultado({ status: 'ready', vuelos: items, error: null })
+      })
       .catch((error) => { if (vivo) setResultado({ status: 'error', vuelos: [], error }) })
     return () => { vivo = false }
   }, [intento])

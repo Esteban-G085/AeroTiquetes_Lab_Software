@@ -166,7 +166,7 @@ export default function NoticiasPage() {
             )}
             {esAdmin && (
               <Notice tone="neutral" className="not-suscripcion__aviso mt-2">
-                Como administrador también puedes gestionar noticias desde el panel de administración.
+                Como administrador puedes <Link to="/noticias/crear">crear una noticia</Link> desde aquí.
               </Notice>
             )}
           </div>

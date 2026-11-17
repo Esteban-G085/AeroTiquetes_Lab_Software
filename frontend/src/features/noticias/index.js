@@ -15,6 +15,12 @@ export default {
       nav: { label: 'Noticias', area: 'main', order: 20 },
     },
     {
+      path: '/noticias/crear',
+      title: 'Crear noticia',
+      Component: lazy(() => import('./pages/CrearNoticiaPage')),
+      roles: [ROLES.ADMIN, ROLES.ROOT],
+    },
+    {
       path: '/cancelar-suscripcion',
       title: 'Cancelar suscripción',
       Component: lazy(() => import('./pages/CancelarSuscripcionPage')),

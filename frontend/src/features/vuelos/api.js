@@ -20,6 +20,12 @@ export async function listarVuelos(filtros = {}) {
   return { total: Number(data?.total ?? items.length), items }
 }
 
+/** HU19 — Catálogo de ciudades para los filtros del panel. */
+export async function listarCiudades() {
+  const { data } = await http.get('/ciudades')
+  return Array.isArray(data) ? data : data?.items ?? []
+}
+
 /** HU18 — Programar un vuelo. Devuelve el vuelo creado (con `id` y `codigo`). */
 export async function crearVuelo(payload) {
   const { data } = await http.post('/admin/vuelos', payload)
@@ -32,15 +38,21 @@ export async function obtenerVueloAdmin(id) {
   return data
 }
 
+/** Alias del contrato F2: `obtenerVuelo` == `obtenerVueloAdmin`. */
+export const obtenerVuelo = obtenerVueloAdmin
+
 /** HU12 — Editar un vuelo programado. Devuelve el vuelo actualizado. */
 export async function actualizarVuelo(id, payload) {
   const { data } = await http.put(`/admin/vuelos/${encodeURIComponent(id)}`, payload)
   return data
 }
 
-/** HU13 — Cancela un vuelo programado. Devuelve el vuelo con estado `cancelado`. */
-export async function cancelarVuelo(id) {
-  const { data } = await http.patch(`/admin/vuelos/${encodeURIComponent(id)}/cancelar`)
+/** Alias del contrato F2: `editarVuelo` == `actualizarVuelo`. */
+export const editarVuelo = actualizarVuelo
+
+/** HU13 — Cancela un vuelo programado. `motivo` es obligatorio cuando el vuelo tiene tiquetes vendidos. */
+export async function cancelarVuelo(id, motivo = '') {
+  const { data } = await http.patch(`/admin/vuelos/${encodeURIComponent(id)}/cancelar`, { motivo })
   return data
 }
 
@@ -49,4 +61,10 @@ export async function listarVuelosRealizados() {
   const { data } = await http.get('/admin/vuelos/realizados')
   const items = Array.isArray(data) ? data : data?.items ?? []
   return { total: Number(data?.total ?? items.length), items }
+}
+
+/** HU13 — Obtener los asientos individuales de un vuelo con su estado. */
+export async function obtenerAsientosVuelo(id) {
+  const { data } = await http.get(`/admin/vuelos/${encodeURIComponent(id)}/asientos`)
+  return Array.isArray(data) ? data : []
 }

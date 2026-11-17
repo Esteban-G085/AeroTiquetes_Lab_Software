@@ -50,9 +50,13 @@ export default function EditarVueloPage() {
   }
 
   async function guardar(payload) {
-    const actualizado = await actualizarVuelo(id, payload)
-    toast.success(`Vuelo ${actualizado?.codigo ?? ''} actualizado correctamente.`.replace('  ', ' '))
-    navigate(`/admin/vuelos/${actualizado.id ?? id}`, { replace: true })
+    try {
+      const actualizado = await actualizarVuelo(id, payload)
+      toast.success(`Vuelo ${actualizado?.codigo ?? ''} actualizado correctamente.`.replace('  ', ' '))
+      navigate(`/admin/vuelos/${actualizado.id ?? id}`, { replace: true })
+    } catch (err) {
+      toast.error(err?.message ?? 'No se pudo guardar los cambios del vuelo.')
+    }
   }
 
   return (

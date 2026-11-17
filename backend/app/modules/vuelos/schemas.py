@@ -11,7 +11,15 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field
 
 # Los enums de dominio viven en models.py (una sola definicion para la API y la base de datos).
-from app.modules.vuelos.models import EstadoVuelo, GrupoInternacional, TipoVuelo
+from app.modules.vuelos.models import (
+    Asiento,
+    ClaseAsiento,
+    EstadoAsiento,
+    EstadoVuelo,
+    GrupoInternacional,
+    TipoVuelo,
+    Vuelo,
+)
 
 
 class ClaseVuelo(str, Enum):
@@ -78,10 +86,12 @@ class VueloOut(BaseModel):
     salida_utc: datetime
     llegada_utc: datetime = Field(description="salida + duracion, calculada por el backend (D15).")
     duracion_min: int
-    costo: int = Field(description="Por persona, en COP. No depende de la clase (D3).")
+    costo: int = Field(description="Por persona, en COP. Clase economica (D3).")
+    costo_primera: int = Field(description="Por persona, en COP. Clase primera. Si no se indica, igual que economica.")
     cupos_economica: int
     cupos_primera: int
     fecha_programacion: datetime
+    tiquetes_vendidos: int = Field(0, description="Tiquetes activos (reservados o comprados).")
 
 
 class PaginaVuelos(BaseModel):
@@ -96,6 +106,49 @@ class PaginaVuelos(BaseModel):
         return cls(total=total, pagina=pagina, tamano=tamano, items=[VueloOut.model_validate(v) for v in vuelos])
 
 
+def vuelo_con_tiquetes_vendidos(vuelo: Vuelo, tiquetes_vendidos: int = 0) -> VueloOut:
+    """Construye un VueloOut a partir de un modelo Vuelo, agregando tiquetes_vendidos."""
+    return VueloOut(
+        id=vuelo.id,
+        codigo=vuelo.codigo,
+        tipo=vuelo.tipo,
+        estado=vuelo.estado,
+        origen=CiudadVuelo(
+            codigo=vuelo.origen.codigo,
+            nombre=vuelo.origen.nombre,
+            pais=vuelo.origen.pais,
+            zona_horaria=vuelo.origen.zona_horaria,
+        ),
+        destino=CiudadVuelo(
+            codigo=vuelo.destino.codigo,
+            nombre=vuelo.destino.nombre,
+            pais=vuelo.destino.pais,
+            zona_horaria=vuelo.destino.zona_horaria,
+        ),
+        salida_utc=vuelo.salida_utc,
+        llegada_utc=vuelo.llegada_utc,
+        duracion_min=vuelo.duracion_min,
+        costo=vuelo.costo,
+        costo_primera=vuelo.costo_primera,
+        cupos_economica=vuelo.cupos_economica,
+        cupos_primera=vuelo.cupos_primera,
+        fecha_programacion=vuelo.fecha_programacion,
+        tiquetes_vendidos=tiquetes_vendidos,
+    )
+
+
+class AsientoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    numero: str
+    fila: int
+    columna: str
+    clase: ClaseAsiento
+    estado: EstadoAsiento
+    id_tiquete: int | None = None
+
+
 class VueloCrear(BaseModel):
     """Lo unico que digita el administrador (HU18). El resto lo genera el sistema."""
 
@@ -105,7 +158,8 @@ class VueloCrear(BaseModel):
     fecha: date = Field(description="YYYY-MM-DD")
     hora: time = Field(description="HH:MM en hora de Colombia (America/Bogota)")
     duracion: int = Field(gt=0, description="Minutos")
-    costo: int = Field(gt=0, description="Por persona, en COP")
+    costo: int = Field(gt=0, description="Por persona, en COP. Clase economica.")
+    costo_primera: int | None = Field(None, gt=0, description="Por persona, en COP. Clase primera. Si se omite, igual que economica.")
 
 
 class VueloEditar(BaseModel):
@@ -120,6 +174,17 @@ class VueloEditar(BaseModel):
     destino: str = Field(min_length=3, max_length=3, description="Codigo de ciudad, ej. MDE")
     fecha: date = Field(description="YYYY-MM-DD")
     hora: time = Field(description="HH:MM en hora de Colombia (America/Bogota)")
-    duracion: int = Field(gt=0, description="Minutos")
-    costo: int = Field(gt=0, description="Por persona, en COP")
+    duracion_min: int = Field(gt=0, description="Minutos")
+    precio: int = Field(gt=0, description="Por persona, en COP. Clase economica.")
+    precio_primera: int | None = Field(None, gt=0, description="Por persona, en COP. Clase primera. Si se omite, igual que economica.")
     estado: EstadoVuelo | None = None
+
+
+class VueloCancelar(BaseModel):
+    """Cuerpo de `PATCH /admin/vuelos/{id}/cancelar` (HU13).
+
+    `motivo` es opcional cuando no hay tiquetes vendidos, pero obligatorio (minimo 10 caracteres)
+    cuando el vuelo ya tiene reservas o compras activas.
+    """
+
+    motivo: str | None = Field(None, max_length=300, description="Causa de fuerza mayor; obligatoria si hay tiquetes vendidos.")

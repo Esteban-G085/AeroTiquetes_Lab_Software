@@ -6,15 +6,11 @@ import { ROLES } from '@/config/roles'
 export default {
   name: 'vuelos',
   routes: [
-    { path: '/admin/vuelos', title: 'Vuelos', Component: lazy(() => import('./pages/VuelosAdminPage')),
-      roles: [ROLES.ADMIN], nav: { label: 'Vuelos', area: 'main', order: 10 } },
-    { path: '/admin/vuelos/nuevo', title: 'Programar vuelo', Component: lazy(() => import('./pages/ProgramarVueloPage')),
-      roles: [ROLES.ADMIN] },
-    { path: '/admin/vuelos/:id', title: 'Consultar vuelo', Component: lazy(() => import('./pages/ConsultarVueloPage')),
-      roles: [ROLES.ADMIN] },
-    { path: '/admin/vuelos/:id/editar', title: 'Editar vuelo', Component: lazy(() => import('./pages/EditarVueloPage')),
-      roles: [ROLES.ADMIN] },
-    { path: '/admin/vuelos/realizados', title: 'Vuelos realizados', Component: lazy(() => import('./pages/VuelosRealizadosPage')),
-      roles: [ROLES.ADMIN] },
+    { path: '/admin/vuelos', title: 'Vuelos', Component: lazy(() => import('./pages/VuelosAdminPage')), roles: [ROLES.ADMIN], nav: { label: 'Vuelos', area: 'main', order: 10 } },
+    { path: '/admin/vuelos/nuevo', title: 'Programar vuelo', Component: lazy(() => import('./pages/ProgramarVueloPage')), roles: [ROLES.ADMIN] },
+    { path: '/admin/vuelos/:id/cancelar', title: 'Cancelar vuelo', Component: lazy(() => import('./pages/CancelarVueloPage')), roles: [ROLES.ADMIN] },
+    { path: '/admin/vuelos/:id', title: 'Consultar vuelo', Component: lazy(() => import('./pages/ConsultarVueloPage')), roles: [ROLES.ADMIN] },
+    { path: '/admin/vuelos/:id/editar', title: 'Editar vuelo', Component: lazy(() => import('./pages/EditarVueloPage')), roles: [ROLES.ADMIN] },
+    { path: '/admin/vuelos/realizados', title: 'Vuelos realizados', Component: lazy(() => import('./pages/VuelosRealizadosPage')), roles: [ROLES.ADMIN] },
   ],
 }

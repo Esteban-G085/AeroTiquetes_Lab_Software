@@ -28,6 +28,9 @@ export async function estadoSuscripcion() {
   return data
 }
 
+/** Alias del contrato F1: `obtenerSuscripcion` == `estadoSuscripcion`. */
+export const obtenerSuscripcion = estadoSuscripcion
+
 /** HU11 — Suscribir al cliente autenticado a las noticias. */
 export async function suscribirseNoticias() {
   const { data } = await http.post('/noticias/suscripcion')
@@ -43,5 +46,11 @@ export async function cancelarSuscripcionNoticias() {
 /** HU11 — Cancelar la suscripción desde el enlace del correo (público, con token). */
 export async function cancelarConToken(token) {
   const { data } = await http.post('/noticias/suscripcion/cancelar', { token })
+  return data
+}
+
+/** HU11 (admin) — Crear una noticia manualmente. */
+export async function crearNoticia(payload) {
+  const { data } = await http.post('/admin/noticias', payload)
   return data
 }

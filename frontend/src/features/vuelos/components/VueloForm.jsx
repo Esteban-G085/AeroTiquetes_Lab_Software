@@ -6,7 +6,7 @@ import { CAPACIDAD_POR_TIPO, TIPO_LABEL } from '@/domain/estados'
 import { ciudadesDeColombia, gruposDeCiudades } from '@/utils/ciudadesOpciones'
 import { formatDateTime, formatDuration, formatPrice, timeToMinutes, todayISO } from '@/utils/format'
 
-const INICIAL = { origen: '', destino: '', fecha: '', hora: '08:00', horas: '1', minutos: '30', costo: '' }
+const INICIAL = { origen: '', destino: '', fecha: '', hora: '08:00', horas: '1', minutos: '30', costo: '', costoPrimera: '' }
 
 const duracionDe = (horas, minutos) => {
   const h = Number(horas)
@@ -45,6 +45,11 @@ function validar(f, esEdicion = false) {
   const costo = Number(f.costo)
   if (!f.costo || !Number.isFinite(costo) || costo <= 0) errores.costo = 'El costo por persona debe ser mayor que cero.'
 
+  const costoPrimera = Number(f.costoPrimera)
+  if (f.costoPrimera && (!Number.isFinite(costoPrimera) || costoPrimera <= 0)) {
+    errores.costoPrimera = 'El costo de primera clase debe ser mayor que cero.'
+  }
+
   // RF04–RF06: nacional entre capitales; internacional solo con una ciudad autorizada y una del exterior.
   if (f.origen && f.destino && f.origen !== f.destino && !errores.destino && clasificarVuelo(f.origen, f.destino) === null) {
     errores.destino = 'Combinación no permitida: un vuelo internacional solo une una ciudad autorizada de Colombia (Pereira, Bogotá, Medellín, Cali o Cartagena) con una ciudad del exterior.'
@@ -68,6 +73,7 @@ export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
         hora: vuelo.salida_utc ? new Date(vuelo.salida_utc).toISOString().slice(11, 16) : '08:00',
         ...horasMinutosDe(vuelo.duracion_min),
         costo: String(vuelo.costo ?? ''),
+        costoPrimera: String(vuelo.costo_primera ?? ''),
       }
     : INICIAL)
   const [errores, setErrores] = useState({})
@@ -92,15 +98,20 @@ export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
 
     setEnviando(true)
     try {
-      await onGuardar({
+      const payload = {
         tipo,
         origen: f.origen,
         destino: f.destino,
         fecha: f.fecha,
         hora: f.hora,
-        duracion: dur,
-        costo: Number(f.costo),
-      })
+        ...(esEdicion
+          ? { duracion_min: dur, precio: Number(f.costo) }
+          : { duracion: dur, costo: Number(f.costo) }),
+      }
+      if (f.costoPrimera) {
+        payload[esEdicion ? 'precio_primera' : 'costo_primera'] = Number(f.costoPrimera)
+      }
+      await onGuardar(payload)
     } catch (err) {
       if (err instanceof ApiError) {
         setErrores(err.fields ?? {})
@@ -129,6 +140,7 @@ export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
         <Input label="Duración (minutos)" type="number" min="0" max="59" step="5" value={f.minutos} onChange={set('minutos')} />
 
         <Input label="Costo por persona (COP)" type="number" min="1" step="1000" value={f.costo} onChange={set('costo')} error={errores.costo} />
+        <Input label="Costo primera clase (COP)" type="number" min="1" step="1000" value={f.costoPrimera} onChange={set('costoPrimera')} error={errores.costoPrimera} />
       </div>
 
       {errorGeneral && <Notice tone="danger" className="mt-2">{errorGeneral}</Notice>}
@@ -141,7 +153,8 @@ export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
           <div><dt>Salida</dt><dd>{salida ? `${formatDateTime(salida, TZ_COLOMBIA)} (COT)` : '—'}</dd></div>
           <div><dt>Llegada estimada</dt><dd>{llegada ? `${formatDateTime(llegada, destino?.zona_horaria ?? TZ_COLOMBIA)} (hora local)` : '—'}</dd></div>
           <div><dt>Duración</dt><dd>{dur > 0 ? formatDuration(dur) : '—'}</dd></div>
-          <div><dt>Costo</dt><dd>{f.costo ? formatPrice(Number(f.costo)) : '—'}</dd></div>
+          <div><dt>Costo económica</dt><dd>{f.costo ? formatPrice(Number(f.costo)) : '—'}</dd></div>
+          <div><dt>Costo primera clase</dt><dd>{f.costoPrimera ? formatPrice(Number(f.costoPrimera)) : '—'}</dd></div>
           <div>
             <dt>Cupos asignados por el sistema</dt>
             <dd>

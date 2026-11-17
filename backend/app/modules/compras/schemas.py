@@ -84,6 +84,10 @@ class ItemSolicitud(BaseModel):
     vuelo_regreso_id: int | None = Field(default=None, description="Obligatorio si el trayecto es completo.")
     clase: ClaseTiquete
     viajeros: list[ViajeroIn] = Field(min_length=1, max_length=MAX_VIAJEROS_POR_ITEM)
+    asientos: list[int] | None = Field(
+        None,
+        description="IDs de asientos individuales, uno por viajero. Si se omite, el sistema asigna automaticamente.",
+    )
 
     @model_validator(mode="after")
     def _coherencia(self) -> "ItemSolicitud":
@@ -94,6 +98,10 @@ class ItemSolicitud(BaseModel):
                 raise ValueError("El vuelo de regreso debe ser distinto al de ida.")
         elif self.vuelo_regreso_id is not None:
             raise ValueError("vuelo_regreso_id solo se envia en un trayecto completo.")
+
+        if self.asientos is not None and len(self.asientos) != len(self.viajeros):
+            raise ValueError("La cantidad de asientos debe coincidir con la cantidad de viajeros.")
+
         return self
 
 

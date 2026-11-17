@@ -76,6 +76,7 @@ const toPayload = (items) => ({
     vuelo_id: i.vuelo.id,
     clase: i.clase,
     viajeros: i.viajeros.map(viajeroAlBackend),
+    ...(i.asientos && i.asientos.length ? { asientos: i.asientos } : {}),
   })),
 })
 

@@ -1,10 +1,10 @@
 """
-Modelos de Noticias y Mensajes (Sprint 2, B2-11).
+Modelos de Noticias y suscripcion (Sprint 2, B2-11).
 
     noticia      se crea sola al programar un vuelo (HU11)
     suscripcion  un cliente recibe por correo las noticias nuevas; se cancela cuando quiera
     mensaje      cliente -> administrador   (SOLO LA TABLA: se usa en las Iteraciones 3 y 4)
-    respuesta    administrador -> cliente   (SOLO LA TABLA: se usa en la Iteracion 4)
+    respuesta    administrador -> cliente   (SOLO LA TABLA: se usa en las Iteraciones 4)
 
 Decisiones:
 
@@ -34,10 +34,18 @@ class Noticia(Base):
     id_vuelo: Mapped[int] = mapped_column(
         ForeignKey("vuelo.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    titulo: Mapped[str] = mapped_column(String(200), nullable=False)
-    contenido: Mapped[str] = mapped_column(Text, nullable=False)
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False, default="vuelo")
+    titulo: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    contenido: Mapped[str | None] = mapped_column(Text, nullable=True)
     imagen_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     publicada_en: Mapped[datetime] = mapped_column(FechaUTC, nullable=False, server_default=func.now(), index=True)
+    vigente_hasta: Mapped[datetime] = mapped_column(
+        FechaUTC, nullable=False, server_default=func.now(), index=True
+    )
+
+    @property
+    def vuelo_id(self) -> int:
+        return self.id_vuelo
 
     vuelo: Mapped[Vuelo] = relationship(lazy="joined")
 
@@ -49,6 +57,7 @@ class Suscripcion(Base):
     id_cliente: Mapped[int] = mapped_column(
         ForeignKey("cliente.id", ondelete="CASCADE"), unique=True, nullable=False
     )
+    correo: Mapped[str] = mapped_column(String(255), nullable=False)
     activa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=false())
     token_cancelacion: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     creada_en: Mapped[datetime] = mapped_column(FechaUTC, nullable=False, server_default=func.now())

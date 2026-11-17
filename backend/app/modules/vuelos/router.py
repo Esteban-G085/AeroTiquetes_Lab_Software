@@ -12,13 +12,16 @@ from app.core.errors import AppError
 from app.modules.vuelos import service
 from app.modules.vuelos.models import EstadoVuelo
 from app.modules.vuelos.schemas import (
+    AsientoOut,
     CiudadOut,
     ListaCiudades,
     PaginaVuelos,
     UsoCiudad,
+    VueloCancelar,
     VueloCrear,
     VueloEditar,
     VueloOut,
+    vuelo_con_tiquetes_vendidos,
 )
 
 router = APIRouter()
@@ -63,7 +66,10 @@ def listar_vuelos_admin(
     Filtros opcionales: `estado`, `origen`, `destino`.
     """
     total, vuelos = service.listar_vuelos_admin(db, estado=estado, origen=origen, destino=destino, pagina=pagina)
-    return PaginaVuelos.armar(total, vuelos, pagina, service.TAMANO_PAGINA)
+    ids = [v.id for v in vuelos]
+    conteo = service.contar_tiquetes_vendidos(db, ids)
+    items = [vuelo_con_tiquetes_vendidos(v, conteo.get(v.id, 0)) for v in vuelos]
+    return PaginaVuelos(total=total, pagina=pagina, tamano=service.TAMANO_PAGINA, items=items)
 
 
 @router.get(
@@ -93,7 +99,10 @@ def listar_vuelos_realizados(
         )
     service.sincronizar_estados(db)
     total, vuelos = service.listar_vuelos_realizados(db, estado=estado, origen=origen, destino=destino, pagina=pagina)
-    return PaginaVuelos.armar(total, vuelos, pagina, service.TAMANO_PAGINA)
+    ids = [v.id for v in vuelos]
+    conteo = service.contar_tiquetes_vendidos(db, ids)
+    items = [vuelo_con_tiquetes_vendidos(v, conteo.get(v.id, 0)) for v in vuelos]
+    return PaginaVuelos(total=total, pagina=pagina, tamano=service.TAMANO_PAGINA, items=items)
 
 
 @router.get(
@@ -107,7 +116,22 @@ def consultar_vuelo_admin(id: int, db: DbSession):
     vuelo = service.consultar_vuelo(db, id)
     if vuelo is None:
         raise AppError("El vuelo no existe.", status_code=status.HTTP_404_NOT_FOUND, code="vuelo_no_encontrado")
-    return VueloOut.model_validate(vuelo)
+    conteo = service.contar_tiquetes_vendidos(db, [vuelo.id])
+    return vuelo_con_tiquetes_vendidos(vuelo, conteo.get(vuelo.id, 0))
+
+
+@router.get(
+    "/admin/vuelos/{id}/asientos",
+    response_model=list[AsientoOut],
+    tags=["Administracion de vuelos"],
+    dependencies=Depends(require_roles("cliente", "administrador", "root")),
+)
+def listar_asientos_vuelo(id: int, db: DbSession):
+    """Lista los asientos individuales de un vuelo con su estado (disponible/ocupado)."""
+    vuelo = service.consultar_vuelo(db, id)
+    if vuelo is None:
+        raise AppError("El vuelo no existe.", status_code=status.HTTP_404_NOT_FOUND, code="vuelo_no_encontrado")
+    return service.obtener_asientos_vuelo(db, id)
 
 
 @router.put(
@@ -126,7 +150,9 @@ def editar_vuelo(id: int, datos: VueloEditar, db: DbSession):
       Una transicion no permitida da 409 `transicion_invalida`.
     * El codigo no cambia; la llegada se recalcula.
     """
-    return VueloOut.model_validate(service.editar_vuelo(db, id, datos))
+    vuelo = service.editar_vuelo(db, id, datos)
+    conteo = service.contar_tiquetes_vendidos(db, [vuelo.id])
+    return vuelo_con_tiquetes_vendidos(vuelo, conteo.get(vuelo.id, 0))
 
 
 @router.patch(
@@ -135,13 +161,15 @@ def editar_vuelo(id: int, datos: VueloEditar, db: DbSession):
     tags=["Administracion de vuelos"],
     dependencies=[_SOLO_ADMIN],
 )
-def cancelar_vuelo(id: int, db: DbSession):
+def cancelar_vuelo(id: int, datos: VueloCancelar, db: DbSession):
     """Cancela un vuelo `programado` (HU13): pasa a `cancelado` y libera sus cupos.
 
-    404 si no existe; 409 `transicion_invalida` si ya esta cancelado o ya salio. Su noticia deja de
-    mostrarse.
+    Si el vuelo tiene tiquetes vendidos, `motivo` es obligatorio (causa de fuerza mayor, minimo 10
+    caracteres). 404 si no existe; 409 si ya esta cancelado o ya salio; 422 si falta el motivo.
     """
-    return VueloOut.model_validate(service.cancelar_vuelo(db, id))
+    vuelo = service.cancelar_vuelo(db, id, datos.motivo)
+    conteo = service.contar_tiquetes_vendidos(db, [vuelo.id])
+    return vuelo_con_tiquetes_vendidos(vuelo, conteo.get(vuelo.id, 0))
 
 
 @router.post(

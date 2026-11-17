@@ -51,10 +51,44 @@ def _redactar(vuelo: Vuelo) -> tuple[str, str]:
     return titulo, contenido
 
 
-def publicar_noticia(db: Session, vuelo: Vuelo) -> Noticia:
+def publicar_noticia(db: Session, vuelo: Vuelo, publicada_en: datetime | None = None) -> Noticia:
     """Crea la noticia del vuelo (no hace commit: lo hace quien programa el vuelo)."""
+    publicada = publicada_en or datetime.now(timezone.utc)
     titulo, contenido = _redactar(vuelo)
-    noticia = Noticia(id_vuelo=vuelo.id, titulo=titulo, contenido=contenido)
+    noticia = Noticia(
+        id_vuelo=vuelo.id,
+        tipo="vuelo",
+        titulo=titulo,
+        contenido=contenido,
+        publicada_en=publicada,
+        vigente_hasta=publicada + timedelta(days=DIAS_PUBLICADA),
+    )
+    db.add(noticia)
+    db.flush()
+    return noticia
+
+
+def crear_noticia_manual(
+    db: Session,
+    *,
+    id_vuelo: int | None = None,
+    tipo: str = "vuelo",
+    titulo: str | None = None,
+    contenido: str | None = None,
+    imagen_url: str | None = None,
+    vigente_hasta: datetime | None = None,
+) -> Noticia:
+    """Crea una noticia manualmente (administrador). No hace commit: lo hace quien llama."""
+    publicada = datetime.now(timezone.utc)
+    noticia = Noticia(
+        id_vuelo=id_vuelo,
+        tipo=tipo,
+        titulo=titulo,
+        contenido=contenido,
+        imagen_url=imagen_url,
+        publicada_en=publicada,
+        vigente_hasta=vigente_hasta or (publicada + timedelta(days=DIAS_PUBLICADA)),
+    )
     db.add(noticia)
     db.flush()
     return noticia
@@ -63,11 +97,13 @@ def publicar_noticia(db: Session, vuelo: Vuelo) -> Noticia:
 def publicar_noticias_faltantes(db: Session) -> int:
     """Crea la noticia de los vuelos `programado` futuros que no la tienen (por ejemplo, los de los seeds)."""
     con_noticia = select(Noticia.id_vuelo)
+    ahora = datetime.now(timezone.utc)
     vuelos = db.scalars(
         select(Vuelo)
         .where(
             Vuelo.estado == EstadoVuelo.PROGRAMADO,
-            Vuelo.salida_utc > datetime.now(timezone.utc),
+            Vuelo.salida_utc > ahora,
+            Vuelo.fecha_programacion > ahora - timedelta(days=DIAS_PUBLICADA),
             Vuelo.id.not_in(con_noticia),
         )
         .order_by(Vuelo.id)
@@ -107,6 +143,22 @@ def obtener_noticia(db: Session, id_noticia: int, ahora: datetime | None = None)
     return db.scalars(consulta).unique().first()
 
 
+def listar_vigentes(db: Session, ahora: datetime | None = None) -> list[Noticia]:
+    """Devuelve las noticias vigentes (vuelo programado con salida futura, publicado hace menos de 8 dias)."""
+    ahora = ahora or datetime.now(timezone.utc)
+    consulta = (
+        select(Noticia)
+        .join(Vuelo, Vuelo.id == Noticia.id_vuelo)
+        .where(
+            Noticia.vigente_hasta > ahora,
+            Vuelo.estado == EstadoVuelo.PROGRAMADO,
+            Vuelo.salida_utc > ahora,
+        )
+        .order_by(Noticia.publicada_en.desc(), Noticia.id.desc())
+    )
+    return list(db.scalars(consulta).unique())
+
+
 # ---------------------------------------------------------------------------
 # Suscripciones
 # ---------------------------------------------------------------------------
@@ -124,17 +176,21 @@ def estado_suscripcion(db: Session, id_cliente: int) -> Suscripcion | None:
     return sus if sus is not None and sus.activa else None
 
 
-def suscribir(db: Session, id_cliente: int) -> Suscripcion:
-    """Suscribe al cliente. Si ya lo esta no cambia nada; si se habia dado de baja, se reactiva con token nuevo."""
+def suscribir(db: Session, id_cliente: int, correo: str) -> Suscripcion:
+    """Suscribe al cliente con un correo. Si ya lo esta no cambia nada; si se habia dado de baja, se reactiva."""
+    correo = correo.strip().lower()
     sus = _de_cliente(db, id_cliente)
     if sus is None:
-        sus = Suscripcion(id_cliente=id_cliente, activa=True, token_cancelacion=_nuevo_token())
+        sus = Suscripcion(
+            id_cliente=id_cliente, correo=correo, activa=True, token_cancelacion=_nuevo_token()
+        )
         db.add(sus)
     elif not sus.activa:
         sus.activa = True
         sus.cancelada_en = None
         sus.creada_en = datetime.now(timezone.utc)
         sus.token_cancelacion = _nuevo_token()
+    sus.correo = correo
     db.commit()
     db.refresh(sus)
     return sus
@@ -178,11 +234,10 @@ def notificar_suscriptores(id_vuelo: int) -> int:
             if noticia is None:
                 return 0
             destinatarios = db.execute(
-                select(Usuario.correo, Suscripcion.token_cancelacion)
-                .join(Suscripcion, Suscripcion.id_cliente == Usuario.id)
-                .where(Suscripcion.activa.is_(True), Usuario.correo.is_not(None))
+                select(Suscripcion.correo, Suscripcion.token_cancelacion)
+                .where(Suscripcion.activa.is_(True), Suscripcion.correo.is_not(None))
             ).all()
-            titulo, contenido = noticia.titulo, noticia.contenido
+            vuelo_id = noticia.id_vuelo
     except Exception:
         logger.exception("No se pudo preparar el aviso de la noticia del vuelo %s", id_vuelo)
         return 0
@@ -193,21 +248,62 @@ def notificar_suscriptores(id_vuelo: int) -> int:
         try:
             enlace = f"{frontend}/cancelar-suscripcion?token={token}"
             cuerpo = email_module._plantilla(
-                titulo=html.escape(titulo),
+                titulo=html.escape(f"Nuevo vuelo disponible"),
                 mensaje_html=(
-                    f"{html.escape(contenido)}<br><br>"
+                    f"Se ha programado un nuevo vuelo. <br><br>"
                     f'<span style="font-size:12px;color:#666;">Recibes este correo porque te suscribiste a las '
                     f'noticias de AeroTiquetes. <a href="{enlace}">Cancelar suscripcion</a></span>'
                 ),
                 boton_texto="Ver noticias",
                 boton_url=f"{frontend}/noticias",
             )
-            email_module._enviar(correo, f"{titulo} - AeroTiquetes", cuerpo)
+            email_module._enviar(correo, f"Nuevo vuelo disponible - AeroTiquetes", cuerpo)
             enviados += 1
         except Exception:
             logger.exception("No se pudo avisar la noticia %s a un suscriptor", id_vuelo)
     return enviados
 
+
+def noticia_a_schema(noticia: Noticia, vuelo: Vuelo | None = None) -> dict:
+    """Construye un diccionario con los campos de NoticiaOut a partir de un Noticia y su Vuelo relacionado."""
+    datos = {
+        "id": noticia.id,
+        "tipo": noticia.tipo,
+        "titulo": noticia.titulo,
+        "contenido": noticia.contenido,
+    }
+    if vuelo is not None:
+        datos.update({
+            "vuelo_id": noticia.id_vuelo,
+            "origen": {"ciudad": vuelo.origen.nombre, "codigo": vuelo.origen.codigo},
+            "destino": {"ciudad": vuelo.destino.nombre, "codigo": vuelo.destino.codigo},
+            "salida": vuelo.salida_utc,
+            "salida_zona": vuelo.origen.zona_horaria,
+            "precio": vuelo.costo,
+            "moneda": "COP",
+        })
+    else:
+        datos.update({
+            "vuelo_id": noticia.id_vuelo,
+            "origen": {"ciudad": "", "codigo": ""},
+            "destino": {"ciudad": "", "codigo": ""},
+            "salida": noticia.publicada_en,
+            "salida_zona": "America/Bogota",
+            "precio": 0,
+            "moneda": "COP",
+        })
+    datos.update({
+        "imagen_url": noticia.imagen_url,
+        "publicada_en": noticia.publicada_en,
+        "vigente_hasta": noticia.vigente_hasta,
+        "descuento_pct": None,
+        "precio_original": None,
+    })
+    return datos
+
+
+# Alias para compatibilidad con el nombre usado en las pruebas.
+publicar_faltantes = publicar_noticias_faltantes
 
 # Se enganchan al programar un vuelo (ver `vuelos.service.ALPROGRAMAR_VUELO` y `TRAS_PROGRAMAR_VUELO`).
 vuelos_service.ALPROGRAMAR_VUELO.append(publicar_noticia)
