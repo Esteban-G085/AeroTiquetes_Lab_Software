@@ -26,8 +26,6 @@ router = APIRouter(tags=["Noticias"])
 
 # Solo clientes (el modulo `noticias` se verifica en el frontend).
 _SOLO_CLIENTE = Depends(require_roles("cliente"))
-# Solo administradores para gestionar noticias.
-_SOLO_ADMIN = Depends(require_roles("administrador"))
 
 
 def _estado(sus, cliente_correo: str | None = None) -> SuscripcionOut:
@@ -103,7 +101,7 @@ def consultar_noticia(id: int, db: DbSession):
     "/admin/noticias",
     response_model=NoticiaOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[_SOLO_ADMIN],
+    dependencies=Depends(require_roles("administrador", "root")),
 )
 def crear_noticia_admin(payload: NoticiaCrear, db: DbSession):
     """Crea una noticia manualmente (solo administrador)."""

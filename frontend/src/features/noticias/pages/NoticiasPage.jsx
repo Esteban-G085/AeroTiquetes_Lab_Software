@@ -103,10 +103,17 @@ export default function NoticiasPage() {
       )}
 
       {status === 'ready' && noticias.length === 0 && (
-        <EmptyState
-          title="No hay noticias por ahora"
-          message="Pronto publicaremos novedades sobre nuevos vuelos y destinos."
-        />
+        <>
+          <EmptyState
+            title="No hay noticias por ahora"
+            message="Pronto publicaremos novedades sobre nuevos vuelos y destinos."
+          />
+          {esAdmin && (
+            <Notice tone="neutral" className="not-suscripcion__aviso mt-4">
+              Como administrador puedes <Link to="/noticias/crear">crear una noticia</Link> para publicar la primera.
+            </Notice>
+          )}
+        </>
       )}
 
       {status === 'ready' && noticias.length > 0 && (
@@ -162,11 +169,6 @@ export default function NoticiasPage() {
             ) : (
               <Notice tone="info" className="not-suscripcion__aviso">
                 Inicia sesión para poder suscribirte a las noticias y recibir avisos por correo.
-              </Notice>
-            )}
-            {esAdmin && (
-              <Notice tone="neutral" className="not-suscripcion__aviso mt-2">
-                Como administrador puedes <Link to="/noticias/crear">crear una noticia</Link> desde aquí.
               </Notice>
             )}
           </div>
