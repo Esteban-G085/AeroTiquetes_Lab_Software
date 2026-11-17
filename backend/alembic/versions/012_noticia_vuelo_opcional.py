@@ -16,11 +16,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Quitar restriccion NOT NULL y UNIQUE de id_vuelo
-    op.alter_column("noticia", "id_vuelo", nullable=True)
-    op.drop_constraint("noticia_id_vuelo_key", table_name="noticia")
+    # Quitar restriccion NOT NULL y UNIQUE de id_vuelo (batch para SQLite).
+    with op.batch_alter_table("noticia") as batch_op:
+        batch_op.alter_column("id_vuelo", nullable=True, existing_type=sa.Integer())
+        batch_op.drop_constraint("noticia_id_vuelo_key", type_="unique")
 
 
 def downgrade() -> None:
-    op.create_unique_constraint("noticia_id_vuelo_key", "noticia", ["id_vuelo"])
-    op.alter_column("noticia", "id_vuelo", nullable=False)
+    with op.batch_alter_table("noticia") as batch_op:
+        batch_op.create_unique_constraint("noticia_id_vuelo_key", ["id_vuelo"])
+        batch_op.alter_column("id_vuelo", nullable=False, existing_type=sa.Integer())

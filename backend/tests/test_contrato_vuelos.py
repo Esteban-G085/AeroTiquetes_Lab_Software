@@ -17,7 +17,8 @@ from tests.conftest import auth_headers, datos_registro_cliente, login
 
 CAMPOS_VUELO = {
     "id", "codigo", "tipo", "estado", "origen", "destino", "salida_utc", "llegada_utc",
-    "duracion_min", "costo", "cupos_economica", "cupos_primera", "fecha_programacion",
+    "duracion_min", "costo", "costo_primera", "cupos_economica", "cupos_primera",
+    "fecha_programacion", "tiquetes_vendidos",
 }
 CAMPOS_CIUDAD = {"codigo", "nombre", "pais", "zona_horaria", "es_capital_departamento", "grupo_internacional"}
 FUTUROS = 19  # de los 20 vuelos sembrados, AT-0011 ya sucedio

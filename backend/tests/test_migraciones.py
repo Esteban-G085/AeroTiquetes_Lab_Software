@@ -60,7 +60,8 @@ def test_upgrade_head_crea_las_tablas_e_indices(url_temporal):
     columnas = {c["name"] for c in inspector.get_columns("vuelo")}
     assert columnas == {
         "id", "codigo", "id_origen", "id_destino", "tipo", "salida_utc", "duracion_min", "llegada_utc",
-        "costo", "estado", "cupos_primera", "cupos_economica", "fecha_programacion", "id_administrador",
+        "costo", "costo_primera", "estado", "cupos_primera", "cupos_economica", "fecha_programacion",
+        "id_administrador",
     }
     indices = {i["name"] for i in inspector.get_indexes("vuelo")}
     assert {"ix_vuelo_id_origen", "ix_vuelo_id_destino", "ix_vuelo_salida_utc"} <= indices

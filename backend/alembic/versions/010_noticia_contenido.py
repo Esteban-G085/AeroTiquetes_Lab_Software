@@ -16,11 +16,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "noticia",
-        sa.Column("contenido", sa.Text(), nullable=True),
-    )
+    # 007_noticias ya creo `contenido` (NOT NULL); aqui solo se vuelve opcional
+    # para las noticias manuales del administrador.
+    with op.batch_alter_table("noticia") as batch_op:
+        batch_op.alter_column("contenido", existing_type=sa.Text(), nullable=True)
 
 
 def downgrade() -> None:
-    op.drop_column("noticia", "contenido")
+    with op.batch_alter_table("noticia") as batch_op:
+        batch_op.alter_column("contenido", existing_type=sa.Text(), nullable=False)

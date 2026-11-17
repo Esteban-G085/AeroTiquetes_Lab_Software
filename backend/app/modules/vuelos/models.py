@@ -30,6 +30,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    UniqueConstraint,
     false,
     func,
 )
@@ -102,6 +103,7 @@ class Vuelo(Base):
         CheckConstraint("duracion_min > 0", name="ck_vuelo_duracion_positiva"),
         CheckConstraint("costo > 0", name="ck_vuelo_costo_positivo"),
         CheckConstraint("cupos_primera >= 0 AND cupos_economica >= 0", name="ck_vuelo_cupos_no_negativos"),
+        CheckConstraint("costo_primera >= 0", name="ck_vuelo_costo_primera_no_negativo"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -188,6 +190,7 @@ class Asiento(Base):
         nullable=False,
         default=EstadoAsiento.DISPONIBLE,
         server_default="disponible",
+        index=True,
     )
     id_tiquete: Mapped[int | None] = mapped_column(
         ForeignKey("tiquete.id", ondelete="SET NULL"), nullable=True
@@ -201,6 +204,7 @@ class Asiento(Base):
         CheckConstraint(
             "fila > 0", name="ck_asiento_fila_positiva"
         ),
+        UniqueConstraint("id_vuelo", "numero", name="uq_asiento_vuelo_numero"),
     )
 
     def __repr__(self) -> str:  # pragma: no cover

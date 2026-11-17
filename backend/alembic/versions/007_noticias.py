@@ -31,7 +31,7 @@ def upgrade() -> None:
         sa.Column("publicada_en", sa.DateTime(timezone=True), server_default=_AHORA, nullable=False),
         sa.ForeignKeyConstraint(["id_vuelo"], ["vuelo.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("id_vuelo"),
+        sa.UniqueConstraint("id_vuelo", name="noticia_id_vuelo_key"),
     )
     op.create_index(op.f("ix_noticia_publicada_en"), "noticia", ["publicada_en"], unique=False)
 
