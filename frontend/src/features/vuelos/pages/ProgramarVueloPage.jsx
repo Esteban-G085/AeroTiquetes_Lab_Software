@@ -13,7 +13,7 @@ export default function ProgramarVueloPage() {
   const toast = useToast()
 
   // Sin try/catch: el formulario muestra los errores del backend en cada campo (ApiError.fields).
-  async function programar(payload) {
+  async function guardar(payload) {
     const creado = await crearVuelo(payload)
     toast.success(`Vuelo ${creado?.codigo ?? ''} programado correctamente.`.replace('  ', ' '))
     navigate(`/admin/vuelos/${creado.id}`, { replace: true })
@@ -29,7 +29,7 @@ export default function ProgramarVueloPage() {
         subtitle="El código consecutivo, la hora de llegada y los cupos por clase los genera el sistema."
       />
 
-      <VueloForm ciudades={ciudades} onProgramar={programar} />
+      <VueloForm ciudades={ciudades} onGuardar={guardar} />
     </div>
   )
 }

@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/layout'
 import { formatPrice } from '@/utils/format'
 import { useAsyncData } from '@/utils/useAsyncData'
 import { cancelarCompra, cancelarReserva, obtenerHistorial, pagarReserva } from '../api'
-import { ESTADOS_COMPRA, ESTADOS_RESERVA } from '../rules'
+import { ESTADOS_COMPRA, ESTADOS_RESERVA, precioParaClase } from '../rules'
 import { useNow } from '../hooks/useNow'
 import HistorialCard from '../components/HistorialCard'
 import TiqueteDetalleModal from '../components/TiqueteDetalleModal'
@@ -72,7 +72,7 @@ export default function HistorialPage() {
 
   const textoAccion = accion && (accion.tipo === 'pagar'
     ? { title: 'Pagar reserva', label: 'Pagar', back: 'Volver', danger: false,
-      msg: `Se descontarán ${formatPrice(accion.item.total ?? accion.item.vuelo.precio * accion.item.tiquetes.length)} de tu billetera de inmediato.` }
+      msg: `Se descontarán ${formatPrice(accion.item.total ?? precioParaClase(accion.item.vuelo, accion.item.clase) * accion.item.tiquetes.length)} de tu billetera de inmediato.` }
     : accion.kind === 'compra'
       ? { title: 'Cancelar compra', label: 'Cancelar compra', back: 'Mantener compra', danger: true,
         msg: `Se cancelará la compra de ${accion.item.tiquetes.length} ${accion.item.tiquetes.length === 1 ? 'tiquete' : 'tiquetes'} de ${accion.item.vuelo.origen.ciudad} a ${accion.item.vuelo.destino.ciudad}. Te reintegramos ${formatPrice(accion.item.total ?? 0)} a tu billetera de inmediato.` }

@@ -60,16 +60,16 @@
 /* ═══ Gestión del vuelo: editar, cancelar y realizados (Sprint 2, pantallas de F1) ═══
    Lo de formularios va acotado con .vu-gestion para no cambiar el formulario de programar (HU18). */
 .vu-narrow { max-width: 46rem; margin-inline: auto; }
-.vu-tablewrap { overflow-x: auto; border: 1px solid var(--at-line); border-radius: var(--at-radius-lg); background: #fff; box-shadow: var(--at-shadow-sm); }
-.vu-table { margin: 0; min-width: 46rem; font-size: var(--at-text-sm); vertical-align: middle; }
-@media (max-width: 575.98px) {
-  .vu-tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .vu-table { min-width: auto; width: 100%; }
-}
-.vu-table th { padding: .8rem 1rem; background: var(--at-surface-2); color: var(--at-muted); font-size: var(--at-text-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; border-bottom: 1px solid var(--at-line); }
-.vu-table td { padding: .8rem 1rem; border-color: var(--at-line); }
 .vu-table__sub { display: block; color: var(--at-muted); font-size: var(--at-text-xs); }
-.vu-table__actions { display: flex; gap: .4rem; justify-content: flex-end; white-space: nowrap; }
+
+/* Acciones de la tabla viva (VuelosTable): se envuelven para no estirar la fila en móvil. */
+.vu-table__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem; min-width: 0; }
+@media (max-width: 767.98px) {
+  .at-table--cards tbody td { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+  .at-table--cards tbody td .vu-table__val { white-space: normal; }
+  .at-table--cards .vu-table__actions { width: 100%; justify-content: flex-start; }
+  .at-table--cards .vu-table__actions .btn { flex: 1 1 auto; }
+}
 
 .vu-gestion { gap: 1rem; }
 .vu-form__state { margin: 0; display: flex; align-items: center; gap: .5rem; color: var(--at-muted); }

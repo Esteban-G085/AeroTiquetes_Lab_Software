@@ -1,6 +1,6 @@
 import { Badge, Button } from '@/components/ui'
 import { formatPrice, formatRemaining } from '@/utils/format'
-import { ESTADOS_COMPRA, ESTADOS_RESERVA, claseLabel, msRestantesReserva, puedeCancelarCompra } from '../rules'
+import { ESTADOS_COMPRA, ESTADOS_RESERVA, claseLabel, msRestantesReserva, puedeCancelarCompra, precioParaClase } from '../rules'
 import { TramoLinea } from './ResumenViaje'
 
 /**
@@ -25,7 +25,7 @@ export default function HistorialCard({ kind, item, now, onCancelar, onPagar, on
       </header>
 
       <p className="co-hist__meta">
-        Clase {claseLabel(item.clase).toLowerCase()} · {formatPrice(item.total ?? item.vuelo.precio * item.tiquetes.length, item.vuelo.moneda)}
+        Clase {claseLabel(item.clase).toLowerCase()} · {formatPrice(item.total ?? precioParaClase(item.vuelo, item.clase) * item.tiquetes.length, item.vuelo.moneda)}
         {!esCompra && activa && <> · <strong>Vence en {formatRemaining(restante)}</strong></>}
         {esCompra && item.estado === 'cancelada' && item.reintegro != null && <> · Reintegrado {formatPrice(item.reintegro)}</>}
       </p>

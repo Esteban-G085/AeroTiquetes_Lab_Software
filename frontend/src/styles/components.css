@@ -106,7 +106,7 @@
    `position: relative` no es decorativo: los rótulos .visually-hidden de las cabeceras son
    `position: absolute` y, si ningún ancestro que recorta es su bloque contenedor, escapan del
    overflow y estiran el ancho del documento (scroll lateral fantasma). */
-.at-table__scroll { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.at-table__scroll { position: relative; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .at-table table { width: 100%; min-width: 44rem; border-collapse: collapse; }
 .at-table thead th {
   padding: .85rem 1rem; background: var(--at-surface-2); border-bottom: 1px solid var(--at-line);
@@ -129,7 +129,7 @@
   .at-table--cards tbody tr:hover { background: var(--at-blue-50); }
   .at-table--cards tbody td {
     display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
-    padding: .3rem 0; border: 0; text-align: right;
+    min-width: 0; max-width: 100%; padding: .3rem 0; border: 0; text-align: right;
   }
   .at-table--cards tbody td::before {
     content: attr(data-label); flex: none; color: var(--at-muted); font-size: var(--at-text-xs);

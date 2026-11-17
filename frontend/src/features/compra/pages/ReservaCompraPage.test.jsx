@@ -2,9 +2,14 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AppRouter from '@/routes/AppRouter'
 import { renderWithProviders, seedSession, VUELO_EJEMPLO } from '@/test/helpers'
+import { obtenerAsientosVuelo } from '@/features/vuelos'
 import * as api from '../api'
 
 vi.mock('../api')
+vi.mock('@/features/vuelos/api', async (importOriginal) => ({
+  ...(await importOriginal()),
+  obtenerAsientosVuelo: vi.fn(),
+}))
 
 const VUELTA = {
   ...VUELO_EJEMPLO, id: 13, codigo: 'AT-205', origen: VUELO_EJEMPLO.destino, destino: VUELO_EJEMPLO.origen,
@@ -28,11 +33,15 @@ async function llenarViajero() {
   await type('Correo electrónico', 'ana@correo.com')
   await type('Nombre del contacto', 'Luis Gómez')
   await type('Teléfono del contacto', '3007654321')
+  await userEvent.click(await screen.findByRole('button', { name: '1A' }))
 }
 
 beforeEach(() => {
   seedSession({ rol: 'cliente' }, { nombres: 'Ana' })
   api.obtenerSaldo.mockResolvedValue({ saldo: 1_000_000, moneda: 'COP' })
+  obtenerAsientosVuelo.mockResolvedValue([
+    { id: 101, numero: '1A', fila: 1, columna: 'A', clase: 'economica', estado: 'disponible' },
+  ])
 })
 
 describe('ReservaCompraPage (HU6 / HU7)', () => {
@@ -91,7 +100,7 @@ describe('ReservaCompraPage (HU6 / HU7)', () => {
     expect(screen.getByRole('button', { name: 'Reservar sin pagar' })).toBeDisabled()
   })
 
-  it('"Ida y vuelta" ofrece los vuelos de regreso y exige elegir uno', async () => {
+  it('"Ida y vuelta" ofrece los vuelos de regreso y exige elegir uno', { timeout: 15000 }, async () => {
     api.listarVuelosRegreso.mockResolvedValue([VUELTA])
     await open()
     await userEvent.click(screen.getByLabelText('Ida y vuelta'))

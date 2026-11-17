@@ -659,7 +659,8 @@ def reintegrar_vuelo_cancelado(db: Session, id_vuelo: int, *, devolver_cupos: bo
     * Tiquetes reservados: se cancelan (no hay dinero que devolver).
     * Los cupos no se tocan por defecto: `cancelar vuelo` (B2-13) ya libera los de la clase.
 
-    Hace commit. Devuelve {"tiquetes": n, "reintegrado": total_cop}."""
+    No hace commit: `vuelos.service.cancelar_vuelo` hace commit al final, para que vuelo, tiquetes y
+    reintegros queden todos o ninguno. Devuelve {"tiquetes": n, "reintegrado": total_cop}."""
     ahora = _ahora()
     tiquetes = list(
         db.scalars(select(Tiquete).where(Tiquete.id_vuelo == id_vuelo, Tiquete.estado.in_(ESTADOS_ACTIVOS)))
@@ -689,7 +690,7 @@ def reintegrar_vuelo_cancelado(db: Session, id_vuelo: int, *, devolver_cupos: bo
         reserva = db.get(Reserva, id_reserva)
         if reserva.estado == EstadoReserva.ACTIVA and not any(t.estado == EstadoTiquete.RESERVADO for t in reserva.tiquetes):
             reserva.estado = EstadoReserva.CANCELADA
-    db.commit()
+    db.flush()  # la transacción la cierra quien llama (cancelar_vuelo), para que sea atómica
     return {"tiquetes": len(tiquetes), "reintegrado": sum(por_cliente.values())}
 
 

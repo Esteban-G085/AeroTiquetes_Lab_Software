@@ -1,6 +1,6 @@
 import { Button, Modal } from '@/components/ui'
 import { formatDateOnly, formatDateTime, formatPrice } from '@/utils/format'
-import { claseLabel } from '../rules'
+import { claseLabel, precioParaClase } from '../rules'
 
 const Fila = ({ label, children }) => <div><dt>{label}</dt><dd>{children}</dd></div>
 
@@ -21,7 +21,7 @@ export default function TiqueteDetalleModal({ item, tiquete, onClose }) {
         <Fila label="Viajero">{v.nombres} {v.apellidos}</Fila>
         <Fila label="Documento">{v.documento}</Fila>
         {v.fecha_nacimiento && <Fila label="Nacimiento">{formatDateOnly(v.fecha_nacimiento)}</Fila>}
-        <Fila label="Valor">{formatPrice(vuelo.precio, vuelo.moneda)}</Fila>
+        <Fila label="Valor">{formatPrice(precioParaClase(vuelo, item.clase), vuelo.moneda)}</Fila>
       </dl>
     </Modal>
   )

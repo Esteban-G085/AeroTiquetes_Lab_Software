@@ -3,9 +3,10 @@ import { http } from '@/services/http'
 // Cliente de API del módulo Administración de vuelos (HU18, HU19). Contrato con B2:
 // docs/CONTRATO_VUELOS.md
 //   GET  /admin/vuelos?estado&origen&destino&pagina   → { total, items }
-//   POST /admin/vuelos  { tipo, origen, destino, fecha, hora, duracion, costo }
+//   POST /admin/vuelos  { tipo, origen, destino, fecha, hora, duracion, costo, costo_primera? }
 //   GET  /admin/vuelos/{id}
-//   PUT  /admin/vuelos/{id}  { tipo, origen, destino, fecha, hora, duracion, costo }
+//   PUT  /admin/vuelos/{id}  { origen, destino, fecha, hora, duracion_min, precio, precio_primera? }
+//     `fecha` y `hora` son HORA DE COLOMBIA (America/Bogota); el tipo se deduce de las ciudades.
 //   PATCH /admin/vuelos/{id}/cancelar
 //   GET  /admin/vuelos/realizados
 // El backend genera el código consecutivo, la hora de llegada y los cupos por clase (D3, D4).

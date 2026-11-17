@@ -1,12 +1,14 @@
 import { Icon, Notice } from '@/components/ui'
 import { LoadingState } from '@/components/feedback'
 import { formatDateTime, formatDuration, formatPrice } from '@/utils/format'
+import { precioParaClase } from '../rules'
 
 /**
  * Elegir el vuelo de regreso de un trayecto completo (Origen → Destino → Origen, RF20).
  * Solo presenta los vuelos que le entrega la página; no busca por su cuenta.
+ * Muestra la tarifa de la clase elegida y, si difiere, la de la otra clase.
  */
-export default function RegresoSelector({ status, vuelos = [], value, onChange, error }) {
+export default function RegresoSelector({ status, vuelos = [], value, onChange, error, clase }) {
   if (status === 'loading') return <LoadingState label="Buscando vuelos de regreso…" />
   if (status === 'error') return <Notice tone="danger">{error ?? 'No pudimos cargar los vuelos de regreso.'}</Notice>
   if (!vuelos.length) {
@@ -29,7 +31,16 @@ export default function RegresoSelector({ status, vuelos = [], value, onChange, 
                 {formatDateTime(v.salida, v.salida_zona)} · {formatDuration(v.duracion_min)}
               </span>
             </span>
-            <span className="co-regreso__price">{formatPrice(v.precio, v.moneda)}</span>
+            <span className="co-regreso__price">
+              {formatPrice(precioParaClase(v, clase), v.moneda)}
+              {v.precio_primera != null && v.precio_primera !== v.precio && (
+                <small className="co-regreso__otra">
+                  {clase === 'primera'
+                    ? `Económica ${formatPrice(v.precio, v.moneda)}`
+                    : `Primera ${formatPrice(v.precio_primera, v.moneda)}`}
+                </small>
+              )}
+            </span>
           </label>
         )
       })}

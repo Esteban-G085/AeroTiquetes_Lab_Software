@@ -1,6 +1,9 @@
 import { lazy } from 'react'
 import { ROLES } from '@/config/roles'
 
+// API pública del feature para módulos globales (p. ej. el carrito): reglas puras, sin internals.
+export { precioParaClase } from './rules'
+
 // F1 — módulo Compra y reserva (Sprint 2: F1-11 … F1-14). Solo cliente: root y administrador no compran (SRS Usuarios RF11).
 // El carrito vive en context/CartContext (lo usan la cabecera y estas pantallas).
 export default {

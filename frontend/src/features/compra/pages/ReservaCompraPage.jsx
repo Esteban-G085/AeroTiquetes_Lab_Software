@@ -6,10 +6,10 @@ import { PageHeader } from '@/components/layout'
 import { FlightCard, Stepper, toFlightProps } from '@/components/travel'
 import { useCart } from '@/context'
 import { useAsyncData } from '@/utils/useAsyncData'
+import { formatPrice } from '@/utils/format'
 import { crearReserva, obtenerMisDatos, obtenerVuelo } from '../api'
-import { obtenerAsientosVuelo } from '@/features/vuelos/api'
-import AsientoMapa from '@/features/vuelos/components/AsientoMapa'
-import { CLASES, MAX_TIQUETES_VUELO, VIAJERO_VACIO, cupoRestante, validarViajeros } from '../rules'
+import { AsientoMapa } from '@/features/vuelos'
+import { CLASES, MAX_TIQUETES_VUELO, VIAJERO_VACIO, cupoRestante, precioParaClase, validarViajeros } from '../rules'
 import { useRegreso } from '../hooks/useRegreso'
 import ViajeroFields from '../components/ViajeroFields'
 import RegresoSelector from '../components/RegresoSelector'
@@ -45,27 +45,7 @@ function Formulario({ vuelo }) {
   const maximo = Math.max(cupoRestante(tiquetesCliente), 0)
   const sinCupos = vuelo.cupos_disponibles === 0
 
-  // Cargar asientos disponibles del vuelo para esta clase
-  const [asientosVuelo, setAsientosVuelo] = useState([])
-  const [asientosCargando, setAsientosCargando] = useState(false)
-
-  const cargarAsientos = async () => {
-    if (!vuelo?.id) return
-    setAsientosCargando(true)
-    try {
-      const datos = await obtenerAsientosVuelo(vuelo.id)
-      setAsientosVuelo(datos.filter((a) => a.clase === clase))
-    } catch (err) {
-      setErroresAsientos('No se pudieron cargar los asientos del vuelo.')
-    } finally {
-      setAsientosCargando(false)
-    }
-  }
-
-  // Recargar asientos cuando cambie la clase o el vuelo
-  useEffect(() => {
-    cargarAsientos()
-  }, [clase, vuelo?.id])
+  // El mapa (AsientoMapa) carga los asientos de la clase y gestiona su propio estado de carga.
 
   // Limpiar selección de asientos cuando cambie la clase o el número de viajeros
   useEffect(() => {
@@ -203,7 +183,7 @@ function Formulario({ vuelo }) {
               <div className="mt-3">
                 <p className="co-section__hint">Cada tramo es un tiquete independiente: se paga, se cancela y se consulta por separado.</p>
                 <RegresoSelector status={reg.status === 'idle' ? 'loading' : reg.status} vuelos={reg.vuelos} error={reg.error}
-                  value={regreso?.id} onChange={(v) => { setRegreso(v); setRegresoError('') }} />
+                  clase={clase} value={regreso?.id} onChange={(v) => { setRegreso(v); setRegresoError('') }} />
                 {regresoError && <div role="alert" tabIndex={-1} className="at-field__error mt-2">{regresoError}</div>}
               </div>
             )}
@@ -217,10 +197,11 @@ function Formulario({ vuelo }) {
                   <input type="radio" name="clase" value={c.value} checked={clase === c.value} disabled={bloqueado} onChange={() => setClase(c.value)} />
                   <span className="co-class__name">{c.label}</span>
                   <span className="co-class__hint">{c.value === 'primera' ? 'Cabina delantera' : 'Cabina principal'}</span>
+                  <span className="co-class__price">{formatPrice(precioParaClase(vuelo, c.value), vuelo.moneda)} por persona</span>
                 </label>
               ))}
             </div>
-            <p className="co-section__hint">El valor del vuelo es el mismo en ambas clases.</p>
+            <p className="co-section__hint">Tarifa por persona y trayecto; se aplica a cada viajero y a cada tramo.</p>
           </section>
 
           <section className="at-card co-section" aria-labelledby="co-viajeros">
@@ -243,22 +224,16 @@ function Formulario({ vuelo }) {
             <section className="at-card co-section" aria-labelledby="co-asientos">
               <h2 id="co-asientos" className="co-section__title">Selección de sillas</h2>
               {erroresAsientos && <div role="alert" tabIndex={-1} className="at-field__error mt-2">{erroresAsientos}</div>}
-              {asientosCargando ? (
-                <div className="d-grid gap-3" style={{ minHeight: '10rem' }}>
-                  <Skeleton width="55%" height="2.4rem" /><Skeleton height="9rem" /><Skeleton height="14rem" />
-                </div>
-              ) : (
-                <AsientoMapa
-                  idVuelo={vuelo.id}
-                  clase={clase}
-                  asientosSeleccionados={asientosSeleccionados}
-                  maxSelecciones={viajeros.length}
-                  onCambio={(ids) => {
-                    setAsientosSeleccionados(ids)
-                    setErroresAsientos('')
-                  }}
-                />
-              )}
+              <AsientoMapa
+                idVuelo={vuelo.id}
+                clase={clase}
+                asientosSeleccionados={asientosSeleccionados}
+                maxSelecciones={viajeros.length}
+                onCambio={(ids) => {
+                  setAsientosSeleccionados(ids)
+                  setErroresAsientos('')
+                }}
+              />
               <p className="co-section__hint">
                 Elige una silla por viajero. Las sillas en rojo ya están ocupadas.
               </p>

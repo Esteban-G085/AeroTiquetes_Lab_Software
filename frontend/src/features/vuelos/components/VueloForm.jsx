@@ -22,6 +22,70 @@ const horasMinutosDe = (duracionMin) => {
   return { horas: String(h), minutos: String(m).padStart(2, '0') }
 }
 
+/**
+ * Fecha y hora en hora de Colombia a partir de un instante ISO (UTC).
+ * `toISOString().slice(...)` mezcla zonas: el backend interpreta `fecha`+`hora` como hora local
+ * de Bogotá (-05:00), no como UTC. `Intl` con la zona IANA evita depender del reloj del navegador.
+ */
+export function fechaHoraColombia(iso) {
+  if (!iso) return null
+  const instante = new Date(iso)
+  if (Number.isNaN(instante.getTime())) return null
+  const partes = Object.fromEntries(
+    new Intl.DateTimeFormat('es-CO', {
+      timeZone: TZ_COLOMBIA,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    })
+      .formatToParts(instante)
+      .filter((p) => p.type !== 'literal')
+      .map((p) => [p.type, p.value]),
+  )
+  if (!partes.year || !partes.month || !partes.day || !partes.hour || !partes.minute) return null
+  return { fecha: `${partes.year}-${partes.month}-${partes.day}`, hora: `${partes.hour}:${partes.minute}` }
+}
+
+/** Precarga del formulario en modo edición, con la salida convertida a hora de Colombia. */
+function valoresIniciales(vuelo) {
+  const local = fechaHoraColombia(vuelo.salida_utc ?? vuelo.salida)
+  return {
+    origen: vuelo.origen?.codigo ?? '',
+    destino: vuelo.destino?.codigo ?? '',
+    fecha: local?.fecha ?? '',
+    hora: local?.hora ?? '08:00',
+    ...horasMinutosDe(vuelo.duracion_min),
+    costo: String(vuelo.costo ?? ''),
+    costoPrimera: String(vuelo.costo_primera ?? ''),
+  }
+}
+
+/** Cuerpo exacto de `POST /admin/vuelos` (HU18). */
+export function payloadCrearVuelo(f) {
+  return {
+    tipo: clasificarVuelo(f.origen, f.destino),
+    origen: f.origen,
+    destino: f.destino,
+    fecha: f.fecha,
+    hora: f.hora,
+    duracion: duracionDe(f.horas, f.minutos),
+    costo: Number(f.costo),
+    costo_primera: Number(f.costoPrimera) || Number(f.costo),
+  }
+}
+
+/** Cuerpo exacto de `PUT /admin/vuelos/{id}` (HU12): sin `tipo` (se deduce) y con `precio_primera`. */
+export function payloadEditarVuelo(f) {
+  return {
+    origen: f.origen,
+    destino: f.destino,
+    fecha: f.fecha,
+    hora: f.hora,
+    duracion_min: duracionDe(f.horas, f.minutos),
+    precio: Number(f.costo),
+    precio_primera: Number(f.costoPrimera) || Number(f.costo),
+  }
+}
+
 /** Instante de salida: fecha y hora LOCALES de Colombia (el backend guarda UTC). */
 function salidaISO(fecha, hora) {
   if (!fecha || timeToMinutes(hora) === null) return null
@@ -59,26 +123,27 @@ function validar(f, esEdicion = false) {
 
 /**
  * VueloForm — crear o editar un vuelo (HU18 / HU12).
- * - `vuelo`: cuando se pasa, el formulario trabaja en modo edición y precarga sus valores.
- * - `onGuardar(payload)`: recibe { tipo, origen, destino, fecha, hora, duracion, costo }.
- * Los errores del backend (ApiError.fields) se pintan en cada campo.
+ * - `vuelo`: cuando se pasa, el formulario trabaja en modo edición y precarga sus valores en hora Colombia.
+ * - `onGuardar(payload)`: recibe el cuerpo exacto del endpoint (ver `payloadCrearVuelo` / `payloadEditarVuelo`).
+ * Los errores del backend (ApiError.fields) se pintan en cada campo. Un vuelo con tiquetes vendidos
+ * o que ya no esté `programado` es de solo lectura: el backend lo rechazaría con 409.
  */
 export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
   const esEdicion = Boolean(vuelo)
-  const [f, setF] = useState(esEdicion
-    ? {
-        origen: vuelo.origen?.codigo ?? '',
-        destino: vuelo.destino?.codigo ?? '',
-        fecha: vuelo.salida_utc ? new Date(vuelo.salida_utc).toISOString().slice(0, 10) : '',
-        hora: vuelo.salida_utc ? new Date(vuelo.salida_utc).toISOString().slice(11, 16) : '08:00',
-        ...horasMinutosDe(vuelo.duracion_min),
-        costo: String(vuelo.costo ?? ''),
-        costoPrimera: String(vuelo.costo_primera ?? ''),
-      }
-    : INICIAL)
+  const [f, setF] = useState(esEdicion ? valoresIniciales(vuelo) : INICIAL)
   const [errores, setErrores] = useState({})
   const [errorGeneral, setErrorGeneral] = useState('')
   const [enviando, setEnviando] = useState(false)
+
+  const tiquetesVendidos = Number(vuelo?.tiquetes_vendidos ?? 0)
+  const bloqueado = esEdicion && (vuelo.estado !== 'programado' || tiquetesVendidos > 0)
+  const razonBloqueo = !esEdicion ? ''
+    : vuelo.estado === 'realizado' ? 'Este vuelo ya fue realizado y no se puede editar.'
+    : vuelo.estado === 'sucedido' ? 'Este vuelo ya sucedió y no se puede editar.'
+    : vuelo.estado === 'cancelado' ? 'Este vuelo está cancelado y no se puede editar.'
+    : tiquetesVendidos > 0
+      ? `Este vuelo tiene ${tiquetesVendidos} ${tiquetesVendidos === 1 ? 'tiquete vendido' : 'tiquetes vendidos'}: solo se puede consultar.`
+      : ''
 
   const set = (campo) => (e) => setF((prev) => ({ ...prev, [campo]: e.target.value }))
 
@@ -91,6 +156,7 @@ export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
 
   async function enviar(e) {
     e.preventDefault()
+    if (bloqueado) return
     const problemas = validar(f, esEdicion)
     setErrores(problemas)
     setErrorGeneral('')
@@ -98,19 +164,7 @@ export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
 
     setEnviando(true)
     try {
-      const payload = {
-        tipo,
-        origen: f.origen,
-        destino: f.destino,
-        fecha: f.fecha,
-        hora: f.hora,
-        ...(esEdicion
-          ? { duracion_min: dur, precio: Number(f.costo) }
-          : { duracion: dur, costo: Number(f.costo) }),
-      }
-      if (f.costoPrimera) {
-        payload[esEdicion ? 'precio_primera' : 'costo_primera'] = Number(f.costoPrimera)
-      }
+      const payload = esEdicion ? payloadEditarVuelo(f) : payloadCrearVuelo(f)
       await onGuardar(payload)
     } catch (err) {
       if (err instanceof ApiError) {
@@ -126,21 +180,23 @@ export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
 
   return (
     <Card as="form" className="vu-form" onSubmit={enviar} noValidate>
+      {bloqueado && <Notice tone="info" className="mb-3">{razonBloqueo}</Notice>}
+
       <div className="vu-form__grid">
-        <Select label="Origen" value={f.origen} onChange={set('origen')} error={errores.origen}
+        <Select label="Origen" value={f.origen} onChange={set('origen')} error={errores.origen} disabled={bloqueado}
           options={ciudadesDeColombia(ciudades).map((c) => ({ value: c.codigo, label: `${c.nombre} (${c.codigo})` }))}
           placeholder="Selecciona una ciudad" />
-        <Select label="Destino" value={f.destino} onChange={set('destino')} error={errores.destino}
+        <Select label="Destino" value={f.destino} onChange={set('destino')} error={errores.destino} disabled={bloqueado}
           groups={gruposDeCiudades(ciudades)} placeholder="Selecciona una ciudad" />
 
-        <Input label="Fecha de salida" type="date" min={todayISO()} value={f.fecha} onChange={set('fecha')} error={errores.fecha} />
-        <Input label="Hora de salida (Colombia)" type="time" value={f.hora} onChange={set('hora')} error={errores.hora} />
+        <Input label="Fecha de salida" type="date" min={todayISO()} value={f.fecha} onChange={set('fecha')} error={errores.fecha} disabled={bloqueado} />
+        <Input label="Hora de salida (Colombia)" type="time" value={f.hora} onChange={set('hora')} error={errores.hora} disabled={bloqueado} />
 
-        <Input label="Duración (horas)" type="number" min="0" max="23" value={f.horas} onChange={set('horas')} error={errores.horas} />
-        <Input label="Duración (minutos)" type="number" min="0" max="59" step="5" value={f.minutos} onChange={set('minutos')} />
+        <Input label="Duración (horas)" type="number" min="0" max="23" value={f.horas} onChange={set('horas')} error={errores.horas} disabled={bloqueado} />
+        <Input label="Duración (minutos)" type="number" min="0" max="59" step="5" value={f.minutos} onChange={set('minutos')} disabled={bloqueado} />
 
-        <Input label="Costo por persona (COP)" type="number" min="1" step="1000" value={f.costo} onChange={set('costo')} error={errores.costo} />
-        <Input label="Costo primera clase (COP)" type="number" min="1" step="1000" value={f.costoPrimera} onChange={set('costoPrimera')} error={errores.costoPrimera} />
+        <Input label="Costo por persona (COP)" type="number" min="1" step="1000" value={f.costo} onChange={set('costo')} error={errores.costo} disabled={bloqueado} />
+        <Input label="Costo primera clase (COP)" type="number" min="1" step="1000" value={f.costoPrimera} onChange={set('costoPrimera')} error={errores.costoPrimera} disabled={bloqueado} />
       </div>
 
       {errorGeneral && <Notice tone="danger" className="mt-2">{errorGeneral}</Notice>}
@@ -177,7 +233,7 @@ export default function VueloForm({ ciudades = [], vuelo, onGuardar }) {
       </div>
 
       <div className="vu-form__actions">
-        <Button type="submit" loading={enviando}>{esEdicion ? 'Guardar cambios' : 'Programar vuelo'}</Button>
+        <Button type="submit" loading={enviando} disabled={bloqueado}>{esEdicion ? 'Guardar cambios' : 'Programar vuelo'}</Button>
       </div>
     </Card>
   )

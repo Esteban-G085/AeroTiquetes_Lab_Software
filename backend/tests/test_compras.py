@@ -664,12 +664,15 @@ def test_si_el_administrador_cancela_el_vuelo_se_reintegran_las_compras(client, 
     reservado = client.post("/reservas", json=_cuerpo(_item(v1, [_viajero(7)])), headers=otro).json()
     assert _saldo(client, con_saldo) == 4_600_000
 
+    # El gancho solo hace flush: quien llama cierra la transacción (cancelar_vuelo lo hace con commit).
     resultado = service.reintegrar_vuelo_cancelado(db_session, v1.id)
+    db_session.commit()
     assert resultado == {"tiquetes": 3, "reintegrado": 400_000}
     assert _saldo(client, con_saldo) == 5_000_000
     assert client.get(f"/compras/{comprado['id']}", headers=con_saldo).json()["estado"] == "cancelada"
     assert client.get(f"/reservas/{reservado['id']}", headers=otro).json()["estado"] == "cancelada"
     assert service.reintegrar_vuelo_cancelado(db_session, v1.id) == {"tiquetes": 0, "reintegrado": 0}  # idempotente
+    db_session.commit()
     assert _saldo(client, con_saldo) == 5_000_000
 
 

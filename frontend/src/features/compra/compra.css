@@ -25,6 +25,7 @@
 .co-class:focus-within { box-shadow: var(--at-focus); }
 .co-class__name { font-weight: 700; color: var(--at-ink); }
 .co-class__hint { color: var(--at-muted); font-size: var(--at-text-sm); }
+.co-class__price { margin-top: .25rem; color: var(--at-blue-800); font-size: var(--at-text-sm); font-weight: 700; }
 @media (max-width: 479.98px) { .co-classes { grid-template-columns: 1fr; } }
 
 /* ── Viajero ── */
@@ -46,6 +47,7 @@
 .co-regreso__code { padding: .05rem .45rem; border-radius: 6px; background: var(--at-blue-50); color: var(--at-blue-800); font-size: var(--at-text-xs); }
 .co-regreso__when { color: var(--at-muted); font-size: var(--at-text-sm); }
 .co-regreso__price { font-weight: 700; color: var(--at-blue-800); white-space: nowrap; }
+.co-regreso__otra { display: block; color: var(--at-muted); font-size: var(--at-text-xs); font-weight: 400; }
 
 /* ── Resumen y acciones ── */
 .co-resumen { display: grid; gap: .9rem; }

@@ -13,6 +13,7 @@ export default function CancelarVueloPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const [motivo, setMotivo] = useState('')
+  const [errorMotivo, setErrorMotivo] = useState('')
   const [confirmar, setConfirmar] = useState({ open: false, loading: false })
   const { vuelo, status, error, recargar } = useVueloAdmin(id)
 
@@ -71,17 +72,21 @@ export default function CancelarVueloPage() {
   }
 
   async function manejarCancelar() {
-    if (tieneTiquetes && !motivo.trim()) {
+    const causa = motivo.trim()
+    setErrorMotivo('')
+    if (tieneTiquetes && causa.length < 10) {
+      setErrorMotivo('Causa de fuerza mayor obligatoria (mínimo 10 caracteres).')
       return
     }
     setConfirmar((prev) => ({ ...prev, loading: true }))
     try {
-      const actualizado = await cancelarVuelo(id, tieneTiquetes ? motivo.trim() : '')
+      const actualizado = await cancelarVuelo(id, causa)
       toast.success(`Vuelo ${actualizado?.codigo ?? ''} cancelado correctamente.`)
       navigate('/admin/vuelos', { replace: true })
     } catch (err) {
       toast.error(err?.message ?? 'No se pudo cancelar el vuelo.')
-      setConfirmar((prev) => ({ ...prev, loading: false }))
+      if (err?.fields?.motivo) setErrorMotivo(err.fields.motivo)
+      setConfirmar({ open: false, loading: false })
     }
   }
 
@@ -103,20 +108,21 @@ export default function CancelarVueloPage() {
           </div>
         )}
 
-        <label className="form-label">
-          Causa de fuerza mayor{tieneTiquetes ? ' *' : ''}
+        <label className="form-label" htmlFor="vu-motivo">
+          Causa de fuerza mayor {tieneTiquetes ? <span aria-hidden="true">*</span> : <span className="text-muted">(opcional)</span>}
         </label>
         <textarea
+          id="vu-motivo"
           className="form-control"
+          aria-invalid={Boolean(errorMotivo)}
+          aria-describedby={errorMotivo ? 'vu-motivo-error' : undefined}
           placeholder={tieneTiquetes ? 'Ej. Cierre del aeropuerto por tormenta' : 'Opcional'}
           value={motivo}
-          onChange={(e) => setMotivo(e.target.value)}
+          onChange={(e) => { setMotivo(e.target.value); if (errorMotivo) setErrorMotivo('') }}
           rows={3}
           maxLength={300}
         />
-        {tieneTiquetes && (!motivo.trim() || motivo.trim().length < 10) && (
-          <p className="text-danger">Registra la causa de fuerza mayor (mínimo 10 caracteres).</p>
-        )}
+        {errorMotivo && <p id="vu-motivo-error" role="alert" className="text-danger">{errorMotivo}</p>}
 
         <div className="vu-cancelar__actions mt-3">
           <button

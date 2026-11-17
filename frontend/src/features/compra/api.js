@@ -27,6 +27,7 @@ export function adaptarVuelo(v, extra = {}) {
     llegada_zona: v.destino?.zona_horaria,
     duracion_min: v.duracion_min ?? Math.round((Date.parse(v.llegada_utc) - Date.parse(v.salida_utc)) / 60_000),
     precio: v.costo ?? extra.precio ?? 0,
+    precio_primera: v.costo_primera ?? extra.precio_primera ?? v.costo ?? extra.precio ?? 0,
     moneda: 'COP',
     cupos_disponibles: cupos,
     tiquetes_cliente: v.tiquetes_cliente ?? 0,
@@ -130,7 +131,9 @@ export function agruparOperacion(op) {
     const activos = todos.filter((t) => t.estado !== 'cancelado' && t.estado !== 'vencido')
     const mostrados = activos.length ? activos : todos
     const primero = todos[0]
-    const vuelo = adaptarVuelo(primero.vuelo, { precio: primero.precio })
+    // El precio del tiquete ya corresponde a su clase: se replica en ambos campos para que
+    // `precioParaClase` no vuelva a consultar la tarifa general del vuelo en el historial.
+    const vuelo = adaptarVuelo(primero.vuelo, { precio: primero.precio, precio_primera: primero.precio })
     let estado
     if (esCompra) {
       estado = !activos.length ? 'cancelada' : ['sucedido', 'realizado'].includes(vuelo.estado) ? 'realizada' : 'confirmada'

@@ -34,7 +34,7 @@ export default function AsientoMapa({
         ? datos.filter((a) => a.clase === clase)
         : datos
       setAsientos(filtrados)
-    } catch (err) {
+    } catch {
       toast.error('No se pudieron cargar los asientos del vuelo.')
     } finally {
       setCargando(false)

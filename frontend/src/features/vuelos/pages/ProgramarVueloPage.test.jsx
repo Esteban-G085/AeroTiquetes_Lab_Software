@@ -53,13 +53,15 @@ describe('ProgramarVueloPage (HU18)', () => {
     expect(screen.getByText('Económica: 125 · Primera: 25')).toBeInTheDocument()
   })
 
-  it('envía solo origen, destino, fecha, hora, duración y costo (el resto lo genera el sistema)', async () => {
+  it('envía el cuerpo del contrato, con ambas tarifas (el resto lo genera el sistema)', async () => {
     await abrir()
     llenar()
+    escribir('Costo primera clase (COP)', '450000')
     enviar()
 
     await waitFor(() => expect(api.crearVuelo).toHaveBeenCalledWith({
-      tipo: 'nacional', origen: 'BOG', destino: 'MDE', fecha: '2030-01-15', hora: '08:00', duracion: 90, costo: 300000,
+      tipo: 'nacional', origen: 'BOG', destino: 'MDE', fecha: '2030-01-15', hora: '08:00',
+      duracion: 90, costo: 300000, costo_primera: 450000,
     }))
     expect(await screen.findByText(/AT-0009.*programado correctamente/)).toBeInTheDocument()
     // Tras crear, lleva al detalle del vuelo (HU19).

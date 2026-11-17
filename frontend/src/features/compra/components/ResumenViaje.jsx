@@ -1,6 +1,6 @@
 import { Icon } from '@/components/ui'
 import { formatDateTime, formatPrice } from '@/utils/format'
-import { claseLabel } from '../rules'
+import { claseLabel, precioParaClase } from '../rules'
 
 /** Una línea del resumen: tramo, ruta y salida (hora local del aeropuerto). */
 export function TramoLinea({ tramo, vuelo }) {
@@ -21,11 +21,11 @@ export function TramoLinea({ tramo, vuelo }) {
 
 /**
  * Resumen de precio SIEMPRE visible antes de pagar (DISENO.md §5, reglas 1 y 2): cada tramo con su
- * subtotal y el total. No hay impuestos ni cargos aparte: el costo del vuelo es por persona y único (SRS RF03).
+ * subtotal y el total. No hay impuestos ni cargos aparte: es tarifa por persona y clase (D3, RF03).
  *  tramos: [{ tramo: 'ida' | 'vuelta', vuelo }]   viajeros: cantidad
  */
 export default function ResumenViaje({ tramos, viajeros, clase, children }) {
-  const total = tramos.reduce((sum, t) => sum + Number(t.vuelo.precio) * viajeros, 0)
+  const total = tramos.reduce((sum, t) => sum + precioParaClase(t.vuelo, clase) * viajeros, 0)
   return (
     <section className="co-resumen at-card" aria-labelledby="co-resumen-t">
       <h2 id="co-resumen-t" className="co-resumen__title">Resumen</h2>
@@ -36,8 +36,8 @@ export default function ResumenViaje({ tramos, viajeros, clase, children }) {
         <div><dt>Viajeros</dt><dd>{viajeros}</dd></div>
         {tramos.map((t) => (
           <div key={t.vuelo.id}>
-            <dt>{t.tramo === 'vuelta' ? 'Vuelta' : 'Ida'} · {formatPrice(t.vuelo.precio, t.vuelo.moneda)} × {viajeros}</dt>
-            <dd>{formatPrice(Number(t.vuelo.precio) * viajeros, t.vuelo.moneda)}</dd>
+            <dt>{t.tramo === 'vuelta' ? 'Vuelta' : 'Ida'} · {formatPrice(precioParaClase(t.vuelo, clase), t.vuelo.moneda)} × {viajeros}</dt>
+            <dd>{formatPrice(precioParaClase(t.vuelo, clase) * viajeros, t.vuelo.moneda)}</dd>
           </div>
         ))}
       </dl>

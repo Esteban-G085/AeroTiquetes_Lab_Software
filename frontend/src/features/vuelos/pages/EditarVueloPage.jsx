@@ -56,6 +56,8 @@ export default function EditarVueloPage() {
       navigate(`/admin/vuelos/${actualizado.id ?? id}`, { replace: true })
     } catch (err) {
       toast.error(err?.message ?? 'No se pudo guardar los cambios del vuelo.')
+      // El toast informa, pero VueloForm necesita el ApiError para pintar `err.fields` en cada campo.
+      throw err
     }
   }
 

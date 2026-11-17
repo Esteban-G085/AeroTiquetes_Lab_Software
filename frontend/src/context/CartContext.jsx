@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { precioParaClase } from '@/features/compra'
 import { useAuth } from './AuthContext'
 
 /**
@@ -19,8 +20,8 @@ const read = () => safe(() => {
 }, [])
 const write = (items) => safe(() => sessionStorage.setItem(KEY, JSON.stringify(items)))
 
-/** Total del carrito: precio del vuelo × cantidad de viajeros (valor único por persona, sin distinción de clase: RF03). */
-export const subtotal = (item) => Number(item.vuelo?.precio ?? 0) * (item.viajeros?.length ?? 0)
+/** Subtotal de un ítem: tarifa de la clase elegida × cantidad de viajeros (D3, RF03). */
+export const subtotal = (item) => precioParaClase(item.vuelo, item.clase) * (item.viajeros?.length ?? 0)
 export const cartTotal = (items) => items.reduce((sum, it) => sum + subtotal(it), 0)
 export const cartCount = (items) => items.reduce((sum, it) => sum + (it.viajeros?.length ?? 0), 0)
 

@@ -5,7 +5,7 @@ Lectura (B2-06, B2-07) y programacion (B2-05) sobre la base de datos.
 
 Contrato: `frontend/docs/CONTRATO_VUELOS.md`.
 """
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, Query, status
 
 from app.core.deps import DbSession, require_roles
 from app.core.errors import AppError
@@ -161,7 +161,7 @@ def editar_vuelo(id: int, datos: VueloEditar, db: DbSession):
     tags=["Administracion de vuelos"],
     dependencies=[_SOLO_ADMIN],
 )
-def cancelar_vuelo(id: int, datos: VueloCancelar, db: DbSession):
+def cancelar_vuelo(id: int, db: DbSession, datos: VueloCancelar = Body(default=VueloCancelar())):
     """Cancela un vuelo `programado` (HU13): pasa a `cancelado` y libera sus cupos.
 
     Si el vuelo tiene tiquetes vendidos, `motivo` es obligatorio (causa de fuerza mayor, minimo 10
@@ -181,6 +181,7 @@ def cancelar_vuelo(id: int, datos: VueloCancelar, db: DbSession):
 def programar_vuelo(
     datos: VueloCrear,
     db: DbSession,
+    background_tasks: BackgroundTasks,
     administrador=Depends(require_roles("administrador")),
 ):
     """Programa un vuelo (HU18) y lo guarda.
@@ -193,4 +194,8 @@ def programar_vuelo(
     y hora futuras; nacional = dos capitales de departamento; internacional = una ciudad del grupo
     `colombia` y una del `exterior`, en cualquier sentido.
     """
-    return VueloOut.model_validate(service.programar_vuelo(db, datos, administrador.id))
+    vuelo = service.programar_vuelo(db, datos, administrador.id)
+    respuesta = VueloOut.model_validate(vuelo)
+    for gancho in service.TRAS_PROGRAMAR_VUELO:
+        background_tasks.add_task(gancho, vuelo.id)
+    return respuesta

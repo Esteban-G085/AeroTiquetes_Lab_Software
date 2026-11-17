@@ -12,6 +12,14 @@ export const CLASES = [
 ]
 export const claseLabel = (value) => CLASES.find((c) => c.value === value)?.label ?? value
 
+/**
+ * Tarifa por persona de la clase elegida (D3). El backend cobra `precio_primera` en primera clase;
+ * los totales del front deben usar esta función, no `vuelo.precio` directamente.
+ */
+export const precioParaClase = (vuelo, clase) => Number(
+  clase === 'primera' ? (vuelo?.precio_primera ?? vuelo?.precio ?? 0) : (vuelo?.precio ?? 0),
+)
+
 export const GENEROS = [
   { value: 'femenino', label: 'Femenino' },
   { value: 'masculino', label: 'Masculino' },

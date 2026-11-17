@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { EstadoBadge } from '@/components/travel'
 import { TIPO_LABEL } from '@/domain/estados'
@@ -48,19 +47,21 @@ export default function VuelosTable({ vuelos = [] }) {
                   </span>
                 </td>
                 <td className="vu-table__val" data-label="Duración">{formatDuration(v.duracion_min)}</td>
-                <td className="text-end vu-table__val" data-label="Costo (Econ./Prim.)">{formatPrice(v.costo ?? 0)} / {formatPrice(v.costo_primera ?? v.costo ?? 0)}</td>
+                <td className="text-end vu-table__val" data-label="Costo">{formatPrice(v.costo ?? 0)} / {formatPrice(v.costo_primera ?? v.costo ?? 0)}</td>
                 <td className="vu-table__val" data-label="Cupos">{v.cupos_economica ?? 0} / {v.cupos_primera ?? 0}</td>
                 <td data-label="Estado"><EstadoBadge estado={v.estado} /></td>
                 <td className="text-end" data-label="">
-                  <Link className="btn btn-sm btn-outline-primary" to={`/admin/vuelos/${v.id}`}>Consultar</Link>
-                  {v.estado === 'programado' && (
-                    <>
-                      <Link className="btn btn-sm btn-outline-secondary ms-1" to={`/admin/vuelos/${v.id}/editar`}>Editar</Link>
-                      <Link className="btn btn-sm btn-outline-danger ms-1" to={`/admin/vuelos/${v.id}/cancelar`}>
-                        Cancelar
-                      </Link>
-                    </>
-                  )}
+                  <span className="vu-table__actions">
+                    <Link className="btn btn-sm btn-outline-primary" to={`/admin/vuelos/${v.id}`}>Consultar</Link>
+                    {v.estado === 'programado' && (
+                      <>
+                        <Link className="btn btn-sm btn-outline-secondary" to={`/admin/vuelos/${v.id}/editar`}>Editar</Link>
+                        <Link className="btn btn-sm btn-outline-danger" to={`/admin/vuelos/${v.id}/cancelar`}>
+                          Cancelar
+                        </Link>
+                      </>
+                    )}
+                  </span>
                 </td>
               </tr>
             ))}
