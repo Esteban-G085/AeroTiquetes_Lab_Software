@@ -62,6 +62,10 @@
 .vu-narrow { max-width: 46rem; margin-inline: auto; }
 .vu-tablewrap { overflow-x: auto; border: 1px solid var(--at-line); border-radius: var(--at-radius-lg); background: #fff; box-shadow: var(--at-shadow-sm); }
 .vu-table { margin: 0; min-width: 46rem; font-size: var(--at-text-sm); vertical-align: middle; }
+@media (max-width: 575.98px) {
+  .vu-tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .vu-table { min-width: auto; width: 100%; }
+}
 .vu-table th { padding: .8rem 1rem; background: var(--at-surface-2); color: var(--at-muted); font-size: var(--at-text-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; border-bottom: 1px solid var(--at-line); }
 .vu-table td { padding: .8rem 1rem; border-color: var(--at-line); }
 .vu-table__sub { display: block; color: var(--at-muted); font-size: var(--at-text-xs); }

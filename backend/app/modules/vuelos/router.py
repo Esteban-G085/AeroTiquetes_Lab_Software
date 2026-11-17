@@ -124,7 +124,7 @@ def consultar_vuelo_admin(id: int, db: DbSession):
     "/admin/vuelos/{id}/asientos",
     response_model=list[AsientoOut],
     tags=["Administracion de vuelos"],
-    dependencies=[Depends(require_roles("cliente", "administrador", "root"))],
+    dependencies=[Depends(require_roles("cliente", "administrador"))],
 )
 def listar_asientos_vuelo(id: int, db: DbSession):
     """Lista los asientos individuales de un vuelo con su estado (disponible/ocupado)."""

@@ -101,7 +101,7 @@ def consultar_noticia(id: int, db: DbSession):
     "/admin/noticias",
     response_model=NoticiaOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_roles("administrador", "root"))],
+    dependencies=[Depends(require_roles("administrador"))],
 )
 async def crear_noticia_admin(
     db: DbSession,
