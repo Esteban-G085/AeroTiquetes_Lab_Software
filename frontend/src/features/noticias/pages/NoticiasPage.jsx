@@ -109,9 +109,11 @@ export default function NoticiasPage() {
             message="Pronto publicaremos novedades sobre nuevos vuelos y destinos."
           />
           {esAdmin && (
-            <Notice tone="neutral" className="not-suscripcion__aviso mt-4">
-              Como administrador puedes <Link to="/noticias/crear">crear una noticia</Link> para publicar la primera.
-            </Notice>
+            <div className="not-empty__admin mt-4">
+              <Button as={Link} to="/noticias/crear" variant="primary" size="lg">
+                📰 Crear primera noticia
+              </Button>
+            </div>
           )}
         </>
       )}
