@@ -18,7 +18,7 @@ export default {
       path: '/noticias/crear',
       title: 'Crear noticia',
       Component: lazy(() => import('./pages/CrearNoticiaPage')),
-      roles: [ROLES.ADMIN, ROLES.ROOT],
+      roles: [ROLES.ADMIN],
     },
     {
       path: '/noticias/:id',

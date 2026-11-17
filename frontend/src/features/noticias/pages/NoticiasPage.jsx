@@ -40,7 +40,7 @@ export default function NoticiasPage() {
   const [suscripcionStatus, setSuscripcionStatus] = useState('idle') // idle | saving
 
   const esCliente = rol === ROLES.CLIENTE
-  const esAdmin = rol === ROLES.ADMIN || rol === ROLES.ROOT
+  const esAdmin = rol === ROLES.ADMIN
 
   const cargarNoticias = useCallback(async () => {
     setStatus('loading')

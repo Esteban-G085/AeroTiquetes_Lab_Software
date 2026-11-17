@@ -370,3 +370,23 @@ def test_los_suscritos_reciben_un_correo_al_programarse_un_vuelo(client, adm, ca
     antes = len(correos)
     _programar(client, adm, dias=11)
     assert not [c for c in correos[antes:] if c["destinatario"] == "suscrito@correo.com"]
+
+
+@pytest.mark.parametrize("origen", [
+    "http://localhost:5173",
+    "http://127.0.0.1:5174",
+    "http://192.168.1.12:5173",
+    "http://10.0.0.5:5175",
+])
+def test_cors_permite_las_urls_de_red_y_puertos_alternos_de_vite(client, origen):
+    """Si el preflight falla, el navegador convierte el POST en error de red."""
+    r = client.options(
+        "/admin/noticias",
+        headers={
+            "Origin": origen,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+    assert r.headers.get("access-control-allow-origin") == origen
+    assert "POST" in r.headers.get("access-control-allow-methods", "")

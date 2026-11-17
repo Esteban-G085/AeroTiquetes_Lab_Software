@@ -107,7 +107,7 @@ describe('NoticiasPage como cliente (HU11)', () => {
   })
 })
 
-describe('NoticiasPage como administrador / raíz', () => {
+describe('NoticiasPage como administrador', () => {
   it('ve las noticias, no se suscribe ni compra y siempre ofrece Crear noticia', async () => {
     seedSession({ rol: 'administrador' }, { nombre: 'Jose' })
     renderWithProviders(<AppRouter />, { route: '/noticias' })
@@ -119,10 +119,28 @@ describe('NoticiasPage como administrador / raíz', () => {
   })
 
   it('ofrece Crear noticia incluso cuando no hay noticias', async () => {
-    seedSession({ rol: 'root' }, { nombre: 'Root' })
+    seedSession({ rol: 'administrador' }, { nombre: 'Jose' })
     api.listarNoticias.mockResolvedValue({ total: 0, items: [] })
     renderWithProviders(<AppRouter />, { route: '/noticias' })
     expect(await screen.findByText('No hay noticias por ahora')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Crear noticia' })).toHaveAttribute('href', '/noticias/crear')
+  })
+
+  it('abre Crear noticia sin caer en el ErrorBoundary', async () => {
+    const user = userEvent.setup()
+    seedSession({ rol: 'administrador' }, { nombre: 'Jose' })
+    renderWithProviders(<AppRouter />, { route: '/noticias' })
+
+    await user.click(await screen.findByRole('link', { name: 'Crear noticia' }))
+
+    expect(await screen.findByRole('heading', { name: 'Crear noticia' })).toBeInTheDocument()
+    expect(screen.queryByText('Algo salió mal')).not.toBeInTheDocument()
+  })
+
+  it('no ofrece Crear noticia a root (el backend solo lo permite a administrador)', async () => {
+    seedSession({ rol: 'root' }, { nombre: 'Root' })
+    renderWithProviders(<AppRouter />, { route: '/noticias' })
+    expect(await screen.findByRole('heading', { name: 'Nuevo vuelo Bogotá → Medellín' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Crear noticia' })).not.toBeInTheDocument()
   })
 })

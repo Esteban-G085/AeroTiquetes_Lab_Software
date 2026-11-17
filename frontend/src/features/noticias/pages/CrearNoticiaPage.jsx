@@ -1,11 +1,12 @@
-import { useNavigate, useState } from 'react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/components/feedback'
 import { BackLink, PageHeader } from '@/components/layout'
 import { Button, Card, Input, Notice } from '@/components/ui'
 import { crearNoticia } from '../api'
 import '../noticias.css'
 
-/** HU11 (admin) — Crear una noticia manualmente (solo administrador/root). */
+/** HU11 (admin) — Crear una noticia manualmente (solo administrador). */
 export default function CrearNoticiaPage() {
   const navigate = useNavigate()
   const toast = useToast()

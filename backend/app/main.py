@@ -108,9 +108,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Vite muestra una URL "Network" (192.168.x.x / 10.x.x.x) ademas de localhost, y el
+# puerto puede cambiar si 5173 esta ocupado. Una lista exacta de orígenes deja
+# esas pestañas sin cabeceras CORS y el navegador convierte todas las respuestas
+# en errores de red (el front muestra "No pudimos conectar con el servidor").
+# Se permiten todos los orígenes locales por puerto, con credenciales (JWT).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=(
+        r"^http://(?:localhost|127\.0\.0\.1|\[::1\]|"
+        r"192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|"
+        r"172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)(?::\d+)?$"
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

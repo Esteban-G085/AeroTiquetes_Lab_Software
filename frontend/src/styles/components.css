@@ -119,8 +119,9 @@
 .at-table tbody tr:last-child td { border-bottom: 0; }
 .at-table tbody tr:hover { background: var(--at-blue-50); }
 
-/* Móvil: una tarjeta por fila; cada celda muestra su encabezado con data-label */
-@media (max-width: 767.98px) {
+/* Móvil/tablet: una tarjeta por fila; cada celda muestra su encabezado con data-label.
+   El breakpoint coincide con el de los demas modulos: por encima de 992px la tabla completa cabe. */
+@media (max-width: 991.98px) {
   .at-table--cards table, .at-table--cards tbody, .at-table--cards tr, .at-table--cards th, .at-table--cards td { display: block; }
   .at-table--cards table { min-width: 0; }
   .at-table--cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
