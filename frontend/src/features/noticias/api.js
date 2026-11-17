@@ -49,18 +49,8 @@ export async function cancelarConToken(token) {
   return data
 }
 
-/** HU11 (admin) — Crear una noticia manualmente. `payload` puede incluir `imagen` (File). */
+/** HU11 (admin) — Crear una noticia manualmente. */
 export async function crearNoticia(payload) {
-  const formData = new FormData()
-  if (payload.tipo !== undefined) formData.append('tipo', payload.tipo)
-  if (payload.titulo !== undefined) formData.append('titulo', payload.titulo ?? '')
-  if (payload.contenido !== undefined) formData.append('contenido', payload.contenido ?? '')
-  if (payload.id_vuelo !== undefined && payload.id_vuelo !== null && payload.id_vuelo !== '')
-    formData.append('id_vuelo', String(payload.id_vuelo))
-  if (payload.vigente_hasta !== undefined && payload.vigente_hasta !== null && payload.vigente_hasta !== '')
-    formData.append('vigente_hasta', payload.vigente_hasta)
-  if (payload.imagen) formData.append('imagen', payload.imagen)
-
-  const { data } = await http.post('/admin/noticias', formData)
+  const { data } = await http.post('/admin/noticias', payload)
   return data
 }

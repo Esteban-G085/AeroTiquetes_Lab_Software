@@ -1,4 +1,4 @@
-import { useNavigate, useState, useEffect, useCallback } from 'react'
+import { useNavigate, useState } from 'react'
 import { useToast } from '@/components/feedback'
 import { BackLink, PageHeader } from '@/components/layout'
 import { Button, Card, Input, Notice } from '@/components/ui'
@@ -12,7 +12,7 @@ export default function CrearNoticiaPage() {
 
   const [titulo, setTitulo] = useState('')
   const [contenido, setContenido] = useState('')
-  const [imagen, setImagen] = useState(null)
+  const [imagenUrl, setImagenUrl] = useState('')
   const [idVuelo, setIdVuelo] = useState('')
   const [vigenteHasta, setVigenteHasta] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -26,14 +26,14 @@ export default function CrearNoticiaPage() {
     formTouched &&
     (titulo.trim() !== '' ||
       contenido.trim() !== '' ||
-      imagen !== null ||
+      imagenUrl !== '' ||
       idVuelo !== '' ||
       vigenteHasta !== '')
 
-  const limpiarErrores = useCallback(() => {
+  const limpiarErrores = () => {
     setErrores({})
     setErrorGeneral('')
-  }, [])
+  }
 
   async function enviar(e) {
     e.preventDefault()
@@ -44,7 +44,7 @@ export default function CrearNoticiaPage() {
         tipo: 'vuelo',
         titulo: titulo.trim() || null,
         contenido: contenido.trim() || null,
-        imagen,
+        imagen_url: imagenUrl.trim() || null,
         id_vuelo: idVuelo ? Number(idVuelo) : null,
         vigente_hasta: vigenteHasta || null,
       }
@@ -61,16 +61,30 @@ export default function CrearNoticiaPage() {
     }
   }
 
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (hayCambiosSinGuardar) {
-        e.preventDefault()
-        e.returnValue = ''
-      }
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [hayCambiosSinGuardar])
+  const handleTituloChange = (e) => {
+    setFormTouched(true)
+    setTitulo(e.target.value)
+  }
+
+  const handleContenidoChange = (e) => {
+    setFormTouched(true)
+    setContenido(e.target.value)
+  }
+
+  const handleImagenUrlChange = (e) => {
+    setFormTouched(true)
+    setImagenUrl(e.target.value)
+  }
+
+  const handleIdVueloChange = (e) => {
+    setFormTouched(true)
+    setIdVuelo(e.target.value)
+  }
+
+  const handleVigenteHastaChange = (e) => {
+    setFormTouched(true)
+    setVigenteHasta(e.target.value)
+  }
 
   return (
     <div className="not-page">
@@ -88,10 +102,7 @@ export default function CrearNoticiaPage() {
             label="Título *"
             type="text"
             value={titulo}
-            onChange={(e) => {
-              setFormTouched(true)
-              setTitulo(e.target.value)
-            }}
+            onChange={handleTituloChange}
             placeholder="Ej. Nuevo vuelo disponible"
             required
             error={errores.titulo}
@@ -104,10 +115,7 @@ export default function CrearNoticiaPage() {
               id="contenido"
               className={`form-control ${errores.contenido ? 'is-invalid' : ''}`}
               value={contenido}
-              onChange={(e) => {
-                setFormTouched(true)
-                setContenido(e.target.value)
-              }}
+              onChange={handleContenidoChange}
               placeholder="Escribe el cuerpo de la noticia…"
               rows={5}
               required
@@ -122,25 +130,19 @@ export default function CrearNoticiaPage() {
             )}
           </div>
           <Input
-            label="Imagen (subir desde tu PC)"
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              setFormTouched(true)
-              const file = e.target.files?.[0] ?? null
-              setImagen(file)
-            }}
-            error={errores.imagen}
+            label="URL de imagen (opcional)"
+            type="url"
+            value={imagenUrl}
+            onChange={handleImagenUrlChange}
+            placeholder="https://ejemplo.com/imagen.jpg"
+            error={errores.imagen_url}
           />
           <Input
             label="ID de vuelo vinculado (opcional)"
             type="number"
             min="1"
             value={idVuelo}
-            onChange={(e) => {
-              setFormTouched(true)
-              setIdVuelo(e.target.value)
-            }}
+            onChange={handleIdVueloChange}
             placeholder="Ej. 12"
             error={errores.id_vuelo}
           />
@@ -148,10 +150,7 @@ export default function CrearNoticiaPage() {
             label="Vigente hasta (opcional)"
             type="datetime-local"
             value={vigenteHasta}
-            onChange={(e) => {
-              setFormTouched(true)
-              setVigenteHasta(e.target.value)
-            }}
+            onChange={handleVigenteHastaChange}
           />
         </div>
 
