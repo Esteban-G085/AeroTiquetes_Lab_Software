@@ -33,7 +33,7 @@ export const obtenerSuscripcion = estadoSuscripcion
 
 /** HU11 — Suscribir al cliente autenticado a las noticias. */
 export async function suscribirseNoticias() {
-  const { data } = await http.post('/noticias/suscripcion')
+  const { data } = await http.put('/noticias/suscripcion')
   return data
 }
 

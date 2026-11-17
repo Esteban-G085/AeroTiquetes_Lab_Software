@@ -19,7 +19,7 @@ function readStoredSession() {
     tokenStorage.clear()
     return null
   }
-  return { token, rol: payload.rol, expiresAt: getExpiryMs(payload), user: tokenStorage.getUser() ?? {} }
+  return { token, rol: payload.rol?.toLowerCase(), expiresAt: getExpiryMs(payload), user: tokenStorage.getUser() ?? {} }
 }
 
 const EXPIRE_MESSAGES = {
@@ -50,8 +50,8 @@ export function AuthProvider({ children }) {
     const { token, rol, user } = await authApi.login(identificador, password)
     const payload = decodeJwt(token)
     tokenStorage.set(token, user)
-    setSession({ token, rol: payload?.rol ?? rol, expiresAt: getExpiryMs(payload), user })
-    return { rol: payload?.rol ?? rol }
+    setSession({ token, rol: (payload?.rol ?? rol)?.toLowerCase(), expiresAt: getExpiryMs(payload), user })
+    return { rol: (payload?.rol ?? rol)?.toLowerCase() }
   }, [])
 
   // Persistir cambios del usuario (updateUser) para que sobrevivan a recargar
@@ -82,7 +82,7 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => ({
     user: session?.user ?? null,
-    rol: session?.rol ?? ROLES.VISITANTE,
+    rol: session?.rol?.toLowerCase() ?? ROLES.VISITANTE,
     isAuthenticated: Boolean(session),
     login,
     logout,
