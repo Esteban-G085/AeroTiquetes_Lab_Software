@@ -110,9 +110,11 @@ export default function NoticiasPage() {
           />
           {esAdmin && (
             <div className="not-empty__admin mt-4">
-              <Button as={Link} to="/noticias/crear" variant="primary" size="lg">
-                📰 Crear primera noticia
-              </Button>
+              <Link to="/noticias/crear">
+                <Button variant="primary" size="lg">
+                  Crear noticia
+                </Button>
+              </Link>
             </div>
           )}
         </>
