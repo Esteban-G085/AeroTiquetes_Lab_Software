@@ -13,7 +13,7 @@ export default function CrearNoticiaPage() {
 
   const [titulo, setTitulo] = useState('')
   const [contenido, setContenido] = useState('')
-  const [imagenUrl, setImagenUrl] = useState('')
+  const [imagen, setImagen] = useState(null)
   const [idVuelo, setIdVuelo] = useState('')
   const [vigenteHasta, setVigenteHasta] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -26,7 +26,7 @@ export default function CrearNoticiaPage() {
         tipo: 'vuelo',
         titulo: titulo.trim() || null,
         contenido: contenido.trim() || null,
-        imagen_url: imagenUrl.trim() || null,
+        imagen,
         id_vuelo: idVuelo ? Number(idVuelo) : null,
         vigente_hasta: vigenteHasta || null,
       }
@@ -69,11 +69,13 @@ export default function CrearNoticiaPage() {
             rows={5}
           />
           <Input
-            label="URL de imagen (opcional)"
-            type="url"
-            value={imagenUrl}
-            onChange={(e) => setImagenUrl(e.target.value)}
-            placeholder="https://ejemplo.com/imagen.jpg"
+            label="Imagen (subir desde tu PC)"
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null
+              setImagen(file)
+            }}
           />
           <Input
             label="ID de vuelo vinculado (opcional)"

@@ -7,14 +7,14 @@ Noticias de vuelos y suscripcion (HU11, Sprint 2, B2-15).
 
 Contrato: `frontend/docs/CONTRATO_NOTICIAS.md`.
 """
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Form, Query, status, UploadFile
 
 from app.core.deps import DbSession, require_roles
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.modules.noticias import service
 from app.modules.noticias.schemas import (
     CancelarPorToken,
-    NoticiaCrear,
     NoticiaOut,
     PaginaNoticias,
     SuscripcionCrear,
@@ -103,16 +103,58 @@ def consultar_noticia(id: int, db: DbSession):
     status_code=status.HTTP_201_CREATED,
     dependencies=Depends(require_roles("administrador", "root")),
 )
-def crear_noticia_admin(payload: NoticiaCrear, db: DbSession):
-    """Crea una noticia manualmente (solo administrador)."""
+async def crear_noticia_admin(
+    db: DbSession,
+    id_vuelo: str | None = Form(None, description="ID del vuelo vinculado (opcional)."),
+    tipo: str = Form("vuelo", max_length=20, description="Tipo de noticia."),
+    titulo: str | None = Form(None, max_length=200, description="Titulo de la noticia."),
+    contenido: str | None = Form(None, description="Contenido/cuerpo de la noticia."),
+    imagen: UploadFile | None = File(None, description="Imagen alusiva (archivo desde tu PC)."),
+    vigente_hasta: str | None = Form(None, description="Fecha hasta la que esta vigente (ISO 8601)."),
+):
+    """Crea una noticia manualmente (solo administrador). Soporta subir imagen desde el PC."""
+    from datetime import datetime, timedelta, timezone
+
+    settings = get_settings()
+    imagen_url = None
+
+    # Guardar imagen subida en static/noticias/
+    if imagen is not None:
+        import os
+        upload_dir = "static/noticias"
+        os.makedirs(upload_dir, exist_ok=True)
+        ext = os.path.splitext(imagen.filename or "")[1] or ".jpg"
+        nombre_archivo = f"noticia_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}{ext}"
+        ruta_archivo = os.path.join(upload_dir, nombre_archivo)
+        contenido_archivo = await imagen.read()
+        with open(ruta_archivo, "wb") as f:
+            f.write(contenido_archivo)
+        imagen_url = f"/static/noticias/{nombre_archivo}"
+
+    # Convertir id_vuelo a int si viene
+    id_vuelo_int: int | None = None
+    if id_vuelo and id_vuelo.strip():
+        try:
+            id_vuelo_int = int(id_vuelo)
+        except ValueError:
+            raise AppError("El ID de vuelo no es valido.", status_code=422, code="id_vuelo_invalido")
+
+    # Convertir vigente_hasta
+    vigente_hasta_dt: datetime | None = None
+    if vigente_hasta and vigente_hasta.strip():
+        try:
+            vigente_hasta_dt = datetime.fromisoformat(vigente_hasta)
+        except ValueError:
+            raise AppError("La fecha de vigencia no es valida.", status_code=422, code="vigente_hasta_invalida")
+
     noticia = service.crear_noticia_manual(
         db,
-        id_vuelo=payload.id_vuelo,
-        tipo=payload.tipo,
-        titulo=payload.titulo,
-        contenido=payload.contenido,
-        imagen_url=payload.imagen_url,
-        vigente_hasta=payload.vigente_hasta,
+        id_vuelo=id_vuelo_int,
+        tipo=tipo,
+        titulo=titulo,
+        contenido=contenido,
+        imagen_url=imagen_url,
+        vigente_hasta=vigente_hasta_dt,
     )
     db.commit()
     db.refresh(noticia)

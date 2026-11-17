@@ -31,8 +31,8 @@ class Noticia(Base):
     __tablename__ = "noticia"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    id_vuelo: Mapped[int] = mapped_column(
-        ForeignKey("vuelo.id", ondelete="CASCADE"), unique=True, nullable=False
+    id_vuelo: Mapped[int | None] = mapped_column(
+        ForeignKey("vuelo.id", ondelete="CASCADE"), nullable=True
     )
     tipo: Mapped[str] = mapped_column(String(20), nullable=False, default="vuelo")
     titulo: Mapped[str | None] = mapped_column(String(200), nullable=True)
