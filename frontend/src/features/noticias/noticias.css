@@ -5,6 +5,55 @@
   margin: 0 auto;
 }
 
+/* Skip link — accesibilidad: saltar al contenido principal con teclado */
+.skip-link {
+  position: absolute;
+  top: var(--at-space-2);
+  left: var(--at-space-2);
+  transform: translateX(-100%);
+  padding: var(--at-space-2) var(--at-space-3);
+  background: var(--at-primary);
+  color: #fff;
+  text-decoration: none;
+  border-radius: var(--at-radius);
+  font-weight: var(--at-font-semibold);
+  z-index: 1000;
+  transition: transform 0.2s ease;
+}
+.skip-link:focus {
+  transform: translateX(0);
+}
+
+/* Focus visible para navegación por teclado */
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[type="file"]:focus-visible {
+  outline: 3px solid var(--at-primary);
+  outline-offset: 2px;
+}
+
+/* Tamaño mínimo de objetivo táctil: 44x44px (WCAG 2.1) */
+.btn,
+.form-control,
+.form-select,
+[type="file"],
+[type="date"],
+[type="datetime-local"],
+[type="number"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Botón de crear noticia en estado vacío */
+.not-empty__admin {
+  text-align: center;
+  margin-top: var(--at-space-5);
+}
+
 .not-skeleton {
   display: flex;
   gap: var(--at-space-3);

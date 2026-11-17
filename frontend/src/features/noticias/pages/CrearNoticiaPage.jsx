@@ -1,5 +1,4 @@
-import { useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useNavigate, useState, useEffect, useCallback } from 'react'
 import { useToast } from '@/components/feedback'
 import { BackLink, PageHeader } from '@/components/layout'
 import { Button, Card, Input, Notice } from '@/components/ui'
@@ -17,9 +16,28 @@ export default function CrearNoticiaPage() {
   const [idVuelo, setIdVuelo] = useState('')
   const [vigenteHasta, setVigenteHasta] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [errores, setErrores] = useState({})
+  const [errorGeneral, setErrorGeneral] = useState('')
+
+  // Detectar cambios sin guardar para confirmar antes de salir
+  const [formTouched, setFormTouched] = useState(false)
+
+  const hayCambiosSinGuardar =
+    formTouched &&
+    (titulo.trim() !== '' ||
+      contenido.trim() !== '' ||
+      imagen !== null ||
+      idVuelo !== '' ||
+      vigenteHasta !== '')
+
+  const limpiarErrores = useCallback(() => {
+    setErrores({})
+    setErrorGeneral('')
+  }, [])
 
   async function enviar(e) {
     e.preventDefault()
+    limpiarErrores()
     setEnviando(true)
     try {
       const payload = {
@@ -34,11 +52,25 @@ export default function CrearNoticiaPage() {
       toast.success('Noticia creada correctamente.')
       navigate('/noticias', { replace: true })
     } catch (err) {
-      toast.error(err?.message ?? 'No se pudo crear la noticia.')
+      if (err?.fields) {
+        setErrores(err.fields)
+      }
+      setErrorGeneral(err?.message ?? 'No se pudo crear la noticia.')
     } finally {
       setEnviando(false)
     }
   }
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hayCambiosSinGuardar) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hayCambiosSinGuardar])
 
   return (
     <div className="not-page">
@@ -53,49 +85,99 @@ export default function CrearNoticiaPage() {
       <Card as="form" className="not-card at-card--padded" onSubmit={enviar} noValidate>
         <div className="not-form__grid">
           <Input
-            label="Título"
+            label="Título *"
             type="text"
             value={titulo}
-            onChange={(e) => setTitulo(e.target.value)}
+            onChange={(e) => {
+              setFormTouched(true)
+              setTitulo(e.target.value)
+            }}
             placeholder="Ej. Nuevo vuelo disponible"
             required
+            error={errores.titulo}
           />
-          <textarea
-            className="form-control"
-            label="Contenido"
-            value={contenido}
-            onChange={(e) => setContenido(e.target.value)}
-            placeholder="Escribe el cuerpo de la noticia…"
-            rows={5}
-          />
+          <div className="at-field">
+            <label htmlFor="contenido" className="form-label">
+              Contenido <span aria-hidden="true">*</span>
+            </label>
+            <textarea
+              id="contenido"
+              className={`form-control ${errores.contenido ? 'is-invalid' : ''}`}
+              value={contenido}
+              onChange={(e) => {
+                setFormTouched(true)
+                setContenido(e.target.value)
+              }}
+              placeholder="Escribe el cuerpo de la noticia…"
+              rows={5}
+              required
+              aria-invalid={!!errores.contenido || undefined}
+              aria-describedby={errores.contenido ? 'error-contenido' : undefined}
+              maxLength={1000}
+            />
+            {errores.contenido && (
+              <p id="error-contenido" className="at-field__error" role="alert">
+                {errores.contenido}
+              </p>
+            )}
+          </div>
           <Input
             label="Imagen (subir desde tu PC)"
             type="file"
             accept="image/*"
             onChange={(e) => {
+              setFormTouched(true)
               const file = e.target.files?.[0] ?? null
               setImagen(file)
             }}
+            error={errores.imagen}
           />
           <Input
             label="ID de vuelo vinculado (opcional)"
             type="number"
             min="1"
             value={idVuelo}
-            onChange={(e) => setIdVuelo(e.target.value)}
+            onChange={(e) => {
+              setFormTouched(true)
+              setIdVuelo(e.target.value)
+            }}
             placeholder="Ej. 12"
+            error={errores.id_vuelo}
           />
           <Input
             label="Vigente hasta (opcional)"
             type="datetime-local"
             value={vigenteHasta}
-            onChange={(e) => setVigenteHasta(e.target.value)}
+            onChange={(e) => {
+              setFormTouched(true)
+              setVigenteHasta(e.target.value)
+            }}
           />
         </div>
 
+        {errorGeneral && (
+          <Notice tone="danger" className="mt-4" role="alert">
+            {errorGeneral}
+          </Notice>
+        )}
+
         <div className="not-form__actions mt-4">
-          <Button type="submit" loading={enviando}>Publicar noticia</Button>
-          <Button type="button" variant="outline-secondary" onClick={() => navigate('/noticias', { replace: true })}>
+          <Button type="submit" loading={enviando} disabled={enviando}>
+            Publicar noticia
+          </Button>
+          <Button
+            type="button"
+            variant="outline-secondary"
+            onClick={() => {
+              if (
+                hayCambiosSinGuardar &&
+                !window.confirm('¿Descartar los cambios sin guardar?')
+              ) {
+                return
+              }
+              navigate('/noticias', { replace: true })
+            }}
+          >
             Cancelar
           </Button>
         </div>

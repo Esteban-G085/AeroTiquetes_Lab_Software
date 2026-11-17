@@ -79,6 +79,14 @@ export default function NoticiasPage() {
 
   return (
     <div className="not-page">
+      {/* Skip link para navegación por teclado */}
+      <a
+        href="#contenido-principal"
+        className="skip-link"
+      >
+        Saltar al contenido principal
+      </a>
+
       <BackLink to="/">Volver al inicio</BackLink>
 
       <PageHeader
@@ -87,97 +95,134 @@ export default function NoticiasPage() {
         subtitle="Mantente al tanto de los nuevos vuelos y novedades de AeroTiquetes."
       />
 
-      {status === 'loading' && (
-        <div className="not-skeleton">
-          <div className="not-card-skeleton" />
-          <div className="not-card-skeleton" />
-          <div className="not-card-skeleton" />
-        </div>
-      )}
+      <main id="contenido-principal" tabIndex={-1}>
+        {status === 'loading' && (
+          <div
+            className="not-skeleton"
+            aria-label="Cargando noticias"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="not-card-skeleton" />
+            <div className="not-card-skeleton" />
+            <div className="not-card-skeleton" />
+          </div>
+        )}
 
-      {status === 'error' && (
-        <ErrorState
-          message="No se pudieron cargar las noticias. Intenta de nuevo más tarde."
-          onRetry={() => cargarNoticias()}
-        />
-      )}
-
-      {status === 'ready' && noticias.length === 0 && (
-        <>
-          <EmptyState
-            title="No hay noticias por ahora"
-            message="Pronto publicaremos novedades sobre nuevos vuelos y destinos."
+        {status === 'error' && (
+          <ErrorState
+            message="No se pudieron cargar las noticias. Intenta de nuevo más tarde."
+            onRetry={() => cargarNoticias()}
           />
-          {esAdmin && (
-            <div className="not-empty__admin mt-4">
-              <Link to="/noticias/crear">
-                <Button variant="primary" size="lg">
-                  Crear noticia
-                </Button>
-              </Link>
-            </div>
-          )}
-        </>
-      )}
+        )}
 
-      {status === 'ready' && noticias.length > 0 && (
-        <>
-          <div className="not-grid">
-            {noticias.map((n) => (
-              <article key={n.id ?? n.titulo} className="not-card">
-                {n.imagen && <img src={n.imagen} alt={n.titulo} className="not-card__imagen" />}
-                <div className="not-card__contenido">
-                  <div className="not-card__meta">
-                    <span className="not-card__fecha">{n.publicada_en || n.fecha_publicacion || ''}</span>
-                    {n.vuelo && n.vuelo.origen && n.vuelo.destino && (
-                      <span className="not-card__ruta">
-                        {typeof n.vuelo.origen === 'object' ? n.vuelo.origen.codigo ?? n.vuelo.origen : n.vuelo.origen}
-                        {' → '}
-                        {typeof n.vuelo.destino === 'object' ? n.vuelo.destino.codigo ?? n.vuelo.destino : n.vuelo.destino}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="not-card__titulo">{n.titulo}</h3>
-                  <p className="not-card__resumen">{n.contenido || n.resumen || n.descripcion || ''}</p>
-                  {n.vuelo && n.vuelo.costo !== undefined && (
-                    <span className="not-card__precio">
-                      Desde {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(n.vuelo.costo)}
-                    </span>
-                  )}
-                  <Link className="not-card__detalle" to={`/noticias/${n.id}`}>
-                    Ver detalle
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="not-suscripcion at-card at-card--padded mt-4">
-            <PageHeader eyebrow="Suscripción" title="Recibe noticias por correo" subtitle="¿Quieres recibir avisos cuando publiquemos una nueva noticia?" />
-            <p className="not-suscripcion__estado">
-              {suscrito === null
-                ? 'Estado de suscripción: verificando…'
-                : suscrito
-                ? 'Estás suscrito a las noticias de vuelos.'
-                : 'No estás suscrito a las noticias.'}
-            </p>
-            {isAuthenticated ? (
-              <Button
-                onClick={manejarSuscripcion}
-                loading={suscripcionStatus === 'saving'}
-                variant={suscrito ? 'danger' : 'primary'}
-                className="not-suscripcion__boton"
-              >
-                {suscrito ? 'Cancelar suscripción' : 'Suscribirse a las noticias'}
-              </Button>
-            ) : (
-              <Notice tone="info" className="not-suscripcion__aviso">
-                Inicia sesión para poder suscribirte a las noticias y recibir avisos por correo.
-              </Notice>
+        {status === 'ready' && noticias.length === 0 && (
+          <>
+            <EmptyState
+              title="No hay noticias por ahora"
+              message="Pronto publicaremos novedades sobre nuevos vuelos y destinos."
+            />
+            {esAdmin && (
+              <div className="not-empty__admin mt-4">
+                <Link to="/noticias/crear">
+                  <Button variant="primary" size="lg">
+                    Crear noticia
+                  </Button>
+                </Link>
+              </div>
             )}
-          </div>
-        </>
-      )}
+          </>
+        )}
+
+        {status === 'ready' && noticias.length > 0 && (
+          <>
+            <section aria-label="Lista de noticias">
+              <div className="not-grid">
+                {noticias.map((n) => (
+                  <article
+                    key={n.id ?? n.titulo}
+                    className="not-card"
+                    aria-labelledby={`noticia-titulo-${n.id}`}
+                  >
+                    {n.imagen && (
+                      <img
+                        src={n.imagen}
+                        alt={n.titulo}
+                        className="not-card__imagen"
+                      />
+                    )}
+                    <div className="not-card__contenido">
+                      <div className="not-card__meta">
+                        <span className="not-card__fecha">
+                          {n.publicada_en || n.fecha_publicacion || ''}
+                        </span>
+                        {n.vuelo && n.vuelo.origen && n.vuelo.destino && (
+                          <span className="not-card__ruta">
+                            {typeof n.vuelo.origen === 'object'
+                              ? n.vuelo.origen.codigo ?? n.vuelo.origen
+                              : n.vuelo.origen}
+                            {' → '}
+                            {typeof n.vuelo.destino === 'object'
+                              ? n.vuelo.destino.codigo ?? n.vuelo.destino
+                              : n.vuelo.destino}
+                          </span>
+                        )}
+                      </div>
+                      <h3 id={`noticia-titulo-${n.id}`} className="not-card__titulo">
+                        {n.titulo}
+                      </h3>
+                      <p className="not-card__resumen">
+                        {n.contenido || n.resumen || n.descripcion || ''}
+                      </p>
+                      {n.vuelo && n.vuelo.costo !== undefined && (
+                        <span className="not-card__precio">
+                          Desde {new Intl.NumberFormat('es-CO', {
+                            style: 'currency',
+                            currency: 'COP',
+                          }).format(n.vuelo.costo)}
+                        </span>
+                      )}
+                      <Link className="not-card__detalle" to={`/noticias/${n.id}`}>
+                        Ver detalle
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="not-suscripcion at-card at-card--padded mt-4" aria-label="Suscripción a noticias">
+              <PageHeader
+                eyebrow="Suscripción"
+                title="Recibe noticias por correo"
+                subtitle="¿Quieres recibir avisos cuando publiquemos una nueva noticia?"
+              />
+              <p className="not-suscripcion__estado">
+                {suscrito === null
+                  ? 'Estado de suscripción: verificando…'
+                  : suscrito
+                  ? 'Estás suscrito a las noticias de vuelos.'
+                  : 'No estás suscrito a las noticias.'}
+              </p>
+              {isAuthenticated ? (
+                <Button
+                  onClick={manejarSuscripcion}
+                  loading={suscripcionStatus === 'saving'}
+                  variant={suscrito ? 'danger' : 'primary'}
+                  className="not-suscripcion__boton"
+                  aria-pressed={suscrito === true}
+                >
+                  {suscrito ? 'Cancelar suscripción' : 'Suscribirse a las noticias'}
+                </Button>
+              ) : (
+                <Notice tone="info" className="not-suscripcion__aviso">
+                  Inicia sesión para poder suscribirte a las noticias y recibir avisos por correo.
+                </Notice>
+              )}
+            </section>
+          </>
+        )}
+      </main>
     </div>
   )
 }
