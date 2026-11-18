@@ -56,8 +56,8 @@ def _cuerpo(*items) -> dict:
 
 
 def _numero(silla: str) -> int:
-    """Convierte la etiqueta de asiento ('6A') al numero de cupo historico (26)."""
-    return (int(silla[:-1]) - 1) * 5 + "ABCDE".index(silla[-1]) + 1
+    """Convierte la etiqueta de asiento ('1F') al indice de cupo historico (6)."""
+    return (int(silla[:-1]) - 1) * 6 + "ABCDEF".index(silla[-1]) + 1
 
 
 @pytest.fixture()

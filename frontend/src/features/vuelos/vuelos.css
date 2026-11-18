@@ -97,6 +97,7 @@
 }
 .asiento-mapa__leyenda {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   margin-bottom: 1rem;
   font-size: var(--at-text-sm);
@@ -175,4 +176,79 @@
   font-size: var(--at-text-sm);
   color: var(--at-blue-700);
   font-weight: 600;
+}
+
+/* Posición del asiento (ventana / medio / pasillo), como en el mapa de una aerolínea. */
+.asiento-mapa__leyenda-grupo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem .9rem;
+}
+.asiento-mapa__leyenda-titulo {
+  width: 100%;
+  font-size: var(--at-text-xs);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--at-muted);
+}
+.asiento-mapa__glifo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 3px;
+  font-size: .65rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.asiento-mapa__glifo.ventana { background: var(--at-blue-100); color: var(--at-blue-800); }
+.asiento-mapa__glifo.medio { background: var(--at-gray-100); color: var(--at-gray-700); }
+.asiento-mapa__glifo.pasillo { background: var(--at-amber-100, #fef3c7); color: var(--at-amber-800, #92400e); }
+
+.asiento-mapa__pasillo {
+  align-self: stretch;
+  width: 1.4rem;
+  margin-inline: .35rem;
+  border-left: 2px dashed var(--at-line);
+  border-right: 2px dashed var(--at-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.asiento-mapa__pasillo span {
+  writing-mode: vertical-rl;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--at-muted);
+}
+.asiento-mapa__silla {
+  position: relative;
+}
+.asiento-mapa__silla .asiento-mapa__glifo {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: .85rem;
+  height: .85rem;
+  font-size: .58rem;
+}
+.asiento-mapa__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 479.98px) {
+  .asiento-mapa__pasillo { width: .8rem; margin-inline: .15rem; }
+  .asiento-mapa__pasillo span { display: none; }
 }

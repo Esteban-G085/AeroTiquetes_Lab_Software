@@ -5,6 +5,7 @@
 > original, escrita sin internet; se conserva como historia. Noticias y la administración de vuelos (editar, cancelar, realizados) también quedaron conectadas: el backend se implementó en la integración (`CONTRATO_ADMIN_VUELOS_NOTICIAS.md`).
 > **Cierre adicional (17/11/2026):** borrado lógico de noticias (solo administrador) y Gmail como correo por defecto; ver [verificación final](#-verificación-final-17112026-borrado-de-noticias-y-gmail).
 > **Cierre de avisos (18/11/2026):** al publicar una noticia manual también se avisa por correo a los suscriptores; ver [verificación de avisos](#-verificación-de-avisos-de-noticias-18112026).
+> **Mapa de sillas (19/11/2026):** selección 3-3 A–F con pasillo, leyenda de ventana/medio/pasillo y tooltips; ver [verificación de sillas](#-verificación-del-mapa-de-sillas-19112026).
 
 Alcance según `Plan_Sprint_2_nuevo.md`: **producción real** (API real, sin mocks), HU 6–14:
 compra y reserva (6–9), billetera y tarjetas (10), noticias y suscripción (11), y administración de vuelos: editar (12), cancelar (13) y realizados (14).
@@ -79,7 +80,7 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 - [x] Realizados: total, nacionales/internacionales, búsqueda por código y filtros por estado y tipo.
 
 **Definición de terminado común**
-- [x] Pruebas en verde: backend 346, frontend 413 (45 archivos); `npm run lint` y `npm run build` limpios.
+- [x] Pruebas en verde: backend 346, frontend 418 (46 archivos); `npm run lint` y `npm run build` limpios.
 - [ ] Probado en navegador (web y móvil) **contra la API real** — el flujo HTTP real pasó 40/40; falta el recorrido manual en pantalla.
 - [x] Sin mocks en lo entregado (no hay MSW ni servidor simulado) · sin contraseñas ni tokens en logs ni en el repositorio.
 - [ ] Endpoints en Swagger y Postman — corresponde a B1/B2; el contrato está en `CONTRATO_SPRINT2.md`.
@@ -103,13 +104,20 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 - [x] API real + PostgreSQL + Gmail: con `eresteban20@gmail.com` suscrito, `POST /admin/noticias` devolvió `201` y el log confirmó `INFO aerotiquetes.email: Correo enviado a eresteban20@gmail.com (SMTP 587)`. En segundo plano, sin tocar la respuesta ni la UI.
 - [x] Las noticias borradas lógicamente no se reenvían: `notificar_suscriptores_de_noticia()` exige `eliminada_en IS NULL` y el gancho de vuelos delega en ella.
 
+## ✅ Verificación del mapa de sillas (19/11/2026)
+- [x] Diseño: pasillo entre C y D, bloques 3-3, glifo V/M/P por silla, leyenda de estados y posiciones, tooltip «Silla 1A · Ventana · económica · disponible» y resumen con la posición. El nombre accesible del botón sigue siendo `1A`, para no romper compra/reserva.
+- [x] Backend: `generar_asientos` usa A–F; los cupos no cambian (125+25 / 200+50). El front interpreta los vuelos A–E anteriores como 3-2 (A/E ventana, B medio, C/D pasillo) si llegaran a aparecer.
+- [x] Base de datos: sin migración de datos. Backup lógico previo, borrado en una transacción de vuelos/tiquetes/noticias de prueba y regeneración de los 20 vuelos semilla. Confirmado en PostgreSQL: 3900 asientos con columnas `A,B,C,D,E,F`, cupos correctos, 19 noticias, 0 correos pendientes, 13 usuarios y la suscripción activa `eresteban20@gmail.com` intactos. La regeneración **no envió correos**.
+- [x] Tests: frontend 418/418 (46 archivos, 5 nuevos de `AsientoMapa`), backend 346, lint y build limpios. Corrección colateral: el `useEffect` de selección comparaba por referencia y podía entrar en bucle con el array por defecto `[]`; ahora compara por valor.
+- [x] API real: `GET /admin/vuelos/{id}/asientos` devuelve columnas `A,B,C,D,E,F` y números `1A…1F`. Front en `localhost:5173` y backend en `127.0.0.1:8001`, ambos 200.
+
 ## Decisiones tomadas (informar al PO)
 | Tema | Decisión | Motivo |
 |---|---|---|
 | Edición de vuelo | Se editan fecha, hora, origen, destino, duración y costo (plan nuevo); **no se envía `estado`** | El plan lo pide; el mockup/SRS RF09 solo permiten fecha, hora y costo → pregunta 5 |
 | «Pagar reserva» | Botón en el historial → `POST /reservas/{id}/pagar` | Sin él, la regla de no tener compra y reserva del mismo vuelo obliga a cancelar la reserva → pregunta 8 |
 | Saldo | Solo «Agregar saldo» en la billetera | Decisión: solo recargas (RF02); se retiró «Establecer saldo» por riesgo de fraude (RF03) → preguntas 1 y 2 |
-| Silla | Se elige en el mapa; `numero_silla` es texto | Se mantuvo y arregló la selección: `Asiento` es la fuente de verdad |
+| Silla | Se elige en el mapa; `numero_silla` es texto | Configuración 3-3 (A–F): A/F ventana, B/E medio, C/D pasillo; `Asiento` sigue siendo la fuente de verdad |
 | Impuestos y cargos | No se muestran | El SRS fija un costo único por persona |
 | Billetera en el menú | En el menú de cuenta | Mantiene la barra principal corta |
 | Un ítem del carrito | Un vuelo (un tramo) | Cada tramo se cancela y se consulta por separado |

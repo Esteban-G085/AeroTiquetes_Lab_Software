@@ -557,7 +557,7 @@ def contar_tiquetes_vendidos(db: Session, ids_vuelo: list[int]) -> dict[int, int
 # Asientos individuales (selección de silla)
 # ---------------------------------------------------------------------------
 
-_COLUMNAS = ["A", "B", "C", "D", "E"]  # 5 columnas por fila
+_COLUMNAS = ["A", "B", "C", "D", "E", "F"]  # 6 columnas por fila (3-3, con pasillo entre C y D)
 
 
 def _numero_asiento(fila: int, columna: str) -> str:
@@ -569,8 +569,8 @@ def generar_asientos(db: Session, vuelo: Vuelo) -> list[Asiento]:
     """Genera los asientos individuales de un vuelo recién programado.
 
     Distribución por clase según `CUPOS_POR_TIPO`:
-    - Primera clase: filas iniciales, 5 columnas por fila.
-    - Económica: filas restantes, 5 columnas por fila.
+    - Primera clase: filas iniciales, 6 columnas por fila (3-3).
+    - Económica: filas restantes, 6 columnas por fila (3-3).
     """
     cupos_economica, cupos_primera = CUPOS_POR_TIPO[vuelo.tipo]
     asientos: list[Asiento] = []

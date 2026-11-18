@@ -137,6 +137,10 @@ def sembrar_vuelos_ejemplo(db: Session, ahora: datetime | None = None) -> int:
 
 if __name__ == "__main__":  # python -m app.modules.vuelos.seeds
     from app.core.db import session_scope
+    # Los modelos de compras y noticias deben estar en el metadata: `asiento.id_tiquete`
+    # apunta a `tiquete` y `noticia.id_vuelo` apunta a `vuelo` (en la app los importa main.py).
+    from app.modules.compras import models as _compras_models  # noqa: F401
+    from app.modules.noticias import models as _noticias_models  # noqa: F401
 
     with session_scope() as sesion:
         ciudades_nuevas = asegurar_ciudades(sesion)
