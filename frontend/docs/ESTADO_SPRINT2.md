@@ -80,7 +80,7 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 - [x] Realizados: total, nacionales/internacionales, búsqueda por código y filtros por estado y tipo.
 
 **Definición de terminado común**
-- [x] Pruebas en verde: backend 346, frontend 418 (46 archivos); `npm run lint` y `npm run build` limpios.
+- [x] Pruebas en verde: backend 347, frontend 425 (46 archivos); `npm run lint` y `npm run build` limpios.
 - [ ] Probado en navegador (web y móvil) **contra la API real** — el flujo HTTP real pasó 40/40; falta el recorrido manual en pantalla.
 - [x] Sin mocks en lo entregado (no hay MSW ni servidor simulado) · sin contraseñas ni tokens en logs ni en el repositorio.
 - [ ] Endpoints en Swagger y Postman — corresponde a B1/B2; el contrato está en `CONTRATO_SPRINT2.md`.
@@ -108,8 +108,16 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 - [x] Diseño: pasillo entre C y D, bloques 3-3, glifo V/M/P por silla, leyenda de estados y posiciones, tooltip «Silla 1A · Ventana · económica · disponible» y resumen con la posición. El nombre accesible del botón sigue siendo `1A`, para no romper compra/reserva.
 - [x] Backend: `generar_asientos` usa A–F; los cupos no cambian (125+25 / 200+50). El front interpreta los vuelos A–E anteriores como 3-2 (A/E ventana, B medio, C/D pasillo) si llegaran a aparecer.
 - [x] Base de datos: sin migración de datos. Backup lógico previo, borrado en una transacción de vuelos/tiquetes/noticias de prueba y regeneración de los 20 vuelos semilla. Confirmado en PostgreSQL: 3900 asientos con columnas `A,B,C,D,E,F`, cupos correctos, 19 noticias, 0 correos pendientes, 13 usuarios y la suscripción activa `eresteban20@gmail.com` intactos. La regeneración **no envió correos**.
-- [x] Tests: frontend 418/418 (46 archivos, 5 nuevos de `AsientoMapa`), backend 346, lint y build limpios. Corrección colateral: el `useEffect` de selección comparaba por referencia y podía entrar en bucle con el array por defecto `[]`; ahora compara por valor.
+- [x] Tests: frontend 425/425 (46 archivos, 8 de `AsientoMapa`), backend 347, lint y build limpios. Corrección colateral: el `useEffect` de selección comparaba por referencia y podía entrar en bucle con el array por defecto `[]`; ahora compara por valor.
 - [x] API real: `GET /admin/vuelos/{id}/asientos` devuelve columnas `A,B,C,D,E,F` y números `1A…1F`. Front en `localhost:5173` y backend en `127.0.0.1:8001`, ambos 200.
+
+## ✅ Cierre del flujo de sillas (paso extra y revalidación)
+- [x] Bug del pasillo corregido: se insertaba antes de C (`indice === 2`), ahora antes de D (`columnasPresentes.indexOf('D')`). Test con el orden exacto `1A 1B 1C |pasillo| 1D 1E 1F` y la cabecera `A B C Pasillo D E F`.
+- [x] Visibilidad: cabecera fija de columnas, scroll propio en el mapa, contador «125 sillas · económica · filas 1–N», etiqueta «Pasillo» solo en la cabecera y ajuste responsive para que quepan las 6 columnas en móvil.
+- [x] 4 pasos: `PASOS = ['Viajeros', 'Sillas', 'Carrito y pago', 'Confirmación']`. La selección de sillas salió del formulario de viajeros; el carrito usa `current={2}` y la confirmación `current={3}`. El carrito sigue enviando los mismos IDs en `asientos` / `asientos_regreso`: el contrato de la API no cambia.
+- [x] Condición de carrera: al entrar al paso de Sillas se recarga la disponibilidad y se descarta cualquier silla tomada; en el carrito se revalida al entrar y otra vez justo antes de pagar, con aviso y enlace «Elegir otras sillas». El backend ya era atómico (`409 asiento_no_disponible` y `UPDATE ... WHERE estado == DISPONIBLE`); ante un 409 el carrito se conserva.
+- [x] Corrección colateral: `toast.warning` no existe en `ToastProvider` y podía tumbar el componente al superar el máximo de sillas; ahora se usa `toast.info` y `toast.error`.
+- [x] Verificación final: backend **347/347** (test nuevo del caso de carrera con `409 asiento_no_disponible` sin descontar cupos), frontend **425/425**, lint y build limpios. Build sirviendo en `localhost:5173` y API en `127.0.0.1:8001`, ambos 200; la API sigue devolviendo `1A…1F`.
 
 ## Decisiones tomadas (informar al PO)
 | Tema | Decisión | Motivo |

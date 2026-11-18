@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, Fragment } from 'react'
+import { useState, useCallback, useEffect, useRef, Fragment } from 'react'
 import { useToast } from '@/components/feedback'
 import { obtenerAsientosVuelo } from '../api'
 import '../vuelos.css'
@@ -28,8 +28,9 @@ const capitalizar = (texto) => texto[0].toUpperCase() + texto.slice(1)
  * - `onCambio(seleccionados)`: callback con la lista de IDs de asientos seleccionados.
  * - `maxSelecciones`: cantidad máxima de asientos que se pueden seleccionar (cantidad de viajeros).
  *
- * El mapa dibuja el pasillo entre C y D y marca ventana/medio/pasillo con un glifo,
- * leyenda y tooltip, como hacen las aerolíneas. El estado (libre/ocupado/elegido)
+ * El mapa dibuja el pasillo entre C y D (antes de D, no antes de C), con cabecera fija
+ * de columnas, scroll propio y un contador de filas. Marca ventana/medio/pasillo con un
+ * glifo, leyenda y tooltip, como hacen las aerolíneas. El estado (libre/ocupado/elegido)
  * se mantiene en colores aparte. La posición se deriva de `columna`: el contrato
  * de la API no cambia.
  */
@@ -44,6 +45,8 @@ export default function AsientoMapa({
   const [asientos, setAsientos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [seleccionados, setSeleccionados] = useState(new Set(asientosSeleccionados))
+  const onCambioRef = useRef(onCambio)
+  useEffect(() => { onCambioRef.current = onCambio })
 
   const cargarAsientos = useCallback(async () => {
     setCargando(true)
@@ -71,6 +74,24 @@ export default function AsientoMapa({
     setSeleccionados(new Set(JSON.parse(claveSeleccion)))
   }, [claveSeleccion])
 
+  // Revalidación al entrar al paso: una silla guardada en el carrito pudo ser tomada
+  // mientras el usuario estaba en otro paso. La quitamos y lo avisamos una sola vez.
+  useEffect(() => {
+    if (cargando || asientos.length === 0 || seleccionados.size === 0) return
+    const porId = new Map(asientos.map((a) => [a.id, a]))
+    const validos = [...seleccionados].filter((id) => {
+      const a = porId.get(id)
+      return a && a.estado !== 'OCUPADO' && a.estado !== 'ocupado'
+    })
+    if (validos.length === seleccionados.size) return
+
+    setSeleccionados(new Set(validos))
+    onCambioRef.current?.(validos)
+    const perdidas = [...seleccionados].filter((id) => !validos.includes(id))
+      .map((id) => porId.get(id)?.numero ?? id)
+    toast.error(`La silla ${perdidas.join(', ')} ya no está disponible. Elige otra.`)
+  }, [asientos, cargando, seleccionados, toast])
+
   const estaSeleccionado = (idAsiento) => seleccionados.has(idAsiento)
   const estaOcupado = (a) => a.estado === 'OCUPADO' || a.estado === 'ocupado'
 
@@ -82,7 +103,7 @@ export default function AsientoMapa({
       siguiente.delete(idAsiento)
     } else {
       if (seleccionados.size >= maxSelecciones) {
-        toast.warning(`Solo puedes seleccionar ${maxSelecciones} asiento${maxSelecciones !== 1 ? 's' : ''}.`)
+        toast.info(`Solo puedes seleccionar ${maxSelecciones} asiento${maxSelecciones !== 1 ? 's' : ''}.`)
         return
       }
       siguiente.add(idAsiento)
@@ -108,6 +129,9 @@ export default function AsientoMapa({
   const filas = Object.keys(porFila).sort((a, b) => Number(a) - Number(b))
   const columnasPresentes = COLUMNAS.filter((columna) => asientos.some((a) => a.columna === columna))
   const posiciones = posicionesPara(columnasPresentes)
+  // El pasillo va ANTES de D: A B C | D E F. En vuelos A-E viejos queda A B C | D E.
+  const indicePasillo = columnasPresentes.indexOf('D')
+  const nombreClase = clase === 'primera' ? 'primera clase' : clase === 'economica' ? 'económica' : 'todas las clases'
 
   return (
     <div className="asiento-mapa">
@@ -135,52 +159,70 @@ export default function AsientoMapa({
         </div>
       </div>
 
-      <div className="asiento-mapa__grid">
-        {filas.map((fila) => (
-          <div key={fila} className="asiento-mapa__fila">
-            <span className="asiento-mapa__numero-fila">{fila}</span>
-            {columnasPresentes.map((columna, indice) => {
-              const asiento = porFila[fila].find((a) => a.columna === columna)
-              const posicion = posiciones[columna] ?? 'medio'
-              const ocupado = asiento ? estaOcupado(asiento) : false
-              const seleccionado = asiento ? estaSeleccionado(asiento.id) : false
-              const estadoTexto = ocupado ? 'ocupada' : seleccionado ? 'tu selección' : 'disponible'
-              return (
-                <Fragment key={columna}>
-                  {indice === 2 && (
-                    <span className="asiento-mapa__pasillo" aria-hidden="true">
-                      <span>Pasillo</span>
-                    </span>
-                  )}
-                  {asiento ? (
-                    <>
-                      <button
-                        type="button"
-                        className={`asiento-mapa__silla ${
-                          seleccionado ? 'seleccionado' : ''
-                        } ${ocupado ? 'ocupado' : 'disponible'}`}
-                        disabled={ocupado}
-                        onClick={() => !ocupado && toggleAsiento(asiento.id, asiento)}
-                        title={`Silla ${asiento.numero} · ${capitalizar(posicion)} · ${asiento.clase} · ${capitalizar(estadoTexto)}`}
-                        aria-describedby={`asiento-desc-${asiento.id}`}
-                      >
-                        {asiento.numero}
-                        <span className={`asiento-mapa__glifo ${posicion}`} aria-hidden="true">
-                          {GLIFOS[posicion]}
+      <p className="asiento-mapa__contador" aria-live="polite">
+        {filas.length
+          ? `${asientos.length} sillas · ${nombreClase} · filas ${filas[0]}–${filas[filas.length - 1]}`
+          : 'No hay sillas disponibles en esta clase.'}
+      </p>
+
+      <div className="asiento-mapa__viewport">
+        <div className="asiento-mapa__cabecera" aria-hidden="true">
+          <span className="asiento-mapa__numero-fila" />
+          {columnasPresentes.map((columna, indice) => (
+            <Fragment key={columna}>
+              {indice === indicePasillo && (
+                <span className="asiento-mapa__pasillo"><span>Pasillo</span></span>
+              )}
+              <span className="asiento-mapa__letra">{columna}</span>
+            </Fragment>
+          ))}
+        </div>
+
+        <div className="asiento-mapa__grid">
+          {filas.map((fila) => (
+            <div key={fila} className="asiento-mapa__fila">
+              <span className="asiento-mapa__numero-fila">{fila}</span>
+              {columnasPresentes.map((columna, indice) => {
+                const asiento = porFila[fila].find((a) => a.columna === columna)
+                const posicion = posiciones[columna] ?? 'medio'
+                const ocupado = asiento ? estaOcupado(asiento) : false
+                const seleccionado = asiento ? estaSeleccionado(asiento.id) : false
+                const estadoTexto = ocupado ? 'ocupada' : seleccionado ? 'tu selección' : 'disponible'
+                return (
+                  <Fragment key={columna}>
+                    {indice === indicePasillo && (
+                      <span className="asiento-mapa__pasillo" aria-hidden="true" />
+                    )}
+                    {asiento ? (
+                      <>
+                        <button
+                          type="button"
+                          className={`asiento-mapa__silla ${
+                            seleccionado ? 'seleccionado' : ''
+                          } ${ocupado ? 'ocupado' : 'disponible'}`}
+                          disabled={ocupado}
+                          onClick={() => !ocupado && toggleAsiento(asiento.id, asiento)}
+                          title={`Silla ${asiento.numero} · ${capitalizar(posicion)} · ${asiento.clase} · ${capitalizar(estadoTexto)}`}
+                          aria-describedby={`asiento-desc-${asiento.id}`}
+                        >
+                          {asiento.numero}
+                          <span className={`asiento-mapa__glifo ${posicion}`} aria-hidden="true">
+                            {GLIFOS[posicion]}
+                          </span>
+                        </button>
+                        <span id={`asiento-desc-${asiento.id}`} className="asiento-mapa__sr-only">
+                          {`Silla ${asiento.numero}, ${posicion}, ${asiento.clase}, ${estadoTexto}`}
                         </span>
-                      </button>
-                      <span id={`asiento-desc-${asiento.id}`} className="asiento-mapa__sr-only">
-                        {`Silla ${asiento.numero}, ${posicion}, ${asiento.clase}, ${estadoTexto}`}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="asiento-mapa__vacio" />
-                  )}
-                </Fragment>
-              )
-            })}
-          </div>
-        ))}
+                      </>
+                    ) : (
+                      <span className="asiento-mapa__vacio" />
+                    )}
+                  </Fragment>
+                )
+              })}
+            </div>
+          ))}
+        </div>
       </div>
 
       {seleccionados.size > 0 && (

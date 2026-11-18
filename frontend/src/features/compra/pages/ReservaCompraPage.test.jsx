@@ -33,7 +33,15 @@ async function llenarViajero() {
   await type('Correo electrónico', 'ana@correo.com')
   await type('Nombre del contacto', 'Luis Gómez')
   await type('Teléfono del contacto', '3007654321')
-  await userEvent.click(await screen.findByRole('button', { name: '1A' }))
+}
+
+const continuar = () => userEvent.click(screen.getByRole('button', { name: 'Continuar a sillas' }))
+const elegirSilla = (numero = '1A') => userEvent.click(screen.getByRole('button', { name: numero }))
+
+async function completar() {
+  await llenarViajero()
+  await continuar()
+  await elegirSilla()
 }
 
 beforeEach(() => {
@@ -45,24 +53,44 @@ beforeEach(() => {
 })
 
 describe('ReservaCompraPage (HU6 / HU7)', () => {
-  it('muestra el vuelo y un resumen con el total antes de pagar', async () => {
+  it('muestra el vuelo y un resumen con el total antes de continuar', async () => {
     await open()
     expect(screen.getByText('Resumen')).toBeInTheDocument()
     expect(screen.getAllByText(/250\.000/).length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: 'Agregar al carrito' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Continuar a sillas' })).toBeEnabled()
   })
 
   it('pide los 9 datos obligatorios del viajero y no avanza si faltan', async () => {
     await open()
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
+    await continuar()
     expect(await screen.findAllByText('Este campo es obligatorio.')).not.toHaveLength(0)
     expect(screen.getByText('Selecciona una opción.')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Selección de sillas' })).not.toBeInTheDocument()
+  })
+
+  it('la selección de sillas es un paso separado y se puede volver a viajeros', async () => {
+    await open()
+    expect(screen.queryByRole('heading', { name: 'Selección de sillas' })).not.toBeInTheDocument()
+    expect(screen.getByText('Sillas')).toBeInTheDocument()
+    await llenarViajero()
+    await continuar()
+    expect(await screen.findByRole('heading', { name: 'Selección de sillas' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Volver a viajeros' }))
+    expect(screen.queryByRole('heading', { name: 'Selección de sillas' })).not.toBeInTheDocument()
+  })
+
+  it('en el paso de sillas no agrega al carrito sin elegir una silla', async () => {
+    await open()
+    await llenarViajero()
+    await continuar()
+    await userEvent.click(await screen.findByRole('button', { name: 'Agregar al carrito' }))
+    expect(await screen.findByText(/Selecciona 1 silla más para la ida/)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Mi carrito' })).not.toBeInTheDocument()
   })
 
   it('con los datos completos agrega el vuelo al carrito y abre el carrito', async () => {
     await open()
-    await llenarViajero()
+    await completar()
     await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
     expect(await screen.findByRole('heading', { name: 'Mi carrito' })).toBeInTheDocument()
     expect(JSON.parse(sessionStorage.getItem('at.cart.v2'))[0].vuelo.id).toBe(12)
@@ -76,7 +104,7 @@ describe('ReservaCompraPage (HU6 / HU7)', () => {
       }],
     })
     await open()
-    await llenarViajero()
+    await completar()
     await userEvent.click(screen.getByRole('button', { name: 'Reservar sin pagar' }))
     expect(await screen.findByRole('heading', { name: 'Reserva creada' })).toBeInTheDocument()
     expect(screen.getByLabelText('Código de reserva AB12CD')).toBeInTheDocument()
@@ -88,16 +116,17 @@ describe('ReservaCompraPage (HU6 / HU7)', () => {
     await open()
     await llenarViajero()
     fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '2015-01-01' } })
-    await userEvent.click(screen.getByRole('button', { name: 'Reservar sin pagar' }))
+    await continuar()
     expect(await screen.findByText(/menor de edad no puede viajar solo/)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Selección de sillas' })).not.toBeInTheDocument()
     expect(api.crearReserva).not.toHaveBeenCalled()
   })
 
   it('si ya tiene 5 tiquetes en el vuelo, avisa y bloquea las acciones', async () => {
     await open({ ...VUELO_EJEMPLO, tiquetes_cliente: 5 })
     expect(screen.getByText(/Ya tienes 5 tiquetes en este vuelo/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Agregar al carrito' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Reservar sin pagar' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Continuar a sillas' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Agregar al carrito' })).not.toBeInTheDocument()
   })
 
   it('"Ida y vuelta" ofrece los vuelos de regreso y exige elegir uno', { timeout: 15000 }, async () => {
@@ -106,9 +135,10 @@ describe('ReservaCompraPage (HU6 / HU7)', () => {
     await userEvent.click(screen.getByLabelText('Ida y vuelta'))
     expect(await screen.findByText('AT-205')).toBeInTheDocument()
     await llenarViajero()
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
+    await continuar()
     expect(await screen.findByText(/Elige el vuelo de regreso/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('radio', { name: /AT-205/ }))
+    await continuar()
     // Al elegir el regreso aparece un segundo mapa: hay que seleccionar una silla por tramo.
     const sillas = await screen.findAllByRole('button', { name: '1A' })
     await userEvent.click(sillas[0])

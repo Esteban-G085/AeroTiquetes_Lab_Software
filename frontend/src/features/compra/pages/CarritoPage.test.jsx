@@ -1,11 +1,16 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AppRouter from '@/routes/AppRouter'
 import { ApiError } from '@/services/apiError'
 import { renderWithProviders, seedSession, VUELO_EJEMPLO } from '@/test/helpers'
+import { obtenerAsientosVuelo } from '@/features/vuelos'
 import * as api from '../api'
 
 vi.mock('../api')
+vi.mock('@/features/vuelos/api', async (importOriginal) => ({
+  ...(await importOriginal()),
+  obtenerAsientosVuelo: vi.fn(),
+}))
 
 const VIAJERO = {
   documento: 'A12345', nombres: 'Ana María', apellidos: 'Gómez', fecha_nacimiento: '1990-04-20', genero: 'femenino',
@@ -17,6 +22,9 @@ const open = () => renderWithProviders(<AppRouter />, { route: '/carrito' })
 beforeEach(() => {
   seedSession({ rol: 'cliente' }, { nombres: 'Ana' })
   api.obtenerSaldo.mockResolvedValue({ saldo: 1_000_000, moneda: 'COP' })
+  obtenerAsientosVuelo.mockResolvedValue([
+    { id: 101, numero: '1A', fila: 1, columna: 'A', clase: 'economica', estado: 'disponible' },
+  ])
 })
 
 describe('CarritoPage (HU7)', () => {
@@ -93,6 +101,25 @@ describe('CarritoPage (HU7)', () => {
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^Pagar/ }))
     expect(await screen.findByText('El vuelo AT-204 no tiene cupos suficientes.')).toBeInTheDocument()
     expect(JSON.parse(sessionStorage.getItem('at.cart.v2'))).toHaveLength(1)
+  })
+
+  it('revalida las sillas al entrar: si una fue tomada, avisa y no deja pagar', async () => {
+    obtenerAsientosVuelo.mockResolvedValue([
+      { id: 101, numero: '1A', fila: 1, columna: 'A', clase: 'economica', estado: 'ocupado' },
+    ])
+    sessionStorage.setItem('at.cart.v2', JSON.stringify([{ ...ITEM, asientos: [101] }]))
+    open()
+    expect(await screen.findByText(/La silla 1A del vuelo AT-204 ya no está disponible/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar compra' })).toBeDisabled())
+    expect(screen.getByRole('link', { name: 'Elegir otras sillas' })).toHaveAttribute('href', '/comprar/12')
+  })
+
+  it('con las sillas disponibles el pago sigue habilitado', async () => {
+    sessionStorage.setItem('at.cart.v2', JSON.stringify([{ ...ITEM, asientos: [101] }]))
+    open()
+    expect(await screen.findByText('Saldo disponible')).toBeInTheDocument()
+    await waitFor(() => expect(obtenerAsientosVuelo).toHaveBeenCalledWith(12))
+    expect(screen.getByRole('button', { name: 'Confirmar compra' })).toBeEnabled()
   })
 
   it('el ícono del carrito de la cabecera dice cuántos tiquetes hay', async () => {

@@ -41,6 +41,39 @@ describe('AsientoMapa (selección intuitiva de sillas)', () => {
     expect(screen.getAllByText('Pasillo').length).toBeGreaterThanOrEqual(2)
   })
 
+  it('pone el pasillo ANTES de D y muestra la cabecera A B C D E F', async () => {
+    const { container } = renderWithProviders(<AsientoMapa idVuelo={1} />)
+    await screen.findByRole('button', { name: '1F' })
+
+    const fila = container.querySelector('.asiento-mapa__fila')
+    const orden = [...fila.children]
+      .filter((nodo) => !nodo.classList.contains('asiento-mapa__sr-only'))
+      .map((nodo) => {
+        if (nodo.classList.contains('asiento-mapa__pasillo')) return 'pasillo'
+        if (nodo.classList.contains('asiento-mapa__numero-fila')) return 'numero'
+        return nodo.textContent.replace(/[VMP]$/, '')
+      })
+    expect(orden).toEqual(['numero', '1A', '1B', '1C', 'pasillo', '1D', '1E', '1F'])
+
+    const cabecera = container.querySelector('.asiento-mapa__cabecera')
+    expect([...cabecera.children].map((n) => n.textContent.trim()).filter(Boolean))
+      .toEqual(['A', 'B', 'C', 'Pasillo', 'D', 'E', 'F'])
+  })
+
+  it('informa cuántas sillas y filas se muestran de la clase elegida', async () => {
+    renderWithProviders(<AsientoMapa idVuelo={1} clase="economica" />)
+    expect(await screen.findByText(/6 sillas · económica · filas 1–1/)).toBeInTheDocument()
+  })
+
+  it('descarta una silla seleccionada que otra operación ya ocupó', async () => {
+    const onCambio = vi.fn()
+    obtenerAsientosVuelo.mockResolvedValue([asiento(101, 'A', 'ocupado')])
+    renderWithProviders(<AsientoMapa idVuelo={1} asientosSeleccionados={[101]} onCambio={onCambio} />)
+
+    expect(await screen.findByText(/ya no está disponible/)).toBeInTheDocument()
+    expect(onCambio).toHaveBeenCalledWith([])
+  })
+
   it('marca la posición de cada columna en el tooltip', async () => {
     renderWithProviders(<AsientoMapa idVuelo={1} />)
     await screen.findByRole('button', { name: '1F' })

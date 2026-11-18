@@ -42,6 +42,8 @@ function Formulario({ vuelo }) {
   const [busy, setBusy] = useState(false)
   const [usingMine, setUsingMine] = useState(false)
   const [resultado, setResultado] = useState(null)
+  // El flujo tiene 4 pasos: 0 viajeros, 1 sillas, 2 carrito y pago, 3 confirmación.
+  const [paso, setPaso] = useState(0)
 
   const reg = useRegreso(trayecto === 'ida_vuelta', vuelo.id)
   const tiquetesCliente = Math.max(vuelo.tiquetes_cliente ?? 0, regreso?.tiquetes_cliente ?? 0)
@@ -141,6 +143,11 @@ function Formulario({ vuelo }) {
     else setGeneral([err.message])
   }
 
+  const continuarASillas = () => {
+    if (!validar()) return
+    setPaso(1)
+  }
+
   const agregarAlCarrito = () => {
     if (!validar()) return
     if (!validarAsientos()) return
@@ -173,11 +180,16 @@ function Formulario({ vuelo }) {
   return (
     <div className="co-page">
       <PageHeader eyebrow="Reserva o compra" title={`${vuelo.origen.ciudad} a ${vuelo.destino.ciudad}`}
-        subtitle="Elige tu trayecto y la clase, y registra a cada viajero." />
-      <div className="mb-4"><Stepper steps={PASOS} current={0} label="Progreso de la compra" /></div>
+        subtitle={paso === 0
+          ? 'Elige tu trayecto y la clase, y registra a cada viajero.'
+          : 'Elige una silla por viajero y tramo antes de continuar.'} />
+      <div className="mb-4"><Stepper steps={PASOS} current={paso} label="Progreso de la compra" /></div>
 
       <div className="co-layout">
-        <form ref={formRef} className="co-form" noValidate onSubmit={(e) => { e.preventDefault(); agregarAlCarrito() }}>
+        <form ref={formRef} className="co-form" noValidate onSubmit={(e) => {
+          e.preventDefault()
+          paso === 0 ? continuarASillas() : agregarAlCarrito()
+        }}>
           <FlightCard {...toFlightProps(vuelo)} />
 
           {existing && <Notice tone="info">Este vuelo ya está en tu carrito. Al guardar, se actualizará con lo que completes aquí.</Notice>}
@@ -189,6 +201,7 @@ function Formulario({ vuelo }) {
             </Notice>
           )}
 
+          {paso === 0 && (<>
           <section className="at-card co-section" aria-labelledby="co-trayecto">
             <h2 id="co-trayecto" className="co-section__title">Trayecto</h2>
             <div className="co-seg" role="radiogroup" aria-labelledby="co-trayecto">
@@ -240,8 +253,9 @@ function Formulario({ vuelo }) {
               <Icon name="plus" size={16} /> Agregar otro viajero
             </Button>
           </section>
+          </>)}
 
-          {viajeros.length > 0 && (
+          {paso === 1 && viajeros.length > 0 && (
             <section className="at-card co-section" aria-labelledby="co-asientos">
               <h2 id="co-asientos" className="co-section__title">Selección de sillas</h2>
               {['ida', ...(trayecto === 'ida_vuelta' ? ['vuelta'] : [])].map((tramo) => {
@@ -265,7 +279,8 @@ function Formulario({ vuelo }) {
                 )
               })}
               <p className="co-section__hint">
-                Elige una silla por viajero y tramo. Las sillas en rojo ya están ocupadas.
+                Elige una silla por viajero y tramo. El pasillo separa C y D; V/M/P indican ventana, medio y pasillo.
+                Las sillas en rojo ya están ocupadas.
               </p>
             </section>
           )}
@@ -274,11 +289,23 @@ function Formulario({ vuelo }) {
         <aside className="co-aside">
           <ResumenViaje tramos={tramos} viajeros={viajeros.length} clase={clase}>
             <div className="co-actions">
-              <Button size="lg" onClick={agregarAlCarrito} disabled={bloqueado || busy}>{existing ? 'Actualizar carrito' : 'Agregar al carrito'}</Button>
-              <Button variant="outline-primary" onClick={reservar} loading={busy} disabled={bloqueado}>Reservar sin pagar</Button>
-              <p className="co-actions__hint">
-                La reserva dura 24 horas y guarda tu cupo sin pagar. Al comprar pagas con tu billetera y recibes el código de reserva.
-              </p>
+              {paso === 0 ? (
+                <>
+                  <Button size="lg" onClick={continuarASillas} disabled={bloqueado}>Continuar a sillas</Button>
+                  <p className="co-actions__hint">
+                    En el siguiente paso elegirás una silla por viajero y tramo.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Button size="lg" onClick={agregarAlCarrito} disabled={bloqueado || busy}>{existing ? 'Actualizar carrito' : 'Agregar al carrito'}</Button>
+                  <Button variant="outline-primary" onClick={reservar} loading={busy} disabled={bloqueado}>Reservar sin pagar</Button>
+                  <Button variant="ghost" onClick={() => setPaso(0)} disabled={busy}>Volver a viajeros</Button>
+                  <p className="co-actions__hint">
+                    La reserva dura 24 horas y guarda tu cupo sin pagar. Al comprar pagas con tu billetera y recibes el código de reserva.
+                  </p>
+                </>
+              )}
             </div>
           </ResumenViaje>
         </aside>

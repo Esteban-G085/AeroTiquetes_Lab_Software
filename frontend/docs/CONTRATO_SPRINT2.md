@@ -63,7 +63,7 @@ Mismo cuerpo. Verifica saldo, descuenta de la billetera (precio × viajeros de c
   "total": 500000, "saldo": 1300000, "correo": "ana@correo.com" }
 ```
 Una compra por ítem. `correo` = dirección a la que se enviaron los códigos. **Atómico:** si un ítem falla, no se cobra nada.
-`tiquetes[].numero_silla` es **texto** (`"12A"`). El mapa de selección ya está integrado: se envían IDs de `Asiento` en `asientos` / `asientos_regreso` (uno por viajero y tramo); sin ellos, el backend elige sillas disponibles. Los asientos se generan en configuración **3-3 (A–F)**: A/F ventana, B/E medio, C/D pasillo. El front deriva la posición de `columna`, así que el contrato de la API no cambia.
+`tiquetes[].numero_silla` es **texto** (`"12A"`). El mapa de selección ya está integrado: se envían IDs de `Asiento` en `asientos` / `asientos_regreso` (uno por viajero y tramo); sin ellos, el backend elige sillas disponibles. Los asientos se generan en configuración **3-3 (A–F)**: A/F ventana, B/E medio, C/D pasillo. El front deriva la posición de `columna`, así que el contrato de la API no cambia. La selección ocurre en su propio paso (`Viajeros → Sillas → Carrito y pago → Confirmación`) y el carrito revalida la disponibilidad antes de pagar; si otra operación tomó la silla, el backend responde `409` con `error.code = asiento_no_disponible`.
 
 ### Errores de reserva y compra
 | Regla del SRS / plan §7 | HTTP | `code` sugerido | Notas |

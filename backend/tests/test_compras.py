@@ -164,6 +164,24 @@ def test_reservar_con_sillas_explicitas_actualiza_el_mapa(client, db_session, ca
     assert all(a.estado == EstadoAsiento.OCUPADO and a.id_tiquete is not None for a in actuales)
 
 
+def test_reservar_rechaza_la_silla_tomada_entre_seleccion_y_pago(client, db_session, cab, v1):
+    """CASO: el cliente eligió 1A, otra operación la tomó y el pago posterior debe fallar sin cobrar."""
+    elegido = _asientos_libres(db_session, v1)[0]
+    numero = elegido.numero
+    elegido.estado = EstadoAsiento.OCUPADO  # simula a otro cliente ocupándola después de la selección
+    db_session.commit()
+
+    resp = client.post(
+        "/reservas",
+        json=_cuerpo(_item(v1, asientos=[elegido.id])),
+        headers=cab,
+    )
+    assert resp.status_code == 409, resp.text
+    assert resp.json()["error"]["code"] == "asiento_no_disponible"
+    assert numero in resp.json()["error"]["message"]
+    assert _cupos(db_session, v1) == (25, 125)  # la operación fallida no descuenta cupos
+
+
 def test_cancelar_libera_las_sillas_del_mapa(client, db_session, cab, v1):
     elegidos = _asientos_libres(db_session, v1)
     ids = [a.id for a in elegidos]
