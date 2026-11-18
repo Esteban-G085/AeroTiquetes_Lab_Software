@@ -7,6 +7,8 @@ import { http } from '@/services/http'
 //   PUT  /noticias/suscripcion  {correo}  → suscribir al cliente autenticado
 //   DELETE /noticias/suscripcion          → cancelar la suscripción del cliente
 //   POST /noticias/suscripcion/cancelar   → cancelar desde enlace del correo (público, con token)
+//   POST /admin/noticias                  → crear noticia (solo administrador)
+//   DELETE /admin/noticias/{id}           → eliminar noticia (solo administrador, borrado lógico)
 // Solo clientes autenticados pueden suscribirse/cancelar; consultar es público.
 
 /** HU11 — Listar noticias vigentes (paginado; el backend max. 100 por página). */
@@ -61,4 +63,9 @@ export async function cancelarConToken(token) {
 export async function crearNoticia(payload) {
   const { data } = await http.post('/admin/noticias', payload)
   return data
+}
+
+/** HU11 (admin) — Eliminar una noticia (borrado lógico; solo administrador). */
+export async function eliminarNoticia(id) {
+  await http.delete(`/admin/noticias/${encodeURIComponent(id)}`)
 }

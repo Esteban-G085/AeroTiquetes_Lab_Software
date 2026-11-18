@@ -49,6 +49,8 @@ puede mostrar un vuelo como `programado` hasta un minuto después de su hora de 
 | `GET /noticias/suscripcion` | cliente | `{ "suscrito": false, "correo": "ana@correo.com" }` (`correo` = el de la suscripción o, si no hay, el de la cuenta) |
 | `PUT /noticias/suscripcion` | cliente | cuerpo `{ "correo" }` → `{ "suscrito": true, "correo" }`; `422 fields.correo` si no es un correo |
 | `DELETE /noticias/suscripcion` | cliente | `204` (idempotente) |
+| `POST /admin/noticias` | administrador | `201 Noticia`: publicar una noticia manual |
+| `DELETE /admin/noticias/{id}` | **solo administrador** | `204`; `404 noticia_no_encontrada` si el id no existe. Idempotente. Sin token `401`; cliente/root `403` |
 
 `Noticia`: `{ id, tipo: "vuelo", titulo: null, vuelo_id, origen: { ciudad, codigo }, destino: { ciudad, codigo }, salida, salida_zona, precio, moneda: "COP",
 imagen_url: null, publicada_en, vigente_hasta, descuento_pct: null, precio_original: null }`.
@@ -59,5 +61,9 @@ imagen_url: null, publicada_en, vigente_hasta, descuento_pct: null, precio_origi
   vuelo al consultar: si el administrador lo edita, la noticia sale actualizada.
 * El administrador también puede publicar noticias manuales con `POST /admin/noticias` (`administrador`): `{ titulo?, contenido?, imagen_url?, id_vuelo?, vigente_hasta? }`.
   Con `id_vuelo: null` la noticia no depende de un vuelo: `vuelo_id` sale `null` y solo se rige por `vigente_hasta` y los 8 días de publicación.
+* **Eliminar noticia (borrado lógico):** `DELETE /admin/noticias/{id}` marca `eliminada_en` (migración `017_noticia_eliminada`). La noticia deja de aparecer
+  en `GET /noticias`, en `GET /noticias/{id}` (ahora `404`) y en los correos a suscriptores. La fila se conserva a propósito: `publicar_noticias_faltantes`
+  no vuelve a crear la noticia automática del vuelo al reiniciar ni en el ciclo de 60 s; borrarla físicamente sí la regeneraría. Solo el rol `administrador`
+  ve el botón «Eliminar» y puede llamar al endpoint (root y cliente reciben `403`). Es idempotente: repetir el `DELETE` devuelve `204`.
 * **Pendiente (decisión del PO, pregunta 6):** `imagen_url` sale siempre `null` (el front dibuja la portada con los códigos de la ruta). Subir una imagen alusiva
   y las **promociones** (`tipo: "promocion"`, `descuento_pct`, `precio_original`) quedan para la Iteración 4.

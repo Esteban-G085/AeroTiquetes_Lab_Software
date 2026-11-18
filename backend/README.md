@@ -20,51 +20,68 @@ python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\
 pip install -r requirements.txt
 cp .env.example .env                                   # ajusta DATABASE_URL y secretos
 
-# PostgreSQL y Mailpit (desde la raiz del repo, donde esta docker-compose.yml)
+# PostgreSQL (desde la raiz del repo). Mailpit es opcional, solo para probar correos sin internet.
 (cd .. && docker compose up -d)
 
-alembic upgrade head                                   # 001_usuarios -> 016_movimientos_billetera
+alembic upgrade head                                   # 001_usuarios -> 017_noticia_eliminada
 uvicorn app.main:app --reload --port 8000
 ```
 
 - Swagger: http://localhost:8000/docs · Esquema: `/openapi.json`
-- Mailpit (invitaciones de admin, codigos de reserva y avisos de reintegro): http://localhost:8025
+- Correo: **Gmail por defecto** (`smtp.gmail.com:587`, STARTTLS). La app valida al arrancar que haya usuario, contrasena de aplicacion y TLS. Mailpit (http://localhost:8025) queda como alternativa explicita para pruebas locales.
 - Al arrancar se crea el **root por defecto** (`ROOT_ID` / `ROOT_PASSWORD` del `.env`), y se siembra el **catalogo de 37 ciudades** (idempotente). Los 4 roles (`root`, `administrador`, `cliente`, `visitante`) son fijos y viven en el codigo, no en tablas.
-- Migraciones (cadena real, `alembic history`): `001_usuarios` -> `002_roles` -> `003_ciudades` -> `004_vuelos` -> `005_busquedas` -> `006_paises` -> `007_noticias` -> `008_compras_financiero` -> `007_quitar_roles` -> `009_costo_primera` -> `010_noticia_contenido` -> `011_asientos` -> `012_noticia_vuelo_opcional` -> `013_modelado_noticias` -> `014_sillas_texto` -> `015_bandeja_salida` -> `016_movimientos_billetera`.
-  (`007_noticias` crea noticia, suscripcion, mensaje y respuesta; `008` crea billetera, tarjeta, viajero, reserva, compra y tiquete; `007_quitar_roles` elimina las tablas `rol` y `rol_modulo` porque la gestion de roles no era un requisito; `009` agrega `costo_primera`; `011` crea el mapa de asientos; `014` unifica `numero_silla` como texto; `015` crea la bandeja de salida de correos; `016` crea la auditoria interna de movimientos de billetera.)
+- Migraciones (cadena real, `alembic history`): `001_usuarios` -> `002_roles` -> `003_ciudades` -> `004_vuelos` -> `005_busquedas` -> `006_paises` -> `007_noticias` -> `008_compras_financiero` -> `007_quitar_roles` -> `009_costo_primera` -> `010_noticia_contenido` -> `011_asientos` -> `012_noticia_vuelo_opcional` -> `013_modelado_noticias` -> `014_sillas_texto` -> `015_bandeja_salida` -> `016_movimientos_billetera` -> `017_noticia_eliminada`.
+  (`007_noticias` crea noticia, suscripcion, mensaje y respuesta; `008` crea billetera, tarjeta, viajero, reserva, compra y tiquete; `007_quitar_roles` elimina las tablas `rol` y `rol_modulo` porque la gestion de roles no era un requisito; `009` agrega `costo_primera`; `011` crea el mapa de asientos; `014` unifica `numero_silla` como texto; `015` crea la bandeja de salida de correos; `016` crea la auditoria interna de movimientos de billetera; `017` agrega `noticia.eliminada_en` para el borrado logico de noticias.)
 - Reservas vencidas: una tarea del servidor (cada 60 s) libera los cupos de las reservas que pasaron de 24 h; ademas se comprueba al consultar o comprar.
 
-## Correo electrónico (invitaciones de administrador)
+## Correo electrónico (Gmail por defecto)
 
 El sistema envía correos para:
 - Invitación de administrador (HU23) — `POST /root/administradores`
 - Verificación de cambio de correo (HU2) — `POST /me/correo`
+- Códigos de reserva y avisos de reintegro (Sprint 2)
 
-### Opción A: Mailpit (recomendado para desarrollo/local)
-Por defecto, el proyecto viene configurado para usar **Mailpit**. Este es el método recomendado para la demo del Sprint 1, ya que no requiere internet ni credenciales de correo.
+### Configuración por defecto: Gmail
 
-1. Desde la raíz del repositorio, levanta los servicios:
-```bash
-docker compose up -d
-```
-2. Con la configuración por defecto de `backend/.env.example`, los correos se enviarán a Mailpit vía SMTP en `localhost:1025`.
-3. Puedes visualizar todos los correos enviados en [http://localhost:8025](http://localhost:8025).
-
-### Opción B: SMTP real (Gmail, etc.)
-Si deseas que los correos lleguen a una bandeja real, puedes configurar un servidor SMTP propio editando `backend/.env`.
+`.env.example` y los defaults de `app/core/config.py` apuntan a `smtp.gmail.com:587` con STARTTLS.
+Al arrancar, `lifespan` llama a `settings.validar_correo()`: si el host es remoto exige `SMTP_USER`,
+`SMTP_PASSWORD` y TLS/SSL; si falta algo, el arranque falla con un mensaje que nombra las variables
+(nunca muestra la contraseña). El log de arranque indica host, puerto y si hay usuario configurado.
 
 ```env
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=tu_correo@gmail.com
-SMTP_PASSWORD=tu_contraseña_de_aplicación  # NO tu contraseña normal
+SMTP_PASSWORD=xxxxxxxxxxxxxxxx   # contraseña de aplicación, NO la contraseña normal
 SMTP_FROM=tu_correo@gmail.com
+SMTP_USE_TLS=true
+SMTP_USE_SSL=false
 ```
 
-> **Notas importantes:**
-> - **Gmail:** Requiere tener la verificación en 2 pasos activada y generar una [contraseña de aplicación](https://myaccount.google.com/apppasswords).
-> - **¿Dónde leer las variables?** El backend lee la configuración desde `backend/.env` usando `pydantic-settings` (`app/core/config.py`). Si las defines solo como variables de entorno del sistema, pueden no tener efecto si existe un archivo `.env`. Para mayor fiabilidad, **configúralas directamente en `backend/.env`**.
-> - **Tolerante a fallos:** Si el envío de correo falla (credenciales incorrectas, sin conexión, etc.), el backend solo registrará un `warning` en los logs de `uvicorn` y **no interrumpirá el flujo de la aplicación**. Esto es intencional para facilitar el desarrollo.
+> **Gmail:** requiere verificación en 2 pasos y una [contraseña de aplicación](https://myaccount.google.com/apppasswords)
+> de 16 caracteres sin espacios. `SMTP_USER` y `SMTP_FROM` deben ser el mismo Gmail que la generó.
+
+### Alternativa solo para pruebas: Mailpit
+
+Sin internet o para inspeccionar los correos, descomenta el bloque de Mailpit en `.env.example` y
+comenta el de Gmail:
+
+```env
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=no-responder@aerotiquetes.local
+SMTP_USE_TLS=false
+```
+
+`validar_correo()` omite la validación cuando el host es `localhost`, `127.0.0.1`, `::1` o `mailpit`.
+Levanta la bandeja con `docker compose up -d` desde la raíz y abre http://localhost:8025.
+
+> **Tolerante a fallos:** si el envío falla pese a la configuración válida, el correo queda en
+> `notificacion_pendiente` y un worker lo reintenta cada 30 s. La compra o la invitación no se tumban
+> por un error SMTP; el código de cancelación nunca se pierde. Las pruebas usan un SMTP local falso
+> y reemplazan el envío por un stub, así que nunca sale correo real de la suite.
 
 ## Datos de ejemplo (vuelos)
 
@@ -117,6 +134,8 @@ tarjetas, reservar/comprar/cancelar/historial (reglas de negocio, reintegros y c
 | GET | `/admin/vuelos/realizados` (vuelos `sucedido` y `realizado`) | Administrador | 14 |
 | GET | `/noticias` | Cliente, administrador | 11 |
 | GET / PUT / DELETE | `/noticias/suscripcion` | Cliente | 11 |
+| POST | `/admin/noticias` | Administrador | 11 |
+| DELETE | `/admin/noticias/{id}` (borrado lógico) | Administrador | 11 |
 
 Las rutas `/admin/*` exigen el rol `administrador`. El contrato detallado que consume el frontend esta
 en `../frontend/docs/CONTRATO_VUELOS.md` (y `CONTRATO_ADMIN_VUELOS_NOTICIAS.md` para editar, cancelar, realizados y noticias); las colecciones Postman en `postman/`.
@@ -149,7 +168,7 @@ Contrato completo para el frontend: `../frontend/docs/CONTRATO_COMPRAS.md`. Post
 - **Proteger rutas:** `Depends(require_roles("administrador"))` (acepta varios roles). Los permisos por rol son fijos; ya no hay matriz de modulos.
 - **Usuario actual:** `CurrentUser` (`app/core/deps.py`); `usuario.rol` es `RolNombre`.
 - **Nuevo modulo:** crear `app/modules/<x>/`, importar sus modelos en `alembic/env.py` y en `tests/conftest.py`, y montar el router en `app/main.py`.
-- **Migraciones:** encadenar despues de `009_noticias`; nunca editar una migracion ya mergeada.
+- **Migraciones:** encadenar despues de `017_noticia_eliminada` (`alembic heads` debe tener una sola cabeza); nunca editar una migracion ya mergeada.
 - **Fechas:** se guardan en UTC con `FechaUTC` (`app/core/tipos.py`) y se muestran en la zona de cada ciudad.
 - **CORS:** configurado para `http://localhost:5173` y `http://127.0.0.1:5173` (`CORS_ORIGINS`). La comparación es exacta: si el front se abre con otra URL (por ejemplo la de red que muestra Vite), hay que añadir ese origen.
 - **Cancelar un vuelo (B2-13):** al cancelar un vuelo, llamar a `app.modules.compras.service.reintegrar_vuelo_cancelado(db, id_vuelo)` para

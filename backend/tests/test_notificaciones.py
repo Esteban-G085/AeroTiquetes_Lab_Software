@@ -153,3 +153,47 @@ def test_produccion_rechaza_los_secretos_de_ejemplo():
     seguras = Settings(APP_ENV="produccion", JWT_SECRET="otro-secreto-largo", ROOT_PASSWORD="clave-root-segura")
     assert seguras.es_produccion
     seguras.validar_seguridad_produccion()
+
+
+# ============================================================================ Correo: Gmail por defecto
+def test_los_defaults_de_correo_apuntan_a_gmail(monkeypatch):
+    from app.core.config import Settings
+
+    for clave in ("SMTP_HOST", "SMTP_PORT", "SMTP_USE_TLS", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"):
+        monkeypatch.delenv(clave, raising=False)
+    s = Settings(_env_file=None)
+    assert s.SMTP_HOST == "smtp.gmail.com"
+    assert s.SMTP_PORT == 587
+    assert s.SMTP_USE_TLS is True and s.SMTP_USE_SSL is False
+
+
+def test_validar_correo_exige_credenciales_y_tls_para_gmail():
+    from app.core.config import Settings
+
+    incompleta = Settings(
+        SMTP_HOST="smtp.gmail.com", SMTP_PORT=587, SMTP_USE_TLS=True, SMTP_USER="", SMTP_PASSWORD=""
+    )
+    with pytest.raises(RuntimeError, match="SMTP_USER.*SMTP_PASSWORD"):
+        incompleta.validar_correo()
+
+    sin_tls = Settings(
+        SMTP_HOST="smtp.gmail.com", SMTP_PORT=587, SMTP_USE_TLS=False, SMTP_USE_SSL=False,
+        SMTP_USER="usuario@gmail.com", SMTP_PASSWORD="contrasena-de-aplicacion",
+    )
+    with pytest.raises(RuntimeError, match="SMTP_USE_TLS"):
+        sin_tls.validar_correo()
+
+    correcta = Settings(
+        SMTP_HOST="smtp.gmail.com", SMTP_PORT=587, SMTP_USE_TLS=True,
+        SMTP_USER="usuario@gmail.com", SMTP_PASSWORD="contrasena-de-aplicacion",
+    )
+    correcta.validar_correo()  # no lanza
+
+
+@pytest.mark.parametrize("host", ["localhost", "127.0.0.1", "::1", "mailpit", "mailpit.aerotiquetes"])
+def test_validar_correo_omite_los_hosts_de_prueba(host):
+    from app.core.config import Settings
+
+    local = Settings(SMTP_HOST=host, SMTP_PORT=1025, SMTP_USE_TLS=False, SMTP_USER="", SMTP_PASSWORD="")
+    assert local.es_smtp_local
+    local.validar_correo()  # no lanza: las pruebas no necesitan credenciales

@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import AppRouter from '@/routes/AppRouter'
 import { renderWithProviders, seedSession } from '@/test/helpers'
 import * as api from '../api'
@@ -25,6 +26,7 @@ const SIN_VUELO = {
 beforeEach(() => {
   seedSession({ rol: 'cliente' }, { nombres: 'Ana' })
   api.obtenerNoticia.mockResolvedValue(CON_VUELO)
+  api.eliminarNoticia.mockResolvedValue(undefined)
 })
 
 describe('NoticiaDetallePage (HU11)', () => {
@@ -52,5 +54,58 @@ describe('NoticiaDetallePage (HU11)', () => {
     renderWithProviders(<AppRouter />, { route: '/noticias/99999' })
 
     expect(await screen.findByText('No encontramos la noticia')).toBeInTheDocument()
+  })
+
+  it('el cliente y el root no ven Eliminar noticia', async () => {
+    renderWithProviders(<AppRouter />, { route: '/noticias/12' })
+    expect(await screen.findByRole('heading', { name: 'Nuevo vuelo Bogotá → Medellín' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Eliminar noticia' })).not.toBeInTheDocument()
+  })
+
+  it('root no puede eliminar aunque vea el detalle', async () => {
+    seedSession({ rol: 'root' }, { nombre: 'Root' })
+    renderWithProviders(<AppRouter />, { route: '/noticias/12' })
+    expect(await screen.findByRole('heading', { name: 'Nuevo vuelo Bogotá → Medellín' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Eliminar noticia' })).not.toBeInTheDocument()
+  })
+})
+
+describe('NoticiaDetallePage como administrador (borrado lógico)', () => {
+  beforeEach(() => seedSession({ rol: 'administrador' }, { nombre: 'Jose' }))
+
+  it('pide confirmación y no elimina si se cancela', async () => {
+    renderWithProviders(<AppRouter />, { route: '/noticias/12' })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar noticia' }))
+    const dlg = screen.getByRole('dialog', { name: 'Eliminar noticia' })
+    expect(dlg).toHaveTextContent('Nuevo vuelo Bogotá → Medellín')
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(api.eliminarNoticia).not.toHaveBeenCalled()
+  })
+
+  it('al confirmar elimina por id, avisa y vuelve al listado', async () => {
+    api.listarNoticias.mockResolvedValue({ total: 0, pagina: 1, tamano: 6, items: [] })
+    renderWithProviders(<AppRouter />, { route: '/noticias/12' })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar noticia' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar' }))
+
+    await waitFor(() => expect(api.eliminarNoticia).toHaveBeenCalledWith(12))
+    expect(await screen.findByText('Noticias de vuelos')).toBeInTheDocument()
+    expect(await screen.findByText('La noticia fue eliminada.')).toBeInTheDocument()
+  })
+
+  it('un fallo al eliminar avisa y deja la noticia en pantalla', async () => {
+    api.eliminarNoticia.mockRejectedValue(new Error('No se pudo eliminar la noticia.'))
+    renderWithProviders(<AppRouter />, { route: '/noticias/12' })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar noticia' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar' }))
+
+    expect(await screen.findByText('No se pudo eliminar la noticia.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Nuevo vuelo Bogotá → Medellín' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

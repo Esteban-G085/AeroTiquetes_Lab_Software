@@ -118,3 +118,21 @@ def crear_noticia_admin(payload: NoticiaCrear, db: DbSession):
     vuelo = noticia.vuelo if noticia.id_vuelo else None
     datos = service.noticia_a_schema(noticia, vuelo)
     return NoticiaOut(**datos)
+
+
+@router.delete(
+    "/admin/noticias/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_roles("administrador"))],
+)
+def eliminar_noticia_admin(id: int, db: DbSession):
+    """Borrado logico de una noticia (HU11, solo administrador).
+
+    La noticia deja de aparecer en la lista, el detalle y los correos a
+    suscriptores, pero la fila se conserva para que no se vuelva a publicar
+    sola la noticia asociada a un vuelo. 404 si el id no existe; 204 si ya
+    estaba eliminada (idempotente).
+    """
+    if not service.eliminar_noticia(db, id):
+        raise AppError("La noticia no existe.", status_code=status.HTTP_404_NOT_FOUND, code="noticia_no_encontrada")
+    return None

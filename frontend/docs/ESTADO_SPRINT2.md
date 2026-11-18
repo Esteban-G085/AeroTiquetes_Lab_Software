@@ -1,8 +1,9 @@
 # Estado del Sprint 2 — Frontend (F1 + F2)
 
 > **Actualización tras la integración:** la parte de compra, reserva, historial y billetera **ya se ejecutó y se probó** contra el backend real de B1
-> (Vitest 401/401, ESLint limpio, `vite build`, recorrido en navegador sobre PostgreSQL). La tabla "Lo que se verificó" de abajo es la del entregable
+> (Vitest 413/413, ESLint limpio, `vite build`, recorrido HTTP real sobre PostgreSQL). La tabla "Lo que se verificó" de abajo es la del entregable
 > original, escrita sin internet; se conserva como historia. Noticias y la administración de vuelos (editar, cancelar, realizados) también quedaron conectadas: el backend se implementó en la integración (`CONTRATO_ADMIN_VUELOS_NOTICIAS.md`).
+> **Cierre adicional (17/11/2026):** borrado lógico de noticias (solo administrador) y Gmail como correo por defecto; ver [verificación final](#-verificación-final-17112026-borrado-de-noticias-y-gmail).
 
 Alcance según `Plan_Sprint_2_nuevo.md`: **producción real** (API real, sin mocks), HU 6–14:
 compra y reserva (6–9), billetera y tarjetas (10), noticias y suscripción (11), y administración de vuelos: editar (12), cancelar (13) y realizados (14).
@@ -48,6 +49,7 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 5. **Historial y cancelación con reintegro** → `/mis-viajes`.
 6. **Administrador: programar, editar, cancelar y ver realizados** → `/admin/vuelos` (lista), `/editar`, `/cancelar`, `/realizados`. *Programar vuelo* es la pantalla de Sprint 1 (stub en este zip).
 7. **Noticia automática, suscripción por correo y cancelación** → `/noticias` (la crea y envía el backend).
+8. **Eliminar una noticia** → administrador en `/noticias` o en `/noticias/:id`, botón «Eliminar» + confirmación (borrado lógico, no reaparece).
 
 ## Checklist de reglas (sección 7 del plan) en el front
 
@@ -68,6 +70,7 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 
 **Noticias (HU11)**
 - [x] Imagen (o portada), origen, destino, fecha y precio · suscribirse y cancelar suscripción (cliente) · el administrador las ve pero no se suscribe.
+- [x] Eliminar noticia: botón «Eliminar» solo para administrador (listado y detalle), con confirmación. Borrado lógico en el backend (migración `017_noticia_eliminada`); la noticia no reaparece al reprogramar ni en el ciclo de publicación.
 
 **Administración de vuelos (HU12–HU14)**
 - [x] Editar: fecha, hora, origen, destino, duración y costo; se bloquea si el vuelo sucedió, está realizado/cancelado o tiene tiquetes vendidos.
@@ -75,16 +78,22 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 - [x] Realizados: total, nacionales/internacionales, búsqueda por código y filtros por estado y tipo.
 
 **Definición de terminado común**
-- [x] Pruebas en verde: backend 331, frontend 401 (45 archivos); `npm run lint` y `npm run build` limpios.
+- [x] Pruebas en verde: backend 342, frontend 413 (45 archivos); `npm run lint` y `npm run build` limpios.
 - [ ] Probado en navegador (web y móvil) **contra la API real** — el flujo HTTP real pasó 40/40; falta el recorrido manual en pantalla.
 - [x] Sin mocks en lo entregado (no hay MSW ni servidor simulado) · sin contraseñas ni tokens en logs ni en el repositorio.
 - [ ] Endpoints en Swagger y Postman — corresponde a B1/B2; el contrato está en `CONTRATO_SPRINT2.md`.
 - [x] Flujo end-to-end real (registro → login → buscar → reservar/comprar con sillas → pagar → historial → cancelar con reintegro) — 40/40 comprobaciones con PostgreSQL y Mailpit.
 
 ## ✅ Verificación con servicios reales (17/11/2026)
-- [x] Migraciones aplicadas sobre PostgreSQL: `cd backend && alembic upgrade head`; `alembic current` devuelve `016_movimientos_billetera (head)`. Confirmado en BD: `tiquete.numero_silla` es `varchar(5)`, y existen `notificacion_pendiente` y `movimiento_billetera`. Las pruebas automatizadas usan SQLite/`create_all`, por eso no las ejecutaban.
-- [x] E2E contra API FastAPI + PostgreSQL + Mailpit: **40 comprobaciones, 40 correctas**. Recorrido: root → invitar administrador (token leído del correo en Mailpit) → completar registro → programar ida y vuelta → `PUT /admin/vuelos/{id}` rechaza `estado` con 422 → búsqueda con `clase` y `precio_efectivo` → registrar cliente → recarga auditada → reserva `completo` con sillas elegidas en ambos tramos → pagar reserva → historial → cancelar con reintegro y liberación de sillas → noticias paginadas y suscripción → `PATCH .../cancelar`.
-- [x] Correos reales en Mailpit: invitación de administrador, código de reserva por tiquete y aviso de reintegro.
+- [x] Migraciones aplicadas sobre PostgreSQL: `cd backend && alembic upgrade head`; `alembic current` devuelve `017_noticia_eliminada (head)`. Confirmado en BD: `tiquete.numero_silla` es `varchar(5)`, existen `notificacion_pendiente` y `movimiento_billetera`, y `noticia.eliminada_en` es `timestamptz` con índice `ix_noticia_eliminada_en`. Las pruebas automatizadas usan SQLite/`create_all`, por eso no las ejecutaban.
+- [x] E2E contra API FastAPI + PostgreSQL: **40 comprobaciones, 40 correctas** (con Mailpit en esa ejecución). Recorrido: root → invitar administrador (token leído del correo) → completar registro → programar ida y vuelta → `PUT /admin/vuelos/{id}` rechaza `estado` con 422 → búsqueda con `clase` y `precio_efectivo` → registrar cliente → recarga auditada → reserva `completo` con sillas elegidas en ambos tramos → pagar reserva → historial → cancelar con reintegro y liberación de sillas → noticias paginadas y suscripción → `PATCH .../cancelar`.
+- [x] Correos reales verificados: invitación de administrador, código de reserva por tiquete y aviso de reintegro. Con el cierre de Gmail se comprobó además un envío real por `smtp.gmail.com:587`.
+
+## ✅ Verificación final (17/11/2026): borrado de noticias y Gmail
+- [x] Backend: **342 pruebas** (`pytest -q`), incluidas las nuevas de borrado lógico, permisos (401/403/404/204), idempotencia, no regeneración y validación de correo.
+- [x] Frontend: **413 pruebas / 45 archivos** (`npx vitest run`), `npm run lint` y `npm run build` limpios. El módulo de noticias aporta 36 pruebas.
+- [x] API real + PostgreSQL: crear noticia → `DELETE /admin/noticias/{id}` devuelve `204` → desaparece de `GET /noticias` y el detalle da `404` → la fila sigue en BD con `eliminada_en` → sin token `401`, cliente y root `403`, id inexistente `404` → tras esperar el ciclo de 60 s la noticia **no reaparece**. **14/14 comprobaciones reales correctas.**
+- [x] Gmail por defecto: arranque de la API con `Correo configurado: smtp.gmail.com:587 (usuario configurado)` y envío SMTP real confirmado (`SMTP_REAL_OK`). Mailpit sigue disponible solo como alternativa explícita para pruebas locales.
 - [ ] Recorrido manual en navegador sobre la API real (el `npm run e2e` del repo usa un backend simulado; la verificación de arriba fue HTTP contra la API real). Queda para quien vaya a hacer la demo; servicios ya levantados.
 
 ## Decisiones tomadas (informar al PO)
@@ -103,5 +112,5 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 ## Pendiente / riesgos
 * **Probar contra B1/B2 reales** y ajustar el `api.js` del módulo si cambia algún nombre.
 * **Búsqueda real y programar vuelo** (Sprint 1, F2) siguen siendo stubs en este zip.
-* Correo SMTP real, PDF y tareas de expiración (reservas, noticias): backend.
+* PDF y tareas de expiración (reservas, noticias): backend. El correo SMTP real por Gmail ya quedó configurado y verificado.
 * `audit-ui.py` y `e2e-flows.py` no incluyen las pantallas nuevas.

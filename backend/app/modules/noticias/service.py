@@ -124,6 +124,7 @@ def _visibles(ahora: datetime) -> list:
     (`id_vuelo` nulo) se rigen solo por `vigente_hasta`. En ambos casos se retiran a los DIAS_PUBLICADA.
     """
     return [
+        Noticia.eliminada_en.is_(None),
         Noticia.publicada_en >= ahora - timedelta(days=DIAS_PUBLICADA),
         Noticia.vigente_hasta > ahora,
         or_(
@@ -169,6 +170,23 @@ def listar_vigentes(db: Session, ahora: datetime | None = None) -> list[Noticia]
         .order_by(Noticia.publicada_en.desc(), Noticia.id.desc())
     )
     return list(db.scalars(consulta).unique())
+
+
+def eliminar_noticia(db: Session, id_noticia: int) -> bool:
+    """Borrado logico de una noticia (solo administrador, ver router).
+
+    Devuelve True si la noticia existia (incluso si ya estaba eliminada) y False
+    si el id no corresponde a ninguna noticia, para que el router responda 404.
+    La fila se conserva: asi `publicar_noticias_faltantes` no regenera la
+    noticia automatica del vuelo al reiniciar o en el ciclo de 60 s.
+    """
+    noticia = db.get(Noticia, id_noticia)
+    if noticia is None:
+        return False
+    if noticia.eliminada_en is None:
+        noticia.eliminada_en = datetime.now(timezone.utc)
+        db.commit()
+    return True
 
 
 # ---------------------------------------------------------------------------

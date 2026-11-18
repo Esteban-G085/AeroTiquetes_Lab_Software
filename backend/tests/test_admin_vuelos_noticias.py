@@ -7,13 +7,14 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.modules.compras.models import EstadoReserva, EstadoTiquete, Reserva, Tiquete
 from app.modules.noticias import service as noticias
 from app.modules.noticias.models import Noticia
 from app.modules.vuelos import service
 from app.modules.vuelos.models import EstadoVuelo, Vuelo
 from app.modules.vuelos.seeds import sembrar_vuelos_ejemplo
-from tests.conftest import auth_headers
+from tests.conftest import auth_headers, login
 from tests.test_compras import _cuerpo, _cupos, _item, _otro_cliente, _saldo, _token, _viajero
 from tests.test_contrato_vuelos import _agregar_vuelo, token_admin, token_cliente  # noqa: F401
 
@@ -389,6 +390,67 @@ def test_detalle_de_noticia_de_vuelo_trae_los_datos_actualizados(client, adm, ca
 def test_detalle_de_noticia_inexistente_da_404(client, cab):
     r = client.get("/noticias/99999", headers=cab)
     assert r.status_code == 404 and r.json()["error"]["code"] == "noticia_no_encontrada"
+
+
+# ============================================================================ Borrado logico de noticias (solo admin)
+def test_eliminar_noticia_de_vuelo_la_oculta_y_no_se_regenera(client, db_session, adm, cab):
+    v = _programar(client, adm)
+    [n] = [x for x in client.get("/noticias", headers=cab).json()["items"] if x["vuelo_id"] == v["id"]]
+
+    assert client.delete(f"/admin/noticias/{n['id']}", headers=adm).status_code == 204
+    assert all(x["id"] != n["id"] for x in client.get("/noticias", headers=cab).json()["items"])
+    assert client.get(f"/noticias/{n['id']}", headers=cab).status_code == 404
+
+    db_session.expire_all()
+    fila = db_session.get(Noticia, n["id"])
+    assert fila is not None and fila.eliminada_en is not None  # borrado logico, no fisico
+    assert noticias.publicar_noticias_faltantes(db_session) == 0  # no se vuelve a publicar
+    assert client.get(f"/noticias/{n['id']}", headers=cab).status_code == 404
+
+
+def test_eliminar_noticia_manual_la_saca_del_listado_y_de_los_correos(client, db_session, adm, cab, correos):
+    r = client.post(
+        "/admin/noticias", headers=adm,
+        json={"titulo": "Aviso que se retira", "contenido": "Contenido del aviso"},
+    )
+    assert r.status_code == 201, r.text
+    id_noticia = r.json()["id"]
+    client.put("/noticias/suscripcion", json={"correo": "suscrito@correo.com"}, headers=cab)
+    antes = len(correos)
+
+    assert client.delete(f"/admin/noticias/{id_noticia}", headers=adm).status_code == 204
+    assert id_noticia not in {n["id"] for n in client.get("/noticias", headers=cab).json()["items"]}
+    assert not any(n.id == id_noticia for n in noticias.listar_vigentes(db_session))
+
+    _programar(client, adm)
+    enviados = [c for c in correos[antes:] if c["destinatario"] == "suscrito@correo.com"]
+    assert enviados and all("Aviso que se retira" not in c["cuerpo"] for c in enviados)
+
+
+def test_eliminar_noticia_es_idempotente_y_da_404_si_no_existe(client, adm):
+    r = client.post(
+        "/admin/noticias", headers=adm,
+        json={"titulo": "Aviso", "contenido": "Contenido"},
+    )
+    id_noticia = r.json()["id"]
+    assert client.delete(f"/admin/noticias/{id_noticia}", headers=adm).status_code == 204
+    assert client.delete(f"/admin/noticias/{id_noticia}", headers=adm).status_code == 204
+    r = client.delete("/admin/noticias/99999", headers=adm)
+    assert r.status_code == 404 and r.json()["error"]["code"] == "noticia_no_encontrada"
+
+
+def test_eliminar_noticia_solo_lo_puede_hacer_un_administrador(client, adm, cab):
+    r = client.post(
+        "/admin/noticias", headers=adm,
+        json={"titulo": "Aviso", "contenido": "Contenido"},
+    )
+    id_noticia = r.json()["id"]
+    root = login(client, get_settings().ROOT_ID, get_settings().ROOT_PASSWORD)
+
+    assert client.delete(f"/admin/noticias/{id_noticia}").status_code == 401
+    assert client.delete(f"/admin/noticias/{id_noticia}", headers=cab).status_code == 403
+    assert client.delete(f"/admin/noticias/{id_noticia}", headers=auth_headers(root)).status_code == 403
+    assert client.delete(f"/admin/noticias/{id_noticia}", headers=adm).status_code == 204
 
 
 # ============================================================================ HU11: suscripcion

@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ErrorState, LoadingState } from '@/components/feedback'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ErrorState, LoadingState, useToast } from '@/components/feedback'
+import { Button, ConfirmDialog } from '@/components/ui'
 import { BackLink, PageHeader } from '@/components/layout'
 import { ROLES } from '@/config/roles'
 import { useAuth } from '@/context/AuthContext'
 import { formatDate, formatPrice, formatTime } from '@/utils/format'
-import { obtenerNoticia } from '../api'
+import { eliminarNoticia, obtenerNoticia } from '../api'
 import '../noticias.css'
 
 /** HU11 — Detalle de una noticia, pública en `/noticias/:id`. */
 export default function NoticiaDetallePage() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const toast = useToast()
   const { rol } = useAuth()
   const [noticia, setNoticia] = useState(null)
   const [status, setStatus] = useState('loading') // loading | ready | error
+  const [confirmar, setConfirmar] = useState({ open: false, loading: false })
 
   const cargar = useCallback(async () => {
     setStatus('loading')
@@ -28,6 +32,18 @@ export default function NoticiaDetallePage() {
   useEffect(() => {
     cargar()
   }, [cargar])
+
+  async function confirmarEliminar() {
+    setConfirmar((prev) => ({ ...prev, loading: true }))
+    try {
+      await eliminarNoticia(noticia.id)
+      toast.success('La noticia fue eliminada.')
+      navigate('/noticias')
+    } catch (err) {
+      toast.error(err?.message ?? 'No se pudo eliminar la noticia.')
+      setConfirmar({ open: false, loading: false })
+    }
+  }
 
   if (status === 'loading') {
     return <div className="not-page"><LoadingState /></div>
@@ -107,14 +123,32 @@ export default function NoticiaDetallePage() {
           </div>
         </dl>
 
-        {rol === ROLES.CLIENTE && noticia.vuelo_id != null && (
+        {(rol === ROLES.ADMIN || (rol === ROLES.CLIENTE && noticia.vuelo_id != null)) && (
           <div className="not-detalle__acciones">
-            <Link className="btn btn-primary" to={`/comprar/${noticia.vuelo_id}`}>
-              Reservar o comprar {ruta}
-            </Link>
+            {rol === ROLES.CLIENTE && noticia.vuelo_id != null && (
+              <Link className="btn btn-primary" to={`/comprar/${noticia.vuelo_id}`}>
+                Reservar o comprar {ruta}
+              </Link>
+            )}
+            {rol === ROLES.ADMIN && (
+              <Button variant="danger" onClick={() => setConfirmar({ open: true, loading: false })}>
+                Eliminar noticia
+              </Button>
+            )}
           </div>
         )}
       </article>
+
+      <ConfirmDialog
+        open={confirmar.open}
+        danger
+        loading={confirmar.loading}
+        title="Eliminar noticia"
+        confirmLabel="Eliminar"
+        message={`¿Seguro que quieres eliminar «${noticia.titulo || 'esta noticia'}»? Desaparecerá del listado y no se volverá a publicar. Esta acción no se puede deshacer.`}
+        onConfirm={confirmarEliminar}
+        onCancel={() => !confirmar.loading && setConfirmar({ open: false, loading: false })}
+      />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { EmptyState, ErrorState, useToast } from '@/components/feedback'
-import { Button, Input, Notice } from '@/components/ui'
+import { Button, ConfirmDialog, Input, Notice } from '@/components/ui'
 import { PageHeader, BackLink } from '@/components/layout'
 import { ROLES } from '@/config/roles'
 import { useAuth } from '@/context/AuthContext'
@@ -11,6 +11,7 @@ import {
   estadoSuscripcion,
   suscribirseNoticias,
   cancelarSuscripcionNoticias,
+  eliminarNoticia,
 } from '../api'
 import '../noticias.css'
 
@@ -42,6 +43,7 @@ export default function NoticiasPage() {
   const [correo, setCorreo] = useState('')
   const [errorCorreo, setErrorCorreo] = useState('')
   const [suscripcionStatus, setSuscripcionStatus] = useState('idle') // idle | saving
+  const [confirmar, setConfirmar] = useState({ target: null, loading: false })
 
   const esCliente = rol === ROLES.CLIENTE
   const esAdmin = rol === ROLES.ADMIN
@@ -125,6 +127,19 @@ export default function NoticiasPage() {
       toast.error(err?.message ?? 'No se pudo cancelar la suscripción.')
     } finally {
       setSuscripcionStatus('idle')
+    }
+  }
+
+  async function confirmarEliminar() {
+    setConfirmar((prev) => ({ ...prev, loading: true }))
+    try {
+      await eliminarNoticia(confirmar.target.id)
+      toast.success('La noticia fue eliminada.')
+      setConfirmar({ target: null, loading: false })
+      await cargarNoticias()
+    } catch (err) {
+      toast.error(err?.message ?? 'No se pudo eliminar la noticia.')
+      setConfirmar({ target: null, loading: false })
     }
   }
 
@@ -224,6 +239,17 @@ export default function NoticiasPage() {
                             Reservar o comprar
                           </Link>
                         )}
+                        {esAdmin && (
+                          <Button
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            className="not-card__eliminar"
+                            onClick={() => setConfirmar({ target: n, loading: false })}
+                          >
+                            Eliminar
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </article>
@@ -288,6 +314,21 @@ export default function NoticiasPage() {
           </Notice>
         )}
       </main>
+
+      <ConfirmDialog
+        open={Boolean(confirmar.target)}
+        danger
+        loading={confirmar.loading}
+        title="Eliminar noticia"
+        confirmLabel="Eliminar"
+        message={
+          confirmar.target
+            ? `¿Seguro que quieres eliminar «${tituloDe(confirmar.target)}»? La noticia desaparecerá del listado y no se volverá a publicar. Esta acción no se puede deshacer.`
+            : ''
+        }
+        onConfirm={confirmarEliminar}
+        onCancel={() => !confirmar.loading && setConfirmar({ target: null, loading: false })}
+      />
     </div>
   )
 }

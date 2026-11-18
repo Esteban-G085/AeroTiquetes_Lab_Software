@@ -3,6 +3,14 @@ import userEvent from '@testing-library/user-event'
 import AppRouter from './AppRouter'
 import { renderWithProviders, seedSession } from '@/test/helpers'
 
+// Estas pruebas son de enrutamiento, no de red. Sin este mock, con el backend
+// levantado el panel del root recibe un 401 real y el AuthProvider cierra la
+// sesión sembrada, haciendo que el menú muestre enlaces de visitante.
+vi.mock('@/features/usuarios/api', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, listarAdministradores: vi.fn().mockResolvedValue([]) }
+})
+
 describe('AppRouter', () => {
   it('muestra el buscador en / con la cabecera, la navegación y las acciones de cuenta', async () => {
     renderWithProviders(<AppRouter />, { route: '/' })

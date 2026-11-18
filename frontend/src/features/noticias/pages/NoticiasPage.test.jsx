@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AppRouter from '@/routes/AppRouter'
 import { renderWithProviders, seedSession } from '@/test/helpers'
@@ -34,6 +34,7 @@ beforeEach(() => {
   api.estadoSuscripcion.mockResolvedValue({ suscrito: false, correo: 'ana@correo.com' })
   api.suscribirseNoticias.mockResolvedValue({ suscrito: true, correo: 'ana@correo.com' })
   api.cancelarSuscripcionNoticias.mockResolvedValue(undefined)
+  api.eliminarNoticia.mockResolvedValue(undefined)
 })
 
 describe('NoticiasPage como cliente (HU11)', () => {
@@ -64,6 +65,12 @@ describe('NoticiasPage como cliente (HU11)', () => {
     renderWithProviders(<AppRouter />, { route: '/noticias' })
     const detalles = await screen.findAllByRole('link', { name: 'Ver detalle' })
     expect(detalles.map((a) => a.getAttribute('href'))).toEqual(['/noticias/12', '/noticias/13'])
+  })
+
+  it('el cliente no ve el botón Eliminar', async () => {
+    renderWithProviders(<AppRouter />, { route: '/noticias' })
+    expect(await screen.findByRole('heading', { name: 'Nuevo vuelo Bogotá → Medellín' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument()
   })
 
   it('el cliente se suscribe con el correo de su cuenta si no escribe otro', async () => {
@@ -157,5 +164,51 @@ describe('NoticiasPage como administrador', () => {
     renderWithProviders(<AppRouter />, { route: '/noticias' })
     expect(await screen.findByRole('heading', { name: 'Nuevo vuelo Bogotá → Medellín' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Crear noticia' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument()
+  })
+
+  it('el administrador ve Eliminar en cada noticia', async () => {
+    seedSession({ rol: 'administrador' }, { nombre: 'Jose' })
+    renderWithProviders(<AppRouter />, { route: '/noticias' })
+    expect(await screen.findAllByRole('button', { name: 'Eliminar' })).toHaveLength(2)
+  })
+
+  it('eliminar pide confirmación y no llama a la API si se cancela', async () => {
+    seedSession({ rol: 'administrador' }, { nombre: 'Jose' })
+    renderWithProviders(<AppRouter />, { route: '/noticias' })
+
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Eliminar' }))[0])
+    const dlg = screen.getByRole('dialog', { name: 'Eliminar noticia' })
+    expect(dlg).toHaveTextContent('Nuevo vuelo Bogotá → Medellín')
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(api.eliminarNoticia).not.toHaveBeenCalled()
+  })
+
+  it('confirmar eliminación llama a la API con el id, avisa y recarga', async () => {
+    seedSession({ rol: 'administrador' }, { nombre: 'Jose' })
+    renderWithProviders(<AppRouter />, { route: '/noticias' })
+
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Eliminar' }))[0])
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar' }))
+
+    await waitFor(() => expect(api.eliminarNoticia).toHaveBeenCalledWith(12))
+    expect(await screen.findByText('La noticia fue eliminada.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(api.listarNoticias).toHaveBeenCalledTimes(2))
+  })
+
+  it('error al eliminar avisa y cierra el diálogo', async () => {
+    api.eliminarNoticia.mockRejectedValue(new Error('No se pudo eliminar la noticia.'))
+    seedSession({ rol: 'administrador' }, { nombre: 'Jose' })
+    renderWithProviders(<AppRouter />, { route: '/noticias' })
+
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Eliminar' }))[0])
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar' }))
+
+    expect(await screen.findByText('No se pudo eliminar la noticia.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(api.listarNoticias).toHaveBeenCalledTimes(1)
   })
 })

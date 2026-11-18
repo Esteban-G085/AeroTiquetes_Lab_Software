@@ -104,6 +104,13 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.validar_seguridad_produccion()  # secretos de ejemplo prohibidos en produccion
+    settings.validar_correo()  # Gmail remoto necesita credenciales y TLS; Mailpit se omite
+    logging.getLogger("aerotiquetes.email").info(
+        "Correo configurado: %s:%s (usuario %s)",
+        settings.SMTP_HOST,
+        settings.SMTP_PORT,
+        "configurado" if settings.SMTP_USER else "sin configurar",
+    )
     # Arranque: root por defecto (R17-19) y catalogos, todos idempotentes
     # para que correr la app varias veces no duplique nada.
     with session_scope() as db:

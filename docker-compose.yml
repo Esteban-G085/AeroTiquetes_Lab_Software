@@ -1,4 +1,6 @@
-# Levanta PostgreSQL (base de datos) y Mailpit (bandeja de correos de prueba).
+# Levanta PostgreSQL (base de datos) y Mailpit (bandeja de correos OPCIONAL para pruebas).
+# La app usa Gmail SMTP por defecto (smtp.gmail.com:587); para usar Mailpit cambia
+# SMTP_HOST/SMTP_PORT en backend/.env a localhost:1025 (ver backend/.env.example).
 # Uso:  docker compose up -d     |     Apagar: docker compose down
 # Los datos de la BD se guardan en el volumen "pgdata" y sobreviven a los reinicios.
 services:

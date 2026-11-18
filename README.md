@@ -1,6 +1,6 @@
 # AeroTiquetes – Laboratorio de Software
 
-Sistema de gestión para compra y reserva de tiquetes aéreos en línea. Desarrollado con **FastAPI**, **React**, **PostgreSQL** y **Mailpit**.
+Sistema de gestión para compra y reserva de tiquetes aéreos en línea. Desarrollado con **FastAPI**, **React** y **PostgreSQL**. El correo real se envía por **Gmail SMTP** al levantar la app; **Mailpit** queda solo como alternativa para pruebas locales.
 
 ## ¿Qué se va a hacer?
 
@@ -9,7 +9,7 @@ En el **Sprint 1** se construyó la base funcional del sistema para permitir el 
 ### Funcionalidades a implementar
 
 - **Autenticación y roles**: Soporte para cuatro roles (Root, Administrador, Cliente y Visitante). Inicio de sesión con usuario o correo, con tokens JWT y expiración por inactividad (30 min).
-- **Gestión de usuarios**: Registro de clientes, gestión de perfil, cambio de contraseña, invitación y registro de administradores (vía enlace único al correo con Mailpit). El Root solo crea administradores y gestiona su propio perfil (contraseña).
+- **Gestión de usuarios**: Registro de clientes, gestión de perfil, cambio de contraseña, invitación y registro de administradores (vía enlace único al correo, enviado por Gmail SMTP). El Root solo crea administradores y gestiona su propio perfil (contraseña).
 - **Administración de vuelos**: El administrador podrá programar vuelos (generando código consecutivo, hora de llegada con zona horaria y cupos por clase) y consultarlos en modo solo lectura.
 - **Búsqueda de vuelos**: Visitantes y clientes podrán buscar vuelos con criterios combinables (origen, destino, fecha, precio, duración y clase), ver resultados y consultar el detalle de cada vuelo.
 - **Datos semilla**: Catálogo de ciudades (32 capitales de departamento + ciudades internacionales), vuelos de ejemplo y creación automática del usuario Root al iniciar la aplicación.
@@ -33,7 +33,7 @@ Estos ajustes se hicieron sobre la base ya integrada del Sprint 1 y se incluyero
 
 | Cambio | Detalle |
 |---|---|
-| **Correo real por Gmail SMTP** | El backend soporta ahora envío real mediante Gmail SMTP (`smtp.gmail.com:587` con STARTTLS, o `465` con SSL directo) usando contraseña de aplicación. Se configura con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` y `SMTP_FROM` en `backend/.env`. Mailpit sigue disponible para desarrollo local (`localhost:1025`) y el envío falla silenciosamente (solo log) si el servidor de correo no responde, sin romper la respuesta HTTP. |
+| **Correo real por Gmail SMTP** | Gmail es la configuración por defecto: `smtp.gmail.com:587` con STARTTLS (o `465` con SSL directo) y contraseña de aplicación en `backend/.env`. Al arrancar se valida que usuario, contraseña y TLS existan; Mailpit (`localhost:1025`) sigue disponible como alternativa explícita para pruebas sin internet. Si un envío falla, el correo queda en `notificacion_pendiente` y un worker lo reintenta sin tumbar la compra. |
 | **Validación de lugar de nacimiento (Opción B)** | `lugar_nacimiento` ya no es texto libre. Se creó el módulo `catalogos` con la tabla `pais` (migración `006_paises`, 60 países activos, seed idempotente) y el endpoint público `GET /catalogos/paises`. El backend valida en `usuarios/service.py` que el valor sea un país activo (case-insensitive) y guarda el nombre canónico; valores inválidos responden `422` con `code: "lugar_nacimiento_invalido"`. El frontend reemplazó el `<input>` por un `<select>` de países en registro, completar registro de administrador y edición de perfil. |
 | **Pruebas** | Backend: 175 pruebas pasando. Frontend: 255 pruebas pasando. Ninguna prueba envía correos reales (stub global de `_enviar`). |
 | **Seguridad** | `.env` y `.gitignore` siguen sin credenciales en Git; se verificó con `git ls-files` que no hay coincidencias de secretos. |
@@ -49,9 +49,14 @@ El detalle de cada cambio de la unión está en [`CAMBIOS_INTEGRACION_SPRINT2.md
 | HU6 Reservar · HU7 Comprar · HU8 Cancelar · HU9 Historial · HU10 Billetera y tarjetas | ✅ B1 | ✅ F1 (con adaptador, ver cambios) |
 | HU11 Noticias y suscripción · HU12 Editar vuelo · HU13 Cancelar vuelo · HU14 Vuelos realizados | ✅ implementado en la integración (módulo B2) | ✅ pantallas de F1 conectadas |
 
+### Cierre adicional: eliminar noticias y Gmail por defecto
+
+- **Eliminar noticia (HU11):** el administrador ve «Eliminar» en cada tarjeta y en el detalle, con diálogo de confirmación. El backend expone `DELETE /admin/noticias/{id}` (solo administrador; `401` sin token, `403` para cliente/root) y aplica **borrado lógico** (`eliminada_en`, migración `017_noticia_eliminada`): la noticia desaparece del listado, del detalle (`404`) y de los correos a suscriptores, y no se regenera aunque siga activo el vuelo. Repetir el `DELETE` es idempotente (`204`).
+- **Correo:** Gmail (`smtp.gmail.com:587`, STARTTLS) es la configuración por defecto en `config.py` y `.env.example`; la app valida credenciales y TLS al arrancar. Mailpit queda como opción explícita para pruebas. Contrato actualizado en [`frontend/docs/CONTRATO_ADMIN_VUELOS_NOTICIAS.md`](./frontend/docs/CONTRATO_ADMIN_VUELOS_NOTICIAS.md).
+
 ### Demo a mostrar
 
-1. El sistema crea el Root por defecto. El Root inicia sesión y crea un Administrador (se envía correo a Mailpit).
+1. El sistema crea el Root por defecto. El Root inicia sesión y crea un Administrador (el enlace de primer ingreso llega al Gmail configurado; con Mailpit se ve en http://localhost:8025).
 2. El Administrador completa su registro desde el enlace recibido e inicia sesión.
 3. El Administrador programa un vuelo nacional y uno internacional.
 4. Un Visitante busca vuelos, combina filtros y abre el detalle de uno.
@@ -64,7 +69,7 @@ El detalle de cada cambio de la unión está en [`CAMBIOS_INTEGRACION_SPRINT2.md
 - **Backend**: Python, FastAPI, SQLAlchemy 2.x, Alembic, Pydantic v2, JWT, bcrypt
 - **Frontend**: React + Vite, Bootstrap, Axios, React Router
 - **Base de datos**: PostgreSQL
-- **Correo (desarrollo)**: Mailpit (SMTP 1025, UI 8025)
+- **Correo**: Gmail SMTP (`smtp.gmail.com:587`, STARTTLS) por defecto; Mailpit (SMTP 1025, UI 8025) para pruebas locales
 - **Pruebas**: Pytest (backend, 303 pruebas) · Vitest (frontend, 386 pruebas) · Playwright en un navegador real (`npm run e2e`, `npm run audit:ui`)
 
 No se usan **mocks de API**: el front se construyó contra los contratos acordados y ya está conectado a la API real
@@ -79,7 +84,7 @@ Proyecto/
 │   ├── docs/              # sistema de diseño, contratos de API, mockups y estado del sprint
 │   └── src/features/      # un módulo por carpeta (ver src/features/README.md)
 ├── .github/               # CI del frontend (lint + pruebas + build) y plantilla de PR
-├── docker-compose.yml     # PostgreSQL + Mailpit para desarrollo
+├── docker-compose.yml     # PostgreSQL + Mailpit opcional para pruebas de correo
 ├── CAMBIOS_SPRINT2.md / CAMBIOS_INTEGRACION_SPRINT2.md
 └── README.md
 ```
@@ -87,8 +92,9 @@ Proyecto/
 ## Puesta en marcha
 
 ```bash
-docker compose up -d          # PostgreSQL + Mailpit
-cd backend                    # alembic upgrade head
+docker compose up -d          # PostgreSQL (y Mailpit opcional para probar correos)
+cd backend                    # cp .env.example .env  →  pon tu Gmail y contraseña de aplicación
+                              # alembic upgrade head
                               # uvicorn app.main:app --reload
                               # python -m app.modules.vuelos.seeds   # 20 vuelos de ejemplo
 cd ../frontend                # npm ci
@@ -96,7 +102,7 @@ cd ../frontend                # npm ci
                               # npm run dev  →  http://localhost:5173
 ```
 
-Los correos de desarrollo se ven en http://localhost:8025. El arranque detallado de cada parte está en
+Con la configuración por defecto los correos llegan al Gmail configurado en `backend/.env`. Si cambias a Mailpit para probar sin internet, se ven en http://localhost:8025. El arranque detallado de cada parte está en
 [`backend/README.md`](./backend/README.md) y [`frontend/README.md`](./frontend/README.md).
 
 ## Documentación

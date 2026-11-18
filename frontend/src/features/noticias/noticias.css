@@ -149,6 +149,10 @@ select:focus-visible,
   margin-top: var(--at-space-2);
 }
 
+.not-card__eliminar {
+  margin-left: auto;
+}
+
 .not-card__detalle,
 .not-card__comprar {
   font-size: var(--at-text-sm);

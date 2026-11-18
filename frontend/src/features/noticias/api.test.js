@@ -6,6 +6,8 @@ import {
   suscribirseNoticias,
   cancelarSuscripcionNoticias,
   cancelarConToken,
+  crearNoticia,
+  eliminarNoticia,
 } from './api'
 
 let seen
@@ -72,5 +74,19 @@ describe('API de noticias (HU11)', () => {
     expect(seen.method).toBe('post')
     expect(seen.url).toBe('/noticias/suscripcion/cancelar')
     expect(JSON.parse(seen.data)).toEqual({ token: 'abc123token' })
+  })
+
+  it('crearNoticia -> POST /admin/noticias', async () => {
+    reply({ id: 9, titulo: 'Aviso' }, 201)
+    await expect(crearNoticia({ titulo: 'Aviso', contenido: 'Texto' })).resolves.toEqual({ id: 9, titulo: 'Aviso' })
+    expect(seen.method).toBe('post')
+    expect(seen.url).toBe('/admin/noticias')
+  })
+
+  it('eliminarNoticia -> DELETE /admin/noticias/{id} (borrado lógico)', async () => {
+    reply(undefined, 204)
+    await expect(eliminarNoticia(7)).resolves.toBeUndefined()
+    expect(seen.method).toBe('delete')
+    expect(seen.url).toBe('/admin/noticias/7')
   })
 })

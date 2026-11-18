@@ -42,6 +42,9 @@ class Noticia(Base):
     vigente_hasta: Mapped[datetime] = mapped_column(
         FechaUTC, nullable=False, server_default=func.now(), index=True
     )
+    # Borrado logico (DELETE /admin/noticias/{id}): la fila se conserva para que
+    # `publicar_noticias_faltantes` no vuelva a publicar la noticia del vuelo.
+    eliminada_en: Mapped[datetime | None] = mapped_column(FechaUTC, nullable=True, index=True)
 
     @property
     def vuelo_id(self) -> int | None:
