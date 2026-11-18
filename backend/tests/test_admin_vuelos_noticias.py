@@ -483,6 +483,59 @@ def test_los_suscritos_reciben_un_correo_al_programarse_un_vuelo(client, adm, ca
     assert not [c for c in correos[antes:] if c["destinatario"] == "suscrito@correo.com"]
 
 
+def test_noticia_manual_avisa_por_correo_a_los_suscritos(client, adm, cab, correos):
+    client.put("/noticias/suscripcion", json={"correo": "suscrito@correo.com"}, headers=cab)
+    antes = len(correos)
+
+    r = client.post(
+        "/admin/noticias", headers=adm,
+        json={"titulo": "Noticia nueva", "contenido": "Contenido de la noticia"},
+    )
+    assert r.status_code == 201, r.text
+    enviados = [c for c in correos[antes:] if c["destinatario"] == "suscrito@correo.com"]
+    assert len(enviados) == 1
+    assert "Noticia nueva" in enviados[0]["asunto"] and "Noticia nueva" in enviados[0]["cuerpo"]
+    assert "Contenido de la noticia" in enviados[0]["cuerpo"]
+    assert "/cancelar-suscripcion?token=" in enviados[0]["cuerpo"]
+    assert "/noticias" in enviados[0]["cuerpo"]
+
+
+def test_noticia_manual_sin_suscriptores_no_envia_correos(client, adm, correos):
+    antes = len(correos)
+    r = client.post(
+        "/admin/noticias", headers=adm,
+        json={"titulo": "Sin destinatarios", "contenido": "Nadie suscrito"},
+    )
+    assert r.status_code == 201, r.text
+    assert len(correos) == antes
+
+
+def test_noticia_manual_eliminada_no_se_reenvia(client, adm, cab, correos):
+    r = client.post(
+        "/admin/noticias", headers=adm,
+        json={"titulo": "Aviso retirado", "contenido": "Contenido"},
+    )
+    assert r.status_code == 201, r.text
+    id_noticia = r.json()["id"]
+    client.put("/noticias/suscripcion", json={"correo": "suscrito@correo.com"}, headers=cab)
+    assert client.delete(f"/admin/noticias/{id_noticia}", headers=adm).status_code == 204
+
+    antes = len(correos)
+    assert noticias.notificar_suscriptores_de_noticia(id_noticia) == 0
+    assert len(correos) == antes
+
+
+def test_noticia_de_vuelo_eliminada_no_se_envia(client, adm, cab, correos):
+    v = _programar(client, adm)
+    [n] = [x for x in client.get("/noticias").json()["items"] if x["vuelo_id"] == v["id"]]
+    client.put("/noticias/suscripcion", json={"correo": "suscrito@correo.com"}, headers=cab)
+    assert client.delete(f"/admin/noticias/{n['id']}", headers=adm).status_code == 204
+
+    antes = len(correos)
+    assert noticias.notificar_suscriptores(v["id"]) == 0
+    assert len(correos) == antes
+
+
 @pytest.mark.parametrize("origen", [
     "http://localhost:5173",
     "http://127.0.0.1:5174",

@@ -7,7 +7,7 @@ Noticias de vuelos y suscripcion (HU11, Sprint 2, B2-15).
 
 Contrato: `frontend/docs/CONTRATO_ADMIN_VUELOS_NOTICIAS.md`.
 """
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 
 from app.core.deps import DbSession, require_roles
 from app.core.errors import AppError
@@ -102,8 +102,8 @@ def consultar_noticia(id: int, db: DbSession):
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_roles("administrador"))],
 )
-def crear_noticia_admin(payload: NoticiaCrear, db: DbSession):
-    """Crea una noticia manualmente (solo administrador)."""
+def crear_noticia_admin(payload: NoticiaCrear, db: DbSession, background_tasks: BackgroundTasks):
+    """Crea una noticia manualmente (solo administrador) y avisa a los suscriptores en segundo plano."""
     noticia = service.crear_noticia_manual(
         db,
         id_vuelo=payload.id_vuelo,
@@ -115,6 +115,7 @@ def crear_noticia_admin(payload: NoticiaCrear, db: DbSession):
     )
     db.commit()
     db.refresh(noticia)
+    background_tasks.add_task(service.notificar_suscriptores_de_noticia, noticia.id)
     vuelo = noticia.vuelo if noticia.id_vuelo else None
     datos = service.noticia_a_schema(noticia, vuelo)
     return NoticiaOut(**datos)

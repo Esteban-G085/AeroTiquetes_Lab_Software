@@ -3,6 +3,7 @@ Noticias y suscripciones (Sprint 2, B2-15; HU11).
 
 * Al programar un vuelo se crea su noticia (gancho `ALPROGRAMAR_VUELO`, dentro de la misma transaccion)
   y, ya guardado el vuelo, se avisa por correo a los suscriptores (`TRAS_PROGRAMAR_VUELO`, en segundo plano).
+   Las noticias manuales (`POST /admin/noticias`) avisan con el mismo servicio al publicarse.
 * Una noticia se muestra mientras el vuelo siga `programado` con salida futura y no hayan pasado
   `DIAS_PUBLICADA` dias desde que se publico: la regla se calcula al consultar, no se guarda.
 * Cada correo lleva un enlace para cancelar la suscripcion sin iniciar sesion (token propio del cliente).
@@ -252,15 +253,15 @@ def cancelar_por_token(db: Session, token: str) -> None:
 # ---------------------------------------------------------------------------
 # Correo a suscriptores
 # ---------------------------------------------------------------------------
-def notificar_suscriptores(id_vuelo: int) -> int:
-    """Envia la noticia del vuelo a cada suscriptor activo. Devuelve cuantos correos intento enviar.
+def notificar_suscriptores_de_noticia(id_noticia: int) -> int:
+    """Envia una noticia concreta a cada suscriptor activo. Devuelve cuantos correos intento enviar.
 
     Corre en segundo plano con su propia sesion y NUNCA lanza: un fallo de correo o de base de datos se
-    registra y no afecta al administrador que programo el vuelo.
+    registra y no afecta a quien publico la noticia.
     """
     try:
         with session_scope() as db:
-            noticia = db.scalar(select(Noticia).where(Noticia.id_vuelo == id_vuelo))
+            noticia = db.scalar(select(Noticia).where(Noticia.id == id_noticia, Noticia.eliminada_en.is_(None)))
             if noticia is None:
                 return 0
             destinatarios = db.execute(
@@ -270,7 +271,7 @@ def notificar_suscriptores(id_vuelo: int) -> int:
             titulo = noticia.titulo or "Nuevo vuelo disponible"
             contenido = noticia.contenido or ""
     except Exception:
-        logger.exception("No se pudo preparar el aviso de la noticia del vuelo %s", id_vuelo)
+        logger.exception("No se pudo preparar el aviso de la noticia %s", id_noticia)
         return 0
 
     frontend = get_settings().FRONTEND_URL
@@ -291,8 +292,29 @@ def notificar_suscriptores(id_vuelo: int) -> int:
             email_module._enviar(correo, f"{titulo} - AeroTiquetes", cuerpo)
             enviados += 1
         except Exception:
-            logger.exception("No se pudo avisar la noticia %s a un suscriptor", id_vuelo)
+            logger.exception("No se pudo avisar la noticia %s a un suscriptor", id_noticia)
     return enviados
+
+
+def notificar_suscriptores(id_vuelo: int) -> int:
+    """Avisa de la noticia automatica de un vuelo (gancho `TRAS_PROGRAMAR_VUELO`).
+
+    Conserva la firma que espera quien programa vuelos y delega en la funcion
+    comun. Si la noticia fue borrada logicamente no se envia nada.
+    """
+    try:
+        with session_scope() as db:
+            id_noticia = db.scalar(
+                select(Noticia.id)
+                .where(Noticia.id_vuelo == id_vuelo, Noticia.eliminada_en.is_(None))
+                .order_by(Noticia.id)
+            )
+    except Exception:
+        logger.exception("No se pudo buscar la noticia del vuelo %s", id_vuelo)
+        return 0
+    if id_noticia is None:
+        return 0
+    return notificar_suscriptores_de_noticia(id_noticia)
 
 
 def noticia_a_schema(noticia: Noticia, vuelo: Vuelo | None = None) -> dict:

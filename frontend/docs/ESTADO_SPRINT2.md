@@ -4,6 +4,7 @@
 > (Vitest 413/413, ESLint limpio, `vite build`, recorrido HTTP real sobre PostgreSQL). La tabla "Lo que se verificó" de abajo es la del entregable
 > original, escrita sin internet; se conserva como historia. Noticias y la administración de vuelos (editar, cancelar, realizados) también quedaron conectadas: el backend se implementó en la integración (`CONTRATO_ADMIN_VUELOS_NOTICIAS.md`).
 > **Cierre adicional (17/11/2026):** borrado lógico de noticias (solo administrador) y Gmail como correo por defecto; ver [verificación final](#-verificación-final-17112026-borrado-de-noticias-y-gmail).
+> **Cierre de avisos (18/11/2026):** al publicar una noticia manual también se avisa por correo a los suscriptores; ver [verificación de avisos](#-verificación-de-avisos-de-noticias-18112026).
 
 Alcance según `Plan_Sprint_2_nuevo.md`: **producción real** (API real, sin mocks), HU 6–14:
 compra y reserva (6–9), billetera y tarjetas (10), noticias y suscripción (11), y administración de vuelos: editar (12), cancelar (13) y realizados (14).
@@ -78,7 +79,7 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 - [x] Realizados: total, nacionales/internacionales, búsqueda por código y filtros por estado y tipo.
 
 **Definición de terminado común**
-- [x] Pruebas en verde: backend 342, frontend 413 (45 archivos); `npm run lint` y `npm run build` limpios.
+- [x] Pruebas en verde: backend 346, frontend 413 (45 archivos); `npm run lint` y `npm run build` limpios.
 - [ ] Probado en navegador (web y móvil) **contra la API real** — el flujo HTTP real pasó 40/40; falta el recorrido manual en pantalla.
 - [x] Sin mocks en lo entregado (no hay MSW ni servidor simulado) · sin contraseñas ni tokens en logs ni en el repositorio.
 - [ ] Endpoints en Swagger y Postman — corresponde a B1/B2; el contrato está en `CONTRATO_SPRINT2.md`.
@@ -95,6 +96,12 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 - [x] API real + PostgreSQL: crear noticia → `DELETE /admin/noticias/{id}` devuelve `204` → desaparece de `GET /noticias` y el detalle da `404` → la fila sigue en BD con `eliminada_en` → sin token `401`, cliente y root `403`, id inexistente `404` → tras esperar el ciclo de 60 s la noticia **no reaparece**. **14/14 comprobaciones reales correctas.**
 - [x] Gmail por defecto: arranque de la API con `Correo configurado: smtp.gmail.com:587 (usuario configurado)` y envío SMTP real confirmado (`SMTP_REAL_OK`). Mailpit sigue disponible solo como alternativa explícita para pruebas locales.
 - [ ] Recorrido manual en navegador sobre la API real (el `npm run e2e` del repo usa un backend simulado; la verificación de arriba fue HTTP contra la API real). Queda para quien vaya a hacer la demo; servicios ya levantados.
+
+## ✅ Verificación de avisos de noticias (18/11/2026)
+- [x] Causa del problema: el aviso solo estaba enganchado al programar vuelos; `POST /admin/noticias` no lo llamaba. Suscribirse nunca envía correo (solo guarda la dirección), igual que no lo hace el alta de administrador: el correo se dispara al **publicar** la noticia.
+- [x] Backend **346 pruebas** (4 nuevas): noticia manual con suscriptor → 1 correo con título, contenido y enlace de cancelación; sin suscriptores → 0; noticia eliminada → 0 tanto manual como de vuelo; programar vuelo sigue avisando. Frontend 413, lint y build limpios (no hubo cambios de UI).
+- [x] API real + PostgreSQL + Gmail: con `eresteban20@gmail.com` suscrito, `POST /admin/noticias` devolvió `201` y el log confirmó `INFO aerotiquetes.email: Correo enviado a eresteban20@gmail.com (SMTP 587)`. En segundo plano, sin tocar la respuesta ni la UI.
+- [x] Las noticias borradas lógicamente no se reenvían: `notificar_suscriptores_de_noticia()` exige `eliminada_en IS NULL` y el gancho de vuelos delega en ella.
 
 ## Decisiones tomadas (informar al PO)
 | Tema | Decisión | Motivo |
