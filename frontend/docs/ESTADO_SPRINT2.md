@@ -75,16 +75,17 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 - [x] Realizados: total, nacionales/internacionales, búsqueda por código y filtros por estado y tipo.
 
 **Definición de terminado común**
-- [ ] CI en verde (Vitest) — ⏳ ejecutar.
-- [ ] Probado en web y móvil **contra la API real** — ⏳ servicios apagados para la revisión; los endpoints ya existen.
+- [x] Pruebas en verde: backend 331, frontend 401 (45 archivos); `npm run lint` y `npm run build` limpios.
+- [ ] Probado en navegador (web y móvil) **contra la API real** — el flujo HTTP real pasó 40/40; falta el recorrido manual en pantalla.
 - [x] Sin mocks en lo entregado (no hay MSW ni servidor simulado) · sin contraseñas ni tokens en logs ni en el repositorio.
 - [ ] Endpoints en Swagger y Postman — corresponde a B1/B2; el contrato está en `CONTRATO_SPRINT2.md`.
-- [ ] Flujo end-to-end (registro → login → buscar → reservar/comprar → pagar → historial → cancelar) — ⏳ pendiente: servicios apagados para la revisión.
+- [x] Flujo end-to-end real (registro → login → buscar → reservar/comprar con sillas → pagar → historial → cancelar con reintegro) — 40/40 comprobaciones con PostgreSQL y Mailpit.
 
-## ⏳ Pendiente cuando se enciendan los servicios
-- [ ] Aplicar las migraciones nuevas sobre PostgreSQL: `cd backend && alembic upgrade head` (incluye `014_sillas_texto`, `015_bandeja_salida` y `016_movimientos_billetera`). Las pruebas usan SQLite/`create_all`, así que **no** las ejecutan.
-- [ ] Verificación E2E con API real, PostgreSQL real y SMTP real (Mailpit): registro → login → buscar → reservar/comprar con sillas → pagar → historial → cancelar/reintegro → correos con reintentos.
-- [ ] Confirmar en navegador la edición/cancelación de vuelos y la paginación de noticias contra la API real.
+## ✅ Verificación con servicios reales (17/11/2026)
+- [x] Migraciones aplicadas sobre PostgreSQL: `cd backend && alembic upgrade head`; `alembic current` devuelve `016_movimientos_billetera (head)`. Confirmado en BD: `tiquete.numero_silla` es `varchar(5)`, y existen `notificacion_pendiente` y `movimiento_billetera`. Las pruebas automatizadas usan SQLite/`create_all`, por eso no las ejecutaban.
+- [x] E2E contra API FastAPI + PostgreSQL + Mailpit: **40 comprobaciones, 40 correctas**. Recorrido: root → invitar administrador (token leído del correo en Mailpit) → completar registro → programar ida y vuelta → `PUT /admin/vuelos/{id}` rechaza `estado` con 422 → búsqueda con `clase` y `precio_efectivo` → registrar cliente → recarga auditada → reserva `completo` con sillas elegidas en ambos tramos → pagar reserva → historial → cancelar con reintegro y liberación de sillas → noticias paginadas y suscripción → `PATCH .../cancelar`.
+- [x] Correos reales en Mailpit: invitación de administrador, código de reserva por tiquete y aviso de reintegro.
+- [ ] Recorrido manual en navegador sobre la API real (el `npm run e2e` del repo usa un backend simulado; la verificación de arriba fue HTTP contra la API real). Queda para quien vaya a hacer la demo; servicios ya levantados.
 
 ## Decisiones tomadas (informar al PO)
 | Tema | Decisión | Motivo |

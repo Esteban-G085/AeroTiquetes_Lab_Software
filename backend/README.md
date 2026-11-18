@@ -23,15 +23,15 @@ cp .env.example .env                                   # ajusta DATABASE_URL y s
 # PostgreSQL y Mailpit (desde la raiz del repo, donde esta docker-compose.yml)
 (cd .. && docker compose up -d)
 
-alembic upgrade head                                   # 001_usuarios -> 009_noticias
+alembic upgrade head                                   # 001_usuarios -> 016_movimientos_billetera
 uvicorn app.main:app --reload --port 8000
 ```
 
 - Swagger: http://localhost:8000/docs · Esquema: `/openapi.json`
 - Mailpit (invitaciones de admin, codigos de reserva y avisos de reintegro): http://localhost:8025
 - Al arrancar se crea el **root por defecto** (`ROOT_ID` / `ROOT_PASSWORD` del `.env`), y se siembra el **catalogo de 37 ciudades** (idempotente). Los 4 roles (`root`, `administrador`, `cliente`, `visitante`) son fijos y viven en el codigo, no en tablas.
-- Migraciones: `001_usuarios` -> `002_roles` -> `003_ciudades` -> `004_vuelos` -> `005_busquedas` -> `006_paises` -> `007_quitar_roles` -> `008_compras_financiero` -> `009_noticias`.
-  (`007` elimina las tablas `rol` y `rol_modulo`: la gestion de roles no era un requisito. `008` crea billetera, tarjeta, viajero, reserva, compra y tiquete. `009` crea noticia y suscripcion.)
+- Migraciones (cadena real, `alembic history`): `001_usuarios` -> `002_roles` -> `003_ciudades` -> `004_vuelos` -> `005_busquedas` -> `006_paises` -> `007_noticias` -> `008_compras_financiero` -> `007_quitar_roles` -> `009_costo_primera` -> `010_noticia_contenido` -> `011_asientos` -> `012_noticia_vuelo_opcional` -> `013_modelado_noticias` -> `014_sillas_texto` -> `015_bandeja_salida` -> `016_movimientos_billetera`.
+  (`007_noticias` crea noticia, suscripcion, mensaje y respuesta; `008` crea billetera, tarjeta, viajero, reserva, compra y tiquete; `007_quitar_roles` elimina las tablas `rol` y `rol_modulo` porque la gestion de roles no era un requisito; `009` agrega `costo_primera`; `011` crea el mapa de asientos; `014` unifica `numero_silla` como texto; `015` crea la bandeja de salida de correos; `016` crea la auditoria interna de movimientos de billetera.)
 - Reservas vencidas: una tarea del servidor (cada 60 s) libera los cupos de las reservas que pasaron de 24 h; ademas se comprueba al consultar o comprar.
 
 ## Correo electrónico (invitaciones de administrador)
