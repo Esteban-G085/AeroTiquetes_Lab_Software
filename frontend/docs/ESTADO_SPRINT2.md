@@ -76,10 +76,15 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 
 **Definición de terminado común**
 - [ ] CI en verde (Vitest) — ⏳ ejecutar.
-- [ ] Probado en web y móvil **contra la API real** — ⏳ cuando B1/B2 tengan los endpoints.
+- [ ] Probado en web y móvil **contra la API real** — ⏳ servicios apagados para la revisión; los endpoints ya existen.
 - [x] Sin mocks en lo entregado (no hay MSW ni servidor simulado) · sin contraseñas ni tokens en logs ni en el repositorio.
 - [ ] Endpoints en Swagger y Postman — corresponde a B1/B2; el contrato está en `CONTRATO_SPRINT2.md`.
-- [ ] Flujo end-to-end (registro → login → buscar → reservar/comprar → pagar → historial → cancelar) — ⏳ depende de la búsqueda real y del backend.
+- [ ] Flujo end-to-end (registro → login → buscar → reservar/comprar → pagar → historial → cancelar) — ⏳ pendiente: servicios apagados para la revisión.
+
+## ⏳ Pendiente cuando se enciendan los servicios
+- [ ] Aplicar las migraciones nuevas sobre PostgreSQL: `cd backend && alembic upgrade head` (incluye `014_sillas_texto`, `015_bandeja_salida` y `016_movimientos_billetera`). Las pruebas usan SQLite/`create_all`, así que **no** las ejecutan.
+- [ ] Verificación E2E con API real, PostgreSQL real y SMTP real (Mailpit): registro → login → buscar → reservar/comprar con sillas → pagar → historial → cancelar/reintegro → correos con reintentos.
+- [ ] Confirmar en navegador la edición/cancelación de vuelos y la paginación de noticias contra la API real.
 
 ## Decisiones tomadas (informar al PO)
 | Tema | Decisión | Motivo |
