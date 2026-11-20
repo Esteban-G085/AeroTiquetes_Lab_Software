@@ -38,7 +38,7 @@ Respuesta 200 (**supuesto actual**):
 | `lugar_nacimiento` | **un país del catálogo** `GET /catalogos/paises` (no texto libre). Se guarda el nombre canónico |
 | `direccion_facturacion` | máx. 150 (calle y número) |
 | `pais_facturacion` | **nombre canónico** del país, de `GET /catalogos/paises` |
-| `departamento_facturacion` | **código** del departamento/región, de `GET /catalogos/departamentos?pais=…` (p. ej. `BOG`→`CO-BDC`, exterior→`EXT-EU`) |
+| `departamento_facturacion` | **código** del departamento/región, de `GET /catalogos/departamentos?pais=…` (p. ej. `BOG`→`CO-BDC`, Pekín→`CN-BJ`, Dinamarca→`DK-GE`) |
 | `ciudad_facturacion` | **código** de la ciudad, de `GET /catalogos/ciudades?departamento=…` (p. ej. `BOG`, `MAD`) |
 | `genero` | `femenino` \| `masculino` \| `otro` ← **confirmar el enum** |
 | `correo` | email válido, máx. 120 |
@@ -71,15 +71,23 @@ GET /catalogos/departamentos?pais=Colombia
 
 GET /catalogos/ciudades?departamento=CO-BDC
 [ { "codigo": "BOG", "nombre": "Bogotá", "pais": "Colombia", "id_departamento": 14 } ]
+
+GET /catalogos/departamentos?pais=China
+[ { "codigo": "CN-BJ", "nombre": "Pekín (municipio)", "id_pais": 20, "activo": true } ]
+
+GET /catalogos/ciudades?departamento=CN-BJ
+[ { "codigo": "PEK", "nombre": "Pekín", "pais": "China", "id_departamento": 46 } ]
 ```
 
-* Catálogo: **32 departamentos de Colombia + 5 regiones del exterior** (`EXT-EU`, `EXT-GB`,
-  `EXT-NA`, `EXT-SA`, `EXT-AP`). Colombia ofrece sus 32 departamentos; **cualquier otro país
-  habilitado ofrece las 5 regiones**, así se puede inscribir a alguien que viva fuera de Colombia
-  aunque su país no tenga una región asignada de fábrica (p. ej. México o Perú).
+* Catálogo: **135 departamentos/regiones** = 32 de Colombia + 55 reales de 11 países curados
+  (China, España, México, Perú, Argentina, Chile, Brasil, Estados Unidos, Reino Unido, Francia y
+  Japón) + 48 genéricas `XX-GE` («Región de X») con la capital de cada país. **Cada país ofrece
+  solo sus propias regiones**: China no puede elegir «Cono Sur» ni una región `EXT-*`.
 * `pais` acepta el **nombre** o el código ISO2; `departamento` acepta el **código**. Sin filtro
-  devuelven el catálogo completo (37 departamentos / 37 ciudades). `?pais=México` devuelve las
-  5 regiones `EXT-*`; `?pais=Colombia` devuelve los 32 departamentos.
+  devuelven el catálogo completo (135 departamentos / 135 ciudades); de esas ciudades, 98 son
+  solo de facturación y **no aparecen en `/ciudades` de vuelos** (que sigue devolviendo 37).
+  `?pais=China` devuelve 5 regiones `CN-*`; `?pais=Dinamarca` devuelve `DK-GE`;
+  `?pais=Colombia` devuelve los 32 departamentos `CO-*`.
 * El front carga los tres catálogos en paralelo y filtra los selects en pantalla: país →
   departamento/región → ciudad. Cambiar de país o de departamento limpia los niveles inferiores.
 * Envío: `pais_facturacion` = nombre, `departamento_facturacion` y `ciudad_facturacion` = códigos.

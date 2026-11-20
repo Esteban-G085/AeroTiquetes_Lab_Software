@@ -74,20 +74,38 @@ describe('PerfilPage (HU2) — cliente', () => {
     expect(dep).toHaveValue('CO-RIS')
     expect(ciu).toHaveValue('PEI')
 
-    await userEvent.selectOptions(pais, 'España')
+    await userEvent.selectOptions(pais, 'China')
     expect(dep).toHaveValue('')
     expect(ciu).toHaveValue('')
-    expect(within(dep).getByRole('option', { name: 'Europa continental' })).toBeInTheDocument()
+    expect(within(dep).getByRole('option', { name: 'Pekín (municipio)' })).toBeInTheDocument()
     expect(within(dep).queryByRole('option', { name: 'Risaralda' })).not.toBeInTheDocument()
 
-    await userEvent.selectOptions(dep, 'EXT-EU')
-    await userEvent.selectOptions(ciu, 'MAD')
+    await userEvent.selectOptions(dep, 'CN-BJ')
+    await userEvent.selectOptions(ciu, 'PEK')
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => expect(api.actualizarPerfil).toHaveBeenCalledTimes(1))
     expect(api.actualizarPerfil.mock.calls[0][0]).toMatchObject({
-      pais_facturacion: 'España', departamento_facturacion: 'EXT-EU', ciudad_facturacion: 'MAD',
+      pais_facturacion: 'China', departamento_facturacion: 'CN-BJ', ciudad_facturacion: 'PEK',
     })
+  })
+
+  it('un país sin regiones EXT-* muestra solo las suyas (regresión migración 020)', async () => {
+    // La API ya no devuelve EXT-*: el catálogo real solo trae regiones activas por país.
+    expect(CATALOGO_UBICACION.departamentos.some((d) => d.codigo.startsWith('EXT-'))).toBe(false)
+    await open()
+    await userEvent.click(screen.getByRole('button', { name: 'Editar mis datos' }))
+    const pais = screen.getByLabelText('País de facturación')
+    const dep = screen.getByLabelText('Departamento / región')
+    const ciu = screen.getByLabelText('Ciudad de facturación')
+
+    await userEvent.selectOptions(pais, 'Dinamarca')
+    expect(within(dep).getByRole('option', { name: 'Región de Dinamarca' })).toBeInTheDocument()
+    expect(within(dep).queryByRole('option', { name: /EXT-/ })).not.toBeInTheDocument()
+    expect(within(dep).queryByRole('option', { name: 'Pekín (municipio)' })).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(dep, 'DK-GE')
+    expect(within(ciu).getByRole('option', { name: 'Copenhague' })).toBeInTheDocument()
   })
 
   it('validación: no guarda con datos inválidos', async () => {

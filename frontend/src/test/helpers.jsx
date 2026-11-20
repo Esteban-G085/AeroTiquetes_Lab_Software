@@ -37,18 +37,22 @@ export const PERFIL_CLIENTE = {
 export const CATALOGO_UBICACION = {
   paises: [
     { id: 1, codigo_iso2: 'CO', nombre: 'Colombia' },
-    { id: 2, codigo_iso2: 'ES', nombre: 'España' },
-    { id: 3, codigo_iso2: 'PE', nombre: 'Perú' },
+    { id: 2, codigo_iso2: 'CN', nombre: 'China' },
+    { id: 3, codigo_iso2: 'DK', nombre: 'Dinamarca' },
   ],
   departamentos: [
     { id: 11, codigo: 'CO-BDC', nombre: 'Bogotá, D.C.', id_pais: 1 },
     { id: 12, codigo: 'CO-RIS', nombre: 'Risaralda', id_pais: 1 },
-    { id: 13, codigo: 'EXT-EU', nombre: 'Europa continental', id_pais: 2 },
+    { id: 13, codigo: 'CN-BJ', nombre: 'Pekín (municipio)', id_pais: 2 },
+    { id: 14, codigo: 'CN-SH', nombre: 'Shanghái (municipio)', id_pais: 2 },
+    { id: 15, codigo: 'DK-GE', nombre: 'Región de Dinamarca', id_pais: 3 },
   ],
   ciudades: [
     { codigo: 'BOG', nombre: 'Bogotá', pais: 'Colombia', id_departamento: 11 },
     { codigo: 'PEI', nombre: 'Pereira', pais: 'Colombia', id_departamento: 12 },
-    { codigo: 'MAD', nombre: 'Madrid', pais: 'España', id_departamento: 13 },
+    { codigo: 'PEK', nombre: 'Pekín', pais: 'China', id_departamento: 13 },
+    { codigo: 'SHA', nombre: 'Shanghái', pais: 'China', id_departamento: 14 },
+    { codigo: 'DNK', nombre: 'Copenhague', pais: 'Dinamarca', id_departamento: 15 },
   ],
 }
 

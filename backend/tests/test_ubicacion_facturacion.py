@@ -16,38 +16,43 @@ def _registrar(client, **campos):
 
 def test_catalogo_geografico_completo(client, db_session):
     departamentos = list(db_session.scalars(select(Departamento)))
-    assert len(departamentos) == 37  # 32 de Colombia + 5 regiones del exterior
+    # 32 de Colombia + 55 de 11 paises curados + 48 regiones genericas.
+    assert len(departamentos) == 135
+    assert all(d.activo for d in departamentos)
 
     ciudades = list(db_session.scalars(select(Ciudad)))
-    assert len(ciudades) == 37
+    assert len(ciudades) == 135
     assert all(ciudad.id_departamento is not None for ciudad in ciudades)  # backfill
 
     codigos = {d.codigo for d in departamentos}
-    assert {"CO-BDC", "EXT-EU", "EXT-AP"}.issubset(codigos)
+    assert {"CO-BDC", "CN-BJ", "ES-MD", "DK-GE"}.issubset(codigos)
+    assert not any(c.startswith("EXT-") for c in codigos)  # regiones genericas eliminadas
 
 
 def test_catalogos_filtrados_por_pais_y_departamento(client):
     colombia = client.get("/catalogos/departamentos?pais=Colombia").json()
-    exterior = client.get("/catalogos/departamentos?pais=ES").json()
-    assert len(colombia) == 32 and len(exterior) == 5  # Colombia: 32; cualquier exterior: 5 regiones
-    assert "EXT-EU" in {d["codigo"] for d in exterior}
+    china = client.get("/catalogos/departamentos?pais=CN").json()
+    assert len(colombia) == 32
+    assert len(china) == 5
+    assert {d["codigo"] for d in china} == {"CN-BJ", "CN-SH", "CN-GD", "CN-ZJ", "CN-SC"}
 
     bogota = client.get("/catalogos/ciudades?departamento=CO-BDC").json()
-    exterior_na = client.get("/catalogos/ciudades?departamento=EXT-NA").json()
+    pekin = client.get("/catalogos/ciudades?departamento=CN-BJ").json()
     assert [c["codigo"] for c in bogota] == ["BOG"]
-    assert {c["codigo"] for c in exterior_na} == {"NYC", "MIA"}
+    assert [c["codigo"] for c in pekin] == ["PEK"]
     assert client.get("/catalogos/departamentos?pais=Inventado").json() == []
     assert client.get("/catalogos/ciudades?departamento=NO-EXISTE").json() == []
 
 
-def test_cualquier_pais_del_exterior_ofrece_las_cinco_regiones(client):
-    """No hace falta que el pais tenga una region asignada de fabrica (HU4)."""
-    for pais in ("México", "Perú", "Francia", "PE", "FR"):
-        regiones = client.get("/catalogos/departamentos?pais=" + pais).json()
-        assert len(regiones) == 5, pais
-        assert {r["codigo"] for r in regiones} == {
-            "EXT-EU", "EXT-GB", "EXT-NA", "EXT-SA", "EXT-AP",
-        }
+def test_cada_pais_solo_ofrece_sus_propias_regiones(client):
+    """China no puede elegir Cono Sur; Dinamarca solo tiene su region (HU4)."""
+    china = {r["codigo"] for r in client.get("/catalogos/departamentos?pais=China").json()}
+    espana = {r["codigo"] for r in client.get("/catalogos/departamentos?pais=España").json()}
+    dinamarca = {r["codigo"] for r in client.get("/catalogos/departamentos?pais=Dinamarca").json()}
+
+    assert all(c.startswith("CN-") for c in china) and len(china) == 5
+    assert all(c.startswith("ES-") for c in espana) and len(espana) == 5
+    assert dinamarca == {"DK-GE"}
 
 
 def test_registro_guarda_la_cadena_y_la_devuelve_el_perfil(client):
@@ -63,31 +68,44 @@ def test_registro_guarda_la_cadena_y_la_devuelve_el_perfil(client):
     assert perfil["ciudad_facturacion"] == "BOG"
 
 
+def test_registro_con_region_y_ciudad_de_china(client):
+    token = _registrar(
+        client,
+        pais_facturacion="China",
+        departamento_facturacion="CN-BJ",
+        ciudad_facturacion="PEK",
+    )
+    perfil = client.get("/me", headers=auth_headers(token)).json()
+    assert perfil["pais_facturacion"] == "China"
+    assert perfil["departamento_facturacion"] == "CN-BJ"
+    assert perfil["ciudad_facturacion"] == "PEK"
+
+
 def test_registro_con_ciudad_del_exterior(client):
     token = _registrar(
         client,
         pais_facturacion="Estados Unidos",
-        departamento_facturacion="EXT-NA",
-        ciudad_facturacion="MIA",
-    )
-    perfil = client.get("/me", headers=auth_headers(token)).json()
-    assert perfil["pais_facturacion"] == "Estados Unidos"
-    assert perfil["departamento_facturacion"] == "EXT-NA"
-    assert perfil["ciudad_facturacion"] == "MIA"
-
-
-def test_registro_de_persona_en_un_pais_sin_region_asignada(client):
-    """México no tiene región propia, pero puede elegir cualquier región exterior."""
-    token = _registrar(
-        client,
-        pais_facturacion="México",
-        departamento_facturacion="EXT-NA",
+        departamento_facturacion="US-NY",
         ciudad_facturacion="NYC",
     )
     perfil = client.get("/me", headers=auth_headers(token)).json()
-    assert perfil["pais_facturacion"] == "México"
-    assert perfil["departamento_facturacion"] == "EXT-NA"
+    assert perfil["pais_facturacion"] == "Estados Unidos"
+    assert perfil["departamento_facturacion"] == "US-NY"
     assert perfil["ciudad_facturacion"] == "NYC"
+
+
+def test_registro_de_persona_en_un_pais_sin_geografia_curada(client):
+    """Dinamarca no tiene regiones reales en el catalogo, pero si su capital."""
+    token = _registrar(
+        client,
+        pais_facturacion="Dinamarca",
+        departamento_facturacion="DK-GE",
+        ciudad_facturacion="DNK",
+    )
+    perfil = client.get("/me", headers=auth_headers(token)).json()
+    assert perfil["pais_facturacion"] == "Dinamarca"
+    assert perfil["departamento_facturacion"] == "DK-GE"
+    assert perfil["ciudad_facturacion"] == "DNK"
 
 
 @pytest.mark.parametrize(
@@ -96,7 +114,9 @@ def test_registro_de_persona_en_un_pais_sin_region_asignada(client):
         (dict(pais_facturacion="Colombia"), "departamento_facturacion"),
         (dict(pais_facturacion="Colombia", departamento_facturacion="CO-BDC"), "ciudad_facturacion"),
         (dict(pais_facturacion="País Inventado", departamento_facturacion="CO-BDC", ciudad_facturacion="BOG"), "pais_facturacion"),
-        (dict(pais_facturacion="Colombia", departamento_facturacion="EXT-EU", ciudad_facturacion="MAD"), "departamento_facturacion"),
+        (dict(pais_facturacion="Colombia", departamento_facturacion="CN-BJ", ciudad_facturacion="PEK"), "departamento_facturacion"),
+        (dict(pais_facturacion="China", departamento_facturacion="AR-BA", ciudad_facturacion="BUE"), "departamento_facturacion"),
+        (dict(pais_facturacion="China", departamento_facturacion="CN-BJ", ciudad_facturacion="MAD"), "ciudad_facturacion"),
         (dict(pais_facturacion="Colombia", departamento_facturacion="CO-BDC", ciudad_facturacion="MDE"), "ciudad_facturacion"),
     ],
 )
@@ -121,7 +141,7 @@ def test_perfil_actualiza_la_ubicacion(client):
         "/me",
         data=dict(
             pais_facturacion="España",
-            departamento_facturacion="EXT-EU",
+            departamento_facturacion="ES-MD",
             ciudad_facturacion="MAD",
         ),
         headers=cab,

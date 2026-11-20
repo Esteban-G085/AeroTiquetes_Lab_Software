@@ -96,6 +96,11 @@ class Ciudad(Base):
     grupo_internacional: Mapped[GrupoInternacional | None] = mapped_column(
         Enum(GrupoInternacional, name="grupo_internacional"), nullable=True
     )
+    # Ciudades que solo existen para la direccion de facturacion: no deben
+    # aparecer en los selects de origen/destino de vuelos.
+    solo_facturacion: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Ciudad {self.codigo} {self.nombre!r}>"

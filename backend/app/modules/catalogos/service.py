@@ -38,20 +38,12 @@ def obtener_pais_canonico(db: Session, valor: str) -> Pais | None:
     return db.scalars(stmt).first()
 
 
-PREFIJO_REGION_EXTERIOR = "EXT-"
-
-
-def _es_colombia(pais: Pais) -> bool:
-    """Colombia es el unico pais con departamentos propios; el resto usa regiones."""
-    return (pais.codigo_iso2 or "").upper() == "CO" or pais.nombre.strip().casefold() == "colombia"
-
-
 def listar_departamentos_activos(db: Session, pais: str | None = None) -> list[Departamento]:
     """Catalogo de departamentos/regiones; `pais` filtra por nombre o codigo ISO2.
 
-    Colombia muestra sus 32 departamentos. Cualquier otro pais habilitado muestra
-    las 5 regiones del exterior, asi se puede inscribir a alguien que viva fuera
-    de Colombia sin depender de que su pais tenga una region asignada de fabrica.
+    Cada pais muestra solo sus propias regiones: Colombia sus 32 departamentos,
+    los paises curados sus regiones reales y el resto su "Region de X". Nunca se
+    ofrece una region que pertenezca a otro pais.
     """
     stmt = select(Departamento).where(Departamento.activo.is_(True))
     if pais and pais.strip():
@@ -64,10 +56,7 @@ def listar_departamentos_activos(db: Session, pais: str | None = None) -> list[D
         )
         if pais_obj is None:
             return []
-        if _es_colombia(pais_obj):
-            stmt = stmt.where(Departamento.id_pais == pais_obj.id)
-        else:
-            stmt = stmt.where(Departamento.codigo.like(f"{PREFIJO_REGION_EXTERIOR}%"))
+        stmt = stmt.where(Departamento.id_pais == pais_obj.id)
     return list(db.scalars(stmt.order_by(Departamento.orden.asc(), Departamento.nombre.asc())))
 
 
@@ -147,14 +136,9 @@ def resolver_ubicacion_facturacion(
             fields={"pais_facturacion": "No es un país válido o no está habilitado."},
         )
 
-    if _es_colombia(pais_obj):
-        dep_obj = obtener_departamento_canonico(
-            db, valores["departamento_facturacion"], id_pais=pais_obj.id
-        )
-    else:
-        dep_obj = obtener_departamento_canonico(db, valores["departamento_facturacion"])
-        if dep_obj is not None and not dep_obj.codigo.startswith(PREFIJO_REGION_EXTERIOR):
-            dep_obj = None
+    dep_obj = obtener_departamento_canonico(
+        db, valores["departamento_facturacion"], id_pais=pais_obj.id
+    )
     if dep_obj is None:
         raise AppError(
             "El departamento no pertenece al país seleccionado.",

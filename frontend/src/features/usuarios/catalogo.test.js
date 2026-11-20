@@ -9,10 +9,12 @@ describe('departamentosParaPais', () => {
     expect(codigos(departamentosParaPais(paises, departamentos, 'Colombia'))).toEqual(['CO-BDC', 'CO-RIS'])
   })
 
-  it('cualquier país del exterior ofrece las regiones EXT', () => {
-    for (const pais of ['España', 'Perú']) {
-      expect(codigos(departamentosParaPais(paises, departamentos, pais))).toEqual(['EXT-EU'])
-    }
+  it('China solo ofrece sus propias regiones', () => {
+    expect(codigos(departamentosParaPais(paises, departamentos, 'China'))).toEqual(['CN-BJ', 'CN-SH'])
+  })
+
+  it('un país sin geografía curada ofrece solo su región', () => {
+    expect(codigos(departamentosParaPais(paises, departamentos, 'Dinamarca'))).toEqual(['DK-GE'])
   })
 
   it('un país desconocido no ofrece nada', () => {

@@ -199,9 +199,9 @@ def listar_ciudades(db: Session, uso: UsoCiudad | None = None) -> list[Ciudad]:
 
     - `nacional`: las capitales de departamento.
     - `internacional`: las ciudades con `grupo_internacional` (colombia o exterior).
-    - sin `uso`: todas.
+    - sin `uso`: todas las de vuelos (excluye las ciudades solo de facturacion).
     """
-    consulta = select(Ciudad).order_by(Ciudad.nombre, Ciudad.id)
+    consulta = select(Ciudad).where(Ciudad.solo_facturacion.is_(False)).order_by(Ciudad.nombre, Ciudad.id)
     if uso == UsoCiudad.NACIONAL:
         consulta = consulta.where(Ciudad.es_capital_departamento.is_(True))
     elif uso == UsoCiudad.INTERNACIONAL:

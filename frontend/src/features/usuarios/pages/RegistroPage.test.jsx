@@ -134,16 +134,22 @@ describe('RegistroPage (HU4)', () => {
     expect(within(ciu).getByRole('option', { name: 'Bogotá' })).toBeInTheDocument()
     await userEvent.selectOptions(ciu, 'BOG')
 
-    await userEvent.selectOptions(pais, 'España')
+    await userEvent.selectOptions(pais, 'China')
     expect(dep).toHaveValue('')
     expect(ciu).toHaveValue('')
-    expect(within(dep).getByRole('option', { name: 'Europa continental' })).toBeInTheDocument()
+    expect(within(dep).getByRole('option', { name: 'Pekín (municipio)' })).toBeInTheDocument()
     expect(within(dep).queryByRole('option', { name: 'Bogotá, D.C.' })).not.toBeInTheDocument()
 
-    // Un país sin región asignada de fábrica (Perú) también puede inscribirse.
-    await userEvent.selectOptions(pais, 'Perú')
-    expect(within(dep).getByRole('option', { name: 'Europa continental' })).toBeInTheDocument()
-    expect(within(dep).queryByRole('option', { name: 'Risaralda' })).not.toBeInTheDocument()
+    await userEvent.selectOptions(dep, 'CN-BJ')
+    expect(within(ciu).getByRole('option', { name: 'Pekín' })).toBeInTheDocument()
+    expect(within(ciu).queryByRole('option', { name: 'Bogotá' })).not.toBeInTheDocument()
+
+    // Un país sin geografía curada (Dinamarca) ofrece solo su región y capital.
+    await userEvent.selectOptions(pais, 'Dinamarca')
+    expect(dep).toHaveValue('')
+    expect(ciu).toHaveValue('')
+    expect(within(dep).getByRole('option', { name: 'Región de Dinamarca' })).toBeInTheDocument()
+    expect(within(dep).queryByRole('option', { name: 'Pekín (municipio)' })).not.toBeInTheDocument()
   })
 
   it('enlaza de vuelta al login', async () => {
