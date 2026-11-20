@@ -30,7 +30,7 @@ from app.modules.vuelos.models import (
     codigo_para,
 )
 from app.core.errors import AppError
-from app.modules.vuelos.schemas import ClaseVuelo, OrdenVuelos, UsoCiudad, VueloCrear, VueloEditar
+from app.modules.vuelos.schemas import ClaseVuelo, MotivoCancelacion, OrdenVuelos, UsoCiudad, VueloCrear, VueloEditar
 
 logger = logging.getLogger("aerotiquetes.busqueda")
 
@@ -343,13 +343,25 @@ def _vuelo_o_404(db: Session, id_vuelo: int) -> Vuelo:
     return vuelo
 
 
-def cancelar_vuelo(db: Session, id_vuelo: int, motivo: str | None = None) -> Vuelo:
+def cancelar_vuelo(db: Session, id_vuelo: int, motivo: str | MotivoCancelacion | None = None) -> Vuelo:
     """HU13: cancela un vuelo `programado` y libera sus cupos (vuelven a la capacidad del tipo).
 
-    Si el vuelo tiene tiquetes vendidos, `motivo` es obligatorio (causa de fuerza mayor, minimo 10
-    caracteres). Los ganchos de `ALCANCELAR_VUELO` corren en la misma transaccion: si uno falla, el
-    vuelo no queda cancelado.
+    Si el vuelo tiene tiquetes vendidos, `motivo` es obligatorio y debe ser una causa prefijada
+    (`MotivoCancelacion`). Los ganchos de `ALCANCELAR_VUELO` corren en la misma transaccion: si uno
+    falla, el vuelo no queda cancelado. La causa se valida, pero no se persiste.
     """
+    causa = None
+    if motivo is not None:
+        valor = motivo.value if isinstance(motivo, MotivoCancelacion) else str(motivo).strip()
+        if valor:
+            try:
+                causa = MotivoCancelacion(valor)
+            except ValueError:
+                raise _error(
+                    "La causa de cancelacion no es valida.", 422, "validacion",
+                    fields={"motivo": "Selecciona una causa válida."},
+                )
+
     vuelo = _vuelo_o_404(db, id_vuelo)
     sincronizar_estados(db)
     vuelo = db.execute(select(Vuelo).where(Vuelo.id == id_vuelo)).scalar_one()  # recargar desde BD
@@ -362,17 +374,16 @@ def cancelar_vuelo(db: Session, id_vuelo: int, motivo: str | None = None) -> Vue
             raise _error("Solo se puede cancelar un vuelo programado.", 409, "vuelo_realizado")
         raise _error("Solo se puede cancelar un vuelo programado.", 409, "transicion_invalida")
 
-    # Si hay tiquetes vendidos, se requiere motivo de fuerza mayor
+    # Si hay tiquetes vendidos, se requiere una de las causas prefijadas
     ids = [vuelo.id]
     conteo = contar_tiquetes_vendidos(db, ids)
-    if conteo.get(vuelo.id, 0) > 0:
-        if not motivo or len(motivo.strip()) < 10:
-            raise _error(
-                "Cuando el vuelo tiene tiquetes vendidos se requiere una causa de fuerza mayor (minimo 10 caracteres).",
-                422,
-                "validacion",
-                fields={"motivo": "Causa de fuerza mayor obligatoria (minimo 10 caracteres)."},
-            )
+    if conteo.get(vuelo.id, 0) > 0 and causa is None:
+        raise _error(
+            "Cuando el vuelo tiene tiquetes vendidos se requiere una causa prefijada de cancelacion.",
+            422,
+            "validacion",
+            fields={"motivo": "Selecciona la causa de la cancelación."},
+        )
 
     vuelo.estado = EstadoVuelo.CANCELADO
     vuelo.cupos_economica, vuelo.cupos_primera = CUPOS_POR_TIPO[vuelo.tipo]

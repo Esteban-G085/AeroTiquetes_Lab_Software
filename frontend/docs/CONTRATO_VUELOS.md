@@ -146,10 +146,20 @@ Cuerpo (reemplazo completo; **no** se envían `tipo` ni `estado`):
 
 ## ✅ PATCH `/admin/vuelos/{id}/cancelar` — cancelar (HU13) · rol `administrador`
 
-Cuerpo: `{ "motivo": "Cierre del aeropuerto por tormenta" }` (o `{}` / sin cuerpo).
+Cuerpo: `{ "motivo": "clima" }` (o `{}` / sin cuerpo). El `motivo` es el **código** de una causa prefijada, no texto libre:
 
-* Sin tiquetes vendidos: el `motivo` es opcional. Con tiquetes: **obligatorio**, 10–300 caracteres
-  (422 `error.fields.motivo`). El front lo valida antes de abrir el diálogo de confirmación.
+| Código | Causa |
+| --- | --- |
+| `clima` | Cierre del aeropuerto por condiciones climáticas |
+| `emergencia_medica` | Emergencia médica a bordo |
+| `falla_tecnica` | Falla técnica de la aeronave |
+| `huelga` | Huelga del personal aeroportuario |
+| `restriccion` | Restricción gubernamental o sanitaria |
+| `sobreventa` | Sobreventa o reasignación operacional |
+
+* Sin tiquetes vendidos: el `motivo` es opcional. Con tiquetes: **obligatorio** y debe ser uno de los códigos
+  anteriores (422 `error.fields.motivo`). Un código desconocido se rechaza siempre. El front lo valida antes de
+  abrir el diálogo de confirmación y envía el código, nunca la etiqueta. La causa no se persiste.
 * Éxito: **200** con el vuelo `cancelado`. Se liberan los cupos y se reintegra a los clientes; no se puede deshacer.
 * Solo aplica a vuelos `programado`; uno `sucedido`, `realizado` o ya `cancelado` da **409**.
 * El paso `programado → sucedido → realizado` es **automático por tiempo (HU14)**, no se hace con `PUT`.

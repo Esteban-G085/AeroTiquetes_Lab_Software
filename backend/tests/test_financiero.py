@@ -121,7 +121,7 @@ def test_cancelar_vuelo_registra_reintegro_por_cliente(client, db_session, adm, 
 
     resp = client.patch(
         f"/admin/vuelos/{vuelo['id']}/cancelar",
-        json={"motivo": "Cierre del aeropuerto por tormenta"},
+        json={"motivo": "clima"},
         headers=adm,
     )
     assert resp.status_code == 200, resp.text

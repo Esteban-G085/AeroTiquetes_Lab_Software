@@ -164,8 +164,9 @@ def editar_vuelo(id: int, datos: VueloEditar, db: DbSession):
 def cancelar_vuelo(id: int, db: DbSession, datos: VueloCancelar = Body(default=VueloCancelar())):
     """Cancela un vuelo `programado` (HU13): pasa a `cancelado` y libera sus cupos.
 
-    Si el vuelo tiene tiquetes vendidos, `motivo` es obligatorio (causa de fuerza mayor, minimo 10
-    caracteres). 404 si no existe; 409 si ya esta cancelado o ya salio; 422 si falta el motivo.
+    Si el vuelo tiene tiquetes vendidos, `motivo` es obligatorio y debe ser el codigo de una causa
+    prefijada (`MotivoCancelacion`). 404 si no existe; 409 si ya esta cancelado o ya salio; 422 si
+    falta el motivo o no es una causa valida.
     """
     vuelo = service.cancelar_vuelo(db, id, datos.motivo)
     conteo = service.contar_tiquetes_vendidos(db, [vuelo.id])

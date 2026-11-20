@@ -12,6 +12,9 @@ export const CLASES = [
 ]
 export const claseLabel = (value) => CLASES.find((c) => c.value === value)?.label ?? value
 
+/** Normaliza un documento para comparar el del viajero con el de la cuenta (espacios, puntos y guiones). */
+export const normalizarDocumento = (d) => String(d ?? '').replace(/[\s.-]/g, '').toUpperCase()
+
 /**
  * Tarifa por persona de la clase elegida (D3). El backend cobra `precio_primera` en primera clase;
  * los totales del front deben usar esta función, no `vuelo.precio` directamente.
@@ -31,6 +34,29 @@ export const VIAJERO_VACIO = Object.freeze({
   documento: '', nombres: '', apellidos: '', fecha_nacimiento: '', genero: '',
   telefono: '', correo: '', contacto_nombre: '', contacto_telefono: '',
 })
+
+/**
+ * Copia al viajero los datos que la cuenta (GET /me) puede aportar. Solo sobrescribe los campos
+ * que el perfil trae con valor; el documento se normaliza para cumplir la regla RF06 del formulario.
+ */
+export const datosViajeroDesdePerfil = (perfil, viajero = {}) => {
+  if (!perfil) return viajero
+  const contacto = [perfil.nombres, perfil.apellidos].filter(Boolean).join(' ').trim()
+  const datos = {
+    documento: normalizarDocumento(perfil.dni),
+    nombres: perfil.nombres,
+    apellidos: perfil.apellidos,
+    fecha_nacimiento: perfil.fecha_nacimiento,
+    genero: perfil.genero,
+    correo: perfil.correo,
+    telefono: perfil.telefono,
+    contacto_nombre: contacto,
+    contacto_telefono: perfil.telefono,
+  }
+  return Object.entries(datos).reduce((acc, [campo, valor]) => (
+    valor === undefined || valor === null || valor === '' ? acc : { ...acc, [campo]: valor }
+  ), { ...viajero })
+}
 
 const REQUIRED = 'Este campo es obligatorio.'
 const text = (v) => String(v ?? '').trim()

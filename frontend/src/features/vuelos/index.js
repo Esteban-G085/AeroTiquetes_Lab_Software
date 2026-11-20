@@ -1,8 +1,7 @@
 import { lazy } from 'react'
 import { ROLES } from '@/config/roles'
 
-// API pública para otros features (p. ej. Compra): el selector de sillas y su carga.
-export { default as AsientoMapa } from './components/AsientoMapa'
+// API pública para otros features: consulta de asientos (la silla ya no se elige en Compra).
 export { obtenerAsientosVuelo } from './api'
 
 // F2 — módulo Administración de vuelos (HU18: F2-05; HU19: F2-06). Sprint 2 (pantallas de F1): HU12 editar, HU13 cancelar, HU14 realizados.

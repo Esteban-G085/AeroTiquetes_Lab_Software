@@ -5,7 +5,7 @@ import { formatDateTime, formatPrice } from '@/utils/format'
 import { claseLabel } from '../rules'
 import { TramoLinea } from './ResumenViaje'
 
-export const PASOS = ['Viajeros', 'Sillas', 'Carrito y pago', 'Confirmación']
+export const PASOS = ['Viajeros', 'Carrito y pago', 'Confirmación']
 
 function TiquetesLista({ tiquetes }) {
   return (

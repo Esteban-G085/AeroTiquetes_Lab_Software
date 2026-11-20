@@ -51,9 +51,12 @@ export async function actualizarVuelo(id, payload) {
 /** Alias del contrato F2: `editarVuelo` == `actualizarVuelo`. */
 export const editarVuelo = actualizarVuelo
 
-/** HU13 — Cancela un vuelo programado. `motivo` es obligatorio cuando el vuelo tiene tiquetes vendidos. */
+/** HU13 — Cancela un vuelo programado. `motivo` es el código de una causa prefijada, obligatoria con tiquetes vendidos. */
 export async function cancelarVuelo(id, motivo = '') {
-  const { data } = await http.patch(`/admin/vuelos/${encodeURIComponent(id)}/cancelar`, { motivo })
+  const { data } = await http.patch(
+    `/admin/vuelos/${encodeURIComponent(id)}/cancelar`,
+    motivo ? { motivo } : {},
+  )
   return data
 }
 

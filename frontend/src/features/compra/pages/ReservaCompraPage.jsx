@@ -8,8 +8,7 @@ import { useCart } from '@/context'
 import { useAsyncData } from '@/utils/useAsyncData'
 import { formatPrice } from '@/utils/format'
 import { crearReserva, obtenerMisDatos, obtenerVuelo } from '../api'
-import { AsientoMapa } from '@/features/vuelos'
-import { CLASES, MAX_TIQUETES_VUELO, VIAJERO_VACIO, cupoRestante, precioParaClase, validarViajeros } from '../rules'
+import { CLASES, MAX_TIQUETES_VUELO, VIAJERO_VACIO, cupoRestante, datosViajeroDesdePerfil, normalizarDocumento, precioParaClase, validarViajeros } from '../rules'
 import { useRegreso } from '../hooks/useRegreso'
 import ViajeroFields from '../components/ViajeroFields'
 import RegresoSelector from '../components/RegresoSelector'
@@ -32,62 +31,49 @@ function Formulario({ vuelo }) {
   const [regresoError, setRegresoError] = useState('')
   const [clase, setClase] = useState(existing?.clase ?? 'economica')
   const [viajeros, setViajeros] = useState(existing?.viajeros ?? [{ ...VIAJERO_VACIO }])
-  const [asientosPorTramo, setAsientosPorTramo] = useState({
-    ida: existing?.asientos ?? [],
-    vuelta: existing?.asientos_regreso ?? [],
-  })
-  const [erroresAsientos, setErroresAsientos] = useState({ ida: '', vuelta: '' })
   const [errors, setErrors] = useState([])
   const [general, setGeneral] = useState([])
   const [busy, setBusy] = useState(false)
   const [usingMine, setUsingMine] = useState(false)
+  const [perfil, setPerfil] = useState(null)
+  const [autocompletado, setAutocompletado] = useState('')
   const [resultado, setResultado] = useState(null)
-  // El flujo tiene 4 pasos: 0 viajeros, 1 sillas, 2 carrito y pago, 3 confirmación.
-  const [paso, setPaso] = useState(0)
 
   const reg = useRegreso(trayecto === 'ida_vuelta', vuelo.id)
   const tiquetesCliente = Math.max(vuelo.tiquetes_cliente ?? 0, regreso?.tiquetes_cliente ?? 0)
   const maximo = Math.max(cupoRestante(tiquetesCliente), 0)
   const sinCupos = vuelo.cupos_disponibles === 0
 
-  // El mapa (AsientoMapa) carga los asientos de la clase y gestiona su propio estado de carga.
-  // Hay una selección independiente por tramo porque ida y vuelta son vuelos distintos.
-
-  // Limpiar selección cuando cambie la clase, el número de viajeros o el vuelo de regreso
+  // El perfil se consulta una sola vez. Permite completar CUALQUIER viajero cuyo documento
+  // coincida con el de la cuenta, sin depender de que pulse "Usar mis datos".
   useEffect(() => {
-    setAsientosPorTramo({ ida: [], vuelta: [] })
-    setErroresAsientos({ ida: '', vuelta: '' })
-  }, [clase, viajeros.length, regreso?.id, vuelo.id])
+    let vigente = true
+    Promise.resolve(obtenerMisDatos())
+      .then((p) => { if (vigente) setPerfil(p ?? null) })
+      .catch(() => {}) // sin perfil no hay autocompletado: el formulario sigue siendo usable
+    return () => { vigente = false }
+  }, [])
 
-  const validarAsientos = () => {
-    if (viajeros.length === 0) return true
-    const tramosAValidar = trayecto === 'ida_vuelta' ? ['ida', 'vuelta'] : ['ida']
-    const errores = {}
-    for (const tramo of tramosAValidar) {
-      const cantidad = asientosPorTramo[tramo].length
-      if (cantidad < viajeros.length) {
-        const faltan = viajeros.length - cantidad
-        errores[tramo] = `Selecciona ${faltan} silla${faltan > 1 ? 's' : ''} más para la ${tramo === 'ida' ? 'ida' : 'vuelta'}.`
-      } else if (cantidad > viajeros.length) {
-        errores[tramo] = `Seleccionaste más sillas que viajeros en la ${tramo === 'ida' ? 'ida' : 'vuelta'}.`
-      }
-    }
-    setErroresAsientos({ ida: errores.ida ?? '', vuelta: errores.vuelta ?? '' })
-    return Object.keys(errores).length === 0
-  }
-
-  const cambiarAsientos = (tramo, ids) => {
-    setAsientosPorTramo((prev) => ({ ...prev, [tramo]: ids }))
-    setErroresAsientos((prev) => ({ ...prev, [tramo]: '' }))
-  }
+  // La silla NO se elige: el backend asigna una libre al azar al confirmar la compra o reserva.
 
   const setCampo = (i, campo, valor) => {
     setViajeros((list) => list.map((v, idx) => (idx === i ? { ...v, [campo]: valor } : v)))
     setErrors((prev) => (prev[i]?.[campo] ? prev.map((e, idx) => (idx === i ? { ...e, [campo]: undefined } : e)) : prev))
+    if (campo === 'documento') setAutocompletado('')
   }
 
   const agregarViajero = () => setViajeros((l) => (l.length < Math.min(maximo, MAX_TIQUETES_VUELO) ? [...l, { ...VIAJERO_VACIO }] : l))
   const quitarViajero = (i) => { setViajeros((l) => l.filter((_, idx) => idx !== i)); setErrors([]); setGeneral([]) }
+
+  /** Al salir del documento: si coincide con el de la cuenta, completa los datos de ESE viajero. */
+  function completarDesdeDocumento(i, documento) {
+    if (!perfil?.dni) return
+    const escrito = normalizarDocumento(documento)
+    if (!escrito || escrito !== normalizarDocumento(perfil.dni)) return
+    setViajeros((list) => list.map((v, idx) => (idx === i ? datosViajeroDesdePerfil(perfil, v) : v)))
+    setErrors((prev) => prev.map((e, idx) => (idx === i ? {} : e)))
+    setAutocompletado(`Datos del viajero ${i + 1} completados desde tu cuenta. Puedes editarlos.`)
+  }
 
   async function usarMisDatos() {
     setUsingMine(true)
@@ -116,10 +102,9 @@ function Formulario({ vuelo }) {
         viajeros,
         tramo: 'ida',
         trayecto: completo ? 'ida_vuelta' : 'ida',
-        asientos: asientosPorTramo.ida,
-        ...(completo ? { vuelo_regreso_id: regreso.id, asientos_regreso: asientosPorTramo.vuelta } : {}),
+        ...(completo ? { vuelo_regreso_id: regreso.id } : {}),
       },
-      ...(completo ? [{ vuelo: regreso, clase, viajeros, tramo: 'vuelta', asientos: asientosPorTramo.vuelta }] : []),
+      ...(completo ? [{ vuelo: regreso, clase, viajeros, tramo: 'vuelta' }] : []),
     ]
   }
 
@@ -143,14 +128,8 @@ function Formulario({ vuelo }) {
     else setGeneral([err.message])
   }
 
-  const continuarASillas = () => {
-    if (!validar()) return
-    setPaso(1)
-  }
-
   const agregarAlCarrito = () => {
     if (!validar()) return
-    if (!validarAsientos()) return
     cart.upsertItems(items())
     toast.success(existing ? 'Actualizamos tu carrito.' : 'Agregamos el vuelo a tu carrito.')
     navigate('/carrito')
@@ -158,7 +137,6 @@ function Formulario({ vuelo }) {
 
   async function reservar() {
     if (!validar()) return
-    if (!validarAsientos()) return
     setBusy(true)
     try {
       const lista = items()
@@ -180,28 +158,27 @@ function Formulario({ vuelo }) {
   return (
     <div className="co-page">
       <PageHeader eyebrow="Reserva o compra" title={`${vuelo.origen.ciudad} a ${vuelo.destino.ciudad}`}
-        subtitle={paso === 0
-          ? 'Elige tu trayecto y la clase, y registra a cada viajero.'
-          : 'Elige una silla por viajero y tramo antes de continuar.'} />
-      <div className="mb-4"><Stepper steps={PASOS} current={paso} label="Progreso de la compra" /></div>
+        subtitle="Elige tu trayecto y la clase, y registra a cada viajero. La silla se asigna al azar al confirmar." />
+      <div className="mb-4"><Stepper steps={PASOS} current={0} label="Progreso de la compra" /></div>
 
       <div className="co-layout">
         <form ref={formRef} className="co-form" noValidate onSubmit={(e) => {
           e.preventDefault()
-          paso === 0 ? continuarASillas() : agregarAlCarrito()
+          agregarAlCarrito()
         }}>
           <FlightCard {...toFlightProps(vuelo)} />
 
           {existing && <Notice tone="info">Este vuelo ya está en tu carrito. Al guardar, se actualizará con lo que completes aquí.</Notice>}
           {sinCupos && <Notice tone="warning">Este vuelo no tiene cupos disponibles por ahora.</Notice>}
           {!sinCupos && maximo === 0 && <Notice tone="warning">Ya tienes {MAX_TIQUETES_VUELO} tiquetes en este vuelo, que es el máximo por cliente.</Notice>}
+          {autocompletado && <Notice tone="info">{autocompletado}</Notice>}
           {general.length > 0 && (
             <Notice tone="danger" tabIndex={-1}>
               {general.length === 1 ? general[0] : <ul className="mb-0 ps-3">{general.map((g) => <li key={g}>{g}</li>)}</ul>}
             </Notice>
           )}
 
-          {paso === 0 && (<>
+          <>
           <section className="at-card co-section" aria-labelledby="co-trayecto">
             <h2 id="co-trayecto" className="co-section__title">Trayecto</h2>
             <div className="co-seg" role="radiogroup" aria-labelledby="co-trayecto">
@@ -215,7 +192,7 @@ function Formulario({ vuelo }) {
             </div>
             {trayecto === 'ida_vuelta' && (
               <div className="mt-3">
-                <p className="co-section__hint">Los dos tramos comparten código de reserva y se pagan en una sola operación; cada tiquete tiene su propia silla.</p>
+                <p className="co-section__hint">Los dos tramos comparten código de reserva y se pagan en una sola operación; la silla de cada tiquete se asigna al azar.</p>
                 <RegresoSelector status={reg.status === 'idle' ? 'loading' : reg.status} vuelos={reg.vuelos} error={reg.error}
                   clase={clase} value={regreso?.id} onChange={(v) => { setRegreso(v); setRegresoError('') }} />
                 {regresoError && <div role="alert" tabIndex={-1} className="at-field__error mt-2">{regresoError}</div>}
@@ -246,6 +223,7 @@ function Formulario({ vuelo }) {
             {viajeros.map((v, i) => (
               <ViajeroFields key={i} index={i} value={v} errors={errors[i] ?? {}}
                 onChange={(campo, valor) => setCampo(i, campo, valor)}
+                onDocumentoBlur={(documento) => completarDesdeDocumento(i, documento)}
                 onUseMine={i === 0 ? usarMisDatos : undefined} usingMine={usingMine}
                 onRemove={i > 0 ? () => quitarViajero(i) : undefined} />
             ))}
@@ -253,59 +231,17 @@ function Formulario({ vuelo }) {
               <Icon name="plus" size={16} /> Agregar otro viajero
             </Button>
           </section>
-          </>)}
-
-          {paso === 1 && viajeros.length > 0 && (
-            <section className="at-card co-section" aria-labelledby="co-asientos">
-              <h2 id="co-asientos" className="co-section__title">Selección de sillas</h2>
-              {['ida', ...(trayecto === 'ida_vuelta' ? ['vuelta'] : [])].map((tramo) => {
-                const idVuelo = tramo === 'ida' ? vuelo.id : regreso?.id
-                if (!idVuelo) return null
-                const codigo = tramo === 'ida' ? vuelo.codigo : regreso.codigo
-                return (
-                  <div key={tramo} className="mt-3">
-                    <h3 className="h6">{tramo === 'ida' ? 'Ida' : 'Vuelta'} · <span className="at-mono">{codigo}</span></h3>
-                    {erroresAsientos[tramo] && (
-                      <div role="alert" tabIndex={-1} className="at-field__error mt-2">{erroresAsientos[tramo]}</div>
-                    )}
-                    <AsientoMapa
-                      idVuelo={idVuelo}
-                      clase={clase}
-                      asientosSeleccionados={asientosPorTramo[tramo]}
-                      maxSelecciones={viajeros.length}
-                      onCambio={(ids) => cambiarAsientos(tramo, ids)}
-                    />
-                  </div>
-                )
-              })}
-              <p className="co-section__hint">
-                Elige una silla por viajero y tramo. El pasillo separa C y D; V/M/P indican ventana, medio y pasillo.
-                Las sillas en rojo ya están ocupadas.
-              </p>
-            </section>
-          )}
+          </>
         </form>
 
         <aside className="co-aside">
           <ResumenViaje tramos={tramos} viajeros={viajeros.length} clase={clase}>
             <div className="co-actions">
-              {paso === 0 ? (
-                <>
-                  <Button size="lg" onClick={continuarASillas} disabled={bloqueado}>Continuar a sillas</Button>
-                  <p className="co-actions__hint">
-                    En el siguiente paso elegirás una silla por viajero y tramo.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Button size="lg" onClick={agregarAlCarrito} disabled={bloqueado || busy}>{existing ? 'Actualizar carrito' : 'Agregar al carrito'}</Button>
-                  <Button variant="outline-primary" onClick={reservar} loading={busy} disabled={bloqueado}>Reservar sin pagar</Button>
-                  <Button variant="ghost" onClick={() => setPaso(0)} disabled={busy}>Volver a viajeros</Button>
-                  <p className="co-actions__hint">
-                    La reserva dura 24 horas y guarda tu cupo sin pagar. Al comprar pagas con tu billetera y recibes el código de reserva.
-                  </p>
-                </>
-              )}
+              <Button size="lg" onClick={agregarAlCarrito} disabled={bloqueado || busy}>{existing ? 'Actualizar carrito' : 'Agregar al carrito'}</Button>
+              <Button variant="outline-primary" onClick={reservar} loading={busy} disabled={bloqueado}>Reservar sin pagar</Button>
+              <p className="co-actions__hint">
+                La silla se asigna al azar al confirmar. La reserva dura 24 horas y guarda tu cupo sin pagar; al comprar pagas con tu billetera y recibes el código de reserva.
+              </p>
             </div>
           </ResumenViaje>
         </aside>

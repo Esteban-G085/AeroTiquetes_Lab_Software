@@ -128,6 +128,7 @@ describe('crearCompra', () => {
     expect(ruta).toBe('/compras')
     expect(cuerpo.items).toHaveLength(2)
     expect(cuerpo.items[0]).toMatchObject({ trayecto: 'unico', vuelo_id: 7, clase: 'economica' })
+    expect(cuerpo.items[0]).not.toHaveProperty('asientos')
     expect(cuerpo.items[0].viajeros[0]).toMatchObject({ nombre_contacto: 'Luis', telefono_contacto: '3007654321' })
     expect(cuerpo.items[0].viajeros[0]).not.toHaveProperty('contacto_nombre')
     expect(r).toMatchObject({ total: 900000, saldo: 650000 })
@@ -161,16 +162,16 @@ describe('crearReserva', () => {
     expect(http.post).toHaveBeenCalledTimes(1)
   })
 
-  it('ida y vuelta se envían como un único item completo con sillas por tramo', async () => {
+  it('ida y vuelta se envían como un único item completo, sin sillas (el backend las asigna)', async () => {
     http.post.mockResolvedValue({ data: OPERACION({ tipo: 'reserva', id: 21, estado: 'activa', tiquetes: [TIQUETE(1, 7, { estado: 'reservado' })] }) })
-    const ida = { ...ITEM(7), tramo: 'ida', trayecto: 'ida_vuelta', vuelo_regreso_id: 8, asientos: [3, 4], asientos_regreso: [7, 8] }
-    const vuelta = { ...ITEM(8), tramo: 'vuelta', asientos: [7, 8] }
+    const ida = { ...ITEM(7), tramo: 'ida', trayecto: 'ida_vuelta', vuelo_regreso_id: 8 }
+    const vuelta = { ...ITEM(8), tramo: 'vuelta' }
     await crearReserva([ida, vuelta])
     const [, cuerpo] = http.post.mock.calls[0]
     expect(cuerpo.items).toHaveLength(1)
-    expect(cuerpo.items[0]).toMatchObject({
-      trayecto: 'completo', vuelo_id: 7, vuelo_regreso_id: 8, asientos: [3, 4], asientos_regreso: [7, 8],
-    })
+    expect(cuerpo.items[0]).toMatchObject({ trayecto: 'completo', vuelo_id: 7, vuelo_regreso_id: 8 })
+    expect(cuerpo.items[0]).not.toHaveProperty('asientos')
+    expect(cuerpo.items[0]).not.toHaveProperty('asientos_regreso')
   })
 })
 

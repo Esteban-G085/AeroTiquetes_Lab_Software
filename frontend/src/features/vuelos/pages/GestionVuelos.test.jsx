@@ -152,7 +152,7 @@ describe('CancelarVueloPage (HU13)', () => {
   it('sin tiquetes vendidos se cancela con confirmación y sin causa obligatoria', async () => {
     api.cancelarVuelo.mockResolvedValue(DEL_BACKEND({ estado: 'cancelado' }))
     await open()
-    expect(screen.getByLabelText(/Causa de fuerza mayor \(opcional\)/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Causa de la cancelación/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Cancelar vuelo' }))
 
     const dialog = await screen.findByRole('dialog')
@@ -162,22 +162,29 @@ describe('CancelarVueloPage (HU13)', () => {
     expect(await screen.findByRole('heading', { name: 'Vuelos programados' })).toBeInTheDocument()
   })
 
-  it('con tiquetes vendidos exige registrar la causa de fuerza mayor antes de confirmar', async () => {
+  it('con tiquetes vendidos exige elegir una causa prefijada antes de confirmar', async () => {
     api.cancelarVuelo.mockResolvedValue(DEL_BACKEND({ estado: 'cancelado' }))
     await open(DEL_BACKEND({ tiquetes_vendidos: 4 }))
     expect(screen.getByText(/4 tiquetes vendidos/)).toBeInTheDocument()
 
     const boton = screen.getByRole('button', { name: 'Cancelar vuelo' })
-    const causa = () => screen.getByLabelText(/Causa de fuerza mayor/)
+    const causa = screen.getByLabelText(/Causa de la cancelación/)
     expect(boton).toBeDisabled()
-    await userEvent.type(causa(), 'Corto')
-    expect(boton).toBeDisabled()
-    await userEvent.type(causa(), ' pero ya está completo')
+    await userEvent.selectOptions(causa, 'clima')
     expect(boton).toBeEnabled()
 
     await userEvent.click(boton)
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Sí, cancelar vuelo' }))
-    expect(api.cancelarVuelo).toHaveBeenCalledWith('12', 'Corto pero ya está completo')
+    expect(api.cancelarVuelo).toHaveBeenCalledWith('12', 'clima')
+  })
+
+  it('solo ofrece las causas prefijadas, sin texto libre', async () => {
+    await open()
+    const causa = screen.getByLabelText(/Causa de la cancelación/)
+    expect(causa.tagName).toBe('SELECT')
+    expect(within(causa).getAllByRole('option').map((o) => o.value)).toEqual([
+      '', 'clima', 'emergencia_medica', 'falla_tecnica', 'huelga', 'restriccion', 'sobreventa',
+    ])
   })
 
   it('un vuelo realizado no se puede cancelar y no ofrece el botón', async () => {
@@ -191,14 +198,14 @@ describe('CancelarVueloPage (HU13)', () => {
   it('si el backend rechaza, muestra el error del motivo y cierra el diálogo', async () => {
     api.cancelarVuelo.mockRejectedValue(new ApiError({
       status: 422, message: 'Los datos enviados no son validos.',
-      fields: { motivo: 'Causa de fuerza mayor obligatoria (mínimo 10 caracteres).' },
+      fields: { motivo: 'Selecciona una causa válida.' },
     }))
     await open(DEL_BACKEND({ tiquetes_vendidos: 4 }))
-    await userEvent.type(screen.getByLabelText(/Causa de fuerza mayor/), 'Cierre del aeropuerto por tormenta')
+    await userEvent.selectOptions(screen.getByLabelText(/Causa de la cancelación/), 'clima')
     await userEvent.click(screen.getByRole('button', { name: 'Cancelar vuelo' }))
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Sí, cancelar vuelo' }))
 
-    expect(await screen.findByText('Causa de fuerza mayor obligatoria (mínimo 10 caracteres).')).toBeInTheDocument()
+    expect(await screen.findByText('Selecciona una causa válida.')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

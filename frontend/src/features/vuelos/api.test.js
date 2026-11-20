@@ -39,11 +39,18 @@ describe('API de administración de vuelos (HU18, HU19)', () => {
     expect(JSON.parse(seen.data)).toEqual(payload)
   })
 
-  it('cancelarVuelo -> PATCH /admin/vuelos/{id}/cancelar', async () => {
+  it('cancelarVuelo -> PATCH /admin/vuelos/{id}/cancelar sin motivo si no hay causa', async () => {
     reply({ id: 9, codigo: 'AT-0009', estado: 'cancelado' }, 200)
     await expect(cancelarVuelo(9)).resolves.toEqual({ id: 9, codigo: 'AT-0009', estado: 'cancelado' })
     expect(seen.method).toBe('patch')
     expect(seen.url).toBe('/admin/vuelos/9/cancelar')
+    expect(JSON.parse(seen.data)).toEqual({})
+  })
+
+  it('cancelarVuelo envía el código de la causa prefijada', async () => {
+    reply({ id: 9, estado: 'cancelado' }, 200)
+    await cancelarVuelo(9, 'falla_tecnica')
+    expect(JSON.parse(seen.data)).toEqual({ motivo: 'falla_tecnica' })
   })
 
   it('listarVuelosRealizados -> GET /admin/vuelos/realizados', async () => {

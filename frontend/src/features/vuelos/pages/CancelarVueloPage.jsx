@@ -2,9 +2,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import { useToast } from '@/components/feedback'
 import { BackLink, PageHeader } from '@/components/layout'
-import { ConfirmDialog } from '@/components/ui'
+import { ConfirmDialog, Select } from '@/components/ui'
 import useVueloAdmin from '../hooks/useVueloAdmin'
-import { MOTIVO_MIN, evaluarCancelacion, validarMotivo } from '../rules'
+import { MOTIVOS_CANCELACION, evaluarCancelacion, validarMotivo } from '../rules'
 import { cancelarVuelo } from '../api'
 import '../vuelos.css'
 
@@ -102,25 +102,20 @@ export default function CancelarVueloPage() {
         {requiereMotivo && (
           <div className="vu-cancelar__aviso">
             <p><strong>{vuelo.tiquetes_vendidos} tiquetes vendidos</strong> en este vuelo.</p>
-            <p>Se requiere registrar una causa de fuerza mayor (mínimo {MOTIVO_MIN} caracteres).</p>
+            <p>Se requiere elegir una de las causas prefijadas de la lista.</p>
           </div>
         )}
 
-        <label className="form-label" htmlFor="vu-motivo">
-          Causa de fuerza mayor {requiereMotivo ? <span aria-hidden="true">*</span> : <span className="text-muted">(opcional)</span>}
-        </label>
-        <textarea
-          id="vu-motivo"
-          className="form-control"
-          aria-invalid={Boolean(errorMotivo)}
-          aria-describedby={errorMotivo ? 'vu-motivo-error' : undefined}
-          placeholder={requiereMotivo ? 'Ej. Cierre del aeropuerto por tormenta' : 'Opcional'}
+        <Select
+          label="Causa de la cancelación"
+          required={requiereMotivo}
+          hint={requiereMotivo ? undefined : 'Opcional cuando el vuelo no tiene tiquetes vendidos.'}
+          placeholder="Selecciona una causa"
+          options={MOTIVOS_CANCELACION}
           value={motivo}
+          error={errorMotivo}
           onChange={(e) => { setMotivo(e.target.value); if (errorMotivo) setErrorMotivo('') }}
-          rows={3}
-          maxLength={300}
         />
-        {errorMotivo && <p id="vu-motivo-error" role="alert" className="text-danger">{errorMotivo}</p>}
 
         <div className="vu-cancelar__actions mt-3">
           <button

@@ -154,17 +154,21 @@ def test_editar_no_acepta_estado_en_el_cuerpo(client, adm):
 # ============================================================================ HU13: cancelar vuelo
 def test_cancelar_un_vuelo_sin_tiquetes_no_pide_motivo(client, adm):
     v = _programar(client, adm)
+    # Opcional no significa texto libre: cualquier causa enviada debe ser un código conocido.
+    assert client.patch(
+        f"/admin/vuelos/{v['id']}/cancelar", json={"motivo": "causa_inexistente"}, headers=adm
+    ).status_code == 422
     resp = client.patch(f"/admin/vuelos/{v['id']}/cancelar", json={}, headers=adm)
     assert resp.status_code == 200 and resp.json()["estado"] == "cancelado"
     assert client.patch(f"/admin/vuelos/{v['id']}/cancelar", headers=adm).status_code == 409  # sin cuerpo y ya cancelado
 
 
-def test_cancelar_con_tiquetes_exige_causa_de_fuerza_mayor(client, db_session, adm, con_saldo):
+def test_cancelar_con_tiquetes_exige_causa_prefijada(client, db_session, adm, con_saldo):
     v = _programar(client, adm)
     vuelo = db_session.get(Vuelo, v["id"])
     assert client.post("/compras", json=_cuerpo(_item(vuelo)), headers=con_saldo).status_code == 201
 
-    for cuerpo in ({}, {"motivo": "corto"}, {"motivo": "   "}):
+    for cuerpo in ({}, {"motivo": "texto libre"}, {"motivo": "   "}, {"motivo": "causa_inexistente"}):
         r = client.patch(f"/admin/vuelos/{v['id']}/cancelar", json=cuerpo, headers=adm)
         assert r.status_code == 422 and "motivo" in r.json()["error"]["fields"], cuerpo
     assert client.patch(f"/admin/vuelos/{v['id']}/cancelar", json={"motivo": "x" * 301}, headers=adm).status_code == 422
@@ -181,7 +185,7 @@ def test_cancelar_reintegra_compras_cancela_reservas_y_devuelve_cupos(client, db
     assert _saldo(client, con_saldo) == antes - compra["total"]
 
     resp = client.patch(
-        f"/admin/vuelos/{v['id']}/cancelar", json={"motivo": "Cierre del aeropuerto por tormenta"}, headers=adm
+        f"/admin/vuelos/{v['id']}/cancelar", json={"motivo": "clima"}, headers=adm
     )
     assert resp.status_code == 200 and resp.json()["estado"] == "cancelado"
 

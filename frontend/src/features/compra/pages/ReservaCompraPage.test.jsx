@@ -1,15 +1,10 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AppRouter from '@/routes/AppRouter'
-import { renderWithProviders, seedSession, VUELO_EJEMPLO } from '@/test/helpers'
-import { obtenerAsientosVuelo } from '@/features/vuelos'
+import { PERFIL_CLIENTE, renderWithProviders, seedSession, VUELO_EJEMPLO } from '@/test/helpers'
 import * as api from '../api'
 
 vi.mock('../api')
-vi.mock('@/features/vuelos/api', async (importOriginal) => ({
-  ...(await importOriginal()),
-  obtenerAsientosVuelo: vi.fn(),
-}))
 
 const VUELTA = {
   ...VUELO_EJEMPLO, id: 13, codigo: 'AT-205', origen: VUELO_EJEMPLO.destino, destino: VUELO_EJEMPLO.origen,
@@ -35,21 +30,10 @@ async function llenarViajero() {
   await type('Teléfono del contacto', '3007654321')
 }
 
-const continuar = () => userEvent.click(screen.getByRole('button', { name: 'Continuar a sillas' }))
-const elegirSilla = (numero = '1A') => userEvent.click(screen.getByRole('button', { name: numero }))
-
-async function completar() {
-  await llenarViajero()
-  await continuar()
-  await elegirSilla()
-}
-
 beforeEach(() => {
+  vi.clearAllMocks()
   seedSession({ rol: 'cliente' }, { nombres: 'Ana' })
   api.obtenerSaldo.mockResolvedValue({ saldo: 1_000_000, moneda: 'COP' })
-  obtenerAsientosVuelo.mockResolvedValue([
-    { id: 101, numero: '1A', fila: 1, columna: 'A', clase: 'economica', estado: 'disponible' },
-  ])
 })
 
 describe('ReservaCompraPage (HU6 / HU7)', () => {
@@ -57,43 +41,35 @@ describe('ReservaCompraPage (HU6 / HU7)', () => {
     await open()
     expect(screen.getByText('Resumen')).toBeInTheDocument()
     expect(screen.getAllByText(/250\.000/).length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: 'Continuar a sillas' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Agregar al carrito' })).toBeEnabled()
   })
 
-  it('pide los 9 datos obligatorios del viajero y no avanza si faltan', async () => {
+  it('pide los 9 datos obligatorios del viajero y no agrega al carrito si faltan', async () => {
     await open()
-    await continuar()
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
     expect(await screen.findAllByText('Este campo es obligatorio.')).not.toHaveLength(0)
     expect(screen.getByText('Selecciona una opción.')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Selección de sillas' })).not.toBeInTheDocument()
-  })
-
-  it('la selección de sillas es un paso separado y se puede volver a viajeros', async () => {
-    await open()
-    expect(screen.queryByRole('heading', { name: 'Selección de sillas' })).not.toBeInTheDocument()
-    expect(screen.getByText('Sillas')).toBeInTheDocument()
-    await llenarViajero()
-    await continuar()
-    expect(await screen.findByRole('heading', { name: 'Selección de sillas' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Volver a viajeros' }))
-    expect(screen.queryByRole('heading', { name: 'Selección de sillas' })).not.toBeInTheDocument()
-  })
-
-  it('en el paso de sillas no agrega al carrito sin elegir una silla', async () => {
-    await open()
-    await llenarViajero()
-    await continuar()
-    await userEvent.click(await screen.findByRole('button', { name: 'Agregar al carrito' }))
-    expect(await screen.findByText(/Selecciona 1 silla más para la ida/)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Mi carrito' })).not.toBeInTheDocument()
+  })
+
+  it('ya no hay paso de selección de sillas: la asignación es al azar al confirmar', async () => {
+    await open()
+    expect(screen.queryByText('Sillas')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Selección de sillas' })).not.toBeInTheDocument()
+    expect(screen.getAllByText(/La silla se asigna al azar al confirmar/).length).toBeGreaterThan(0)
+    await llenarViajero()
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
+    expect(await screen.findByRole('heading', { name: 'Mi carrito' })).toBeInTheDocument()
   })
 
   it('con los datos completos agrega el vuelo al carrito y abre el carrito', async () => {
     await open()
-    await completar()
+    await llenarViajero()
     await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
     expect(await screen.findByRole('heading', { name: 'Mi carrito' })).toBeInTheDocument()
-    expect(JSON.parse(sessionStorage.getItem('at.cart.v2'))[0].vuelo.id).toBe(12)
+    const carrito = JSON.parse(sessionStorage.getItem('at.cart.v3'))
+    expect(carrito[0].vuelo.id).toBe(12)
+    expect(carrito[0]).not.toHaveProperty('asientos')
   })
 
   it('reservar sin pagar crea la reserva y muestra el código por viajero', async () => {
@@ -104,7 +80,7 @@ describe('ReservaCompraPage (HU6 / HU7)', () => {
       }],
     })
     await open()
-    await completar()
+    await llenarViajero()
     await userEvent.click(screen.getByRole('button', { name: 'Reservar sin pagar' }))
     expect(await screen.findByRole('heading', { name: 'Reserva creada' })).toBeInTheDocument()
     expect(screen.getByLabelText('Código de reserva AB12CD')).toBeInTheDocument()
@@ -112,21 +88,60 @@ describe('ReservaCompraPage (HU6 / HU7)', () => {
     expect(api.crearReserva.mock.calls[0][0][0]).toMatchObject({ clase: 'economica' })
   })
 
+  it('autocompleta al viajero 1 cuando su documento coincide con el de la cuenta, aunque esté normalizado', async () => {
+    api.obtenerMisDatos.mockResolvedValue({ ...PERFIL_CLIENTE, telefono: '3001112233' })
+    await open()
+    await type('Documento', '11.111')
+    fireEvent.blur(screen.getByLabelText('Documento'))
+
+    expect(await screen.findByText(/Datos del viajero 1 completados desde tu cuenta/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Documento')).toHaveValue('11111')
+    expect(screen.getByLabelText('Nombres')).toHaveValue('María José')
+    expect(screen.getByLabelText('Apellidos')).toHaveValue('Gómez Ríos')
+    expect(screen.getByLabelText('Fecha de nacimiento')).toHaveValue('1998-05-10')
+    expect(screen.getByLabelText('Género')).toHaveValue('femenino')
+    expect(screen.getByLabelText('Correo electrónico')).toHaveValue('usuario@123.com')
+    expect(screen.getByLabelText('Teléfono')).toHaveValue('3001112233')
+    expect(screen.getByLabelText('Nombre del contacto')).toHaveValue('María José Gómez Ríos')
+  })
+
+  it('autocompleta cualquier viajero, no solo el primero', async () => {
+    api.obtenerMisDatos.mockResolvedValue(PERFIL_CLIENTE)
+    await open()
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar otro viajero' }))
+    const documentos = screen.getAllByLabelText('Documento')
+    await userEvent.type(documentos[1], '11111')
+    fireEvent.blur(documentos[1])
+
+    expect(await screen.findByText(/Datos del viajero 2 completados desde tu cuenta/)).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Nombres')[1]).toHaveValue('María José')
+    expect(screen.getAllByLabelText('Nombres')[0]).toHaveValue('')
+  })
+
+  it('no completa nada si el documento es distinto al de la cuenta', async () => {
+    api.obtenerMisDatos.mockResolvedValue(PERFIL_CLIENTE)
+    await open()
+    await type('Documento', 'ZZ999')
+    fireEvent.blur(screen.getByLabelText('Documento'))
+    expect(screen.queryByText(/completados desde tu cuenta/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Nombres')).toHaveValue('')
+  })
+
   it('un menor de edad no puede ser el único viajero', async () => {
     await open()
     await llenarViajero()
     fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '2015-01-01' } })
-    await continuar()
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
     expect(await screen.findByText(/menor de edad no puede viajar solo/)).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Selección de sillas' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Mi carrito' })).not.toBeInTheDocument()
     expect(api.crearReserva).not.toHaveBeenCalled()
   })
 
   it('si ya tiene 5 tiquetes en el vuelo, avisa y bloquea las acciones', async () => {
     await open({ ...VUELO_EJEMPLO, tiquetes_cliente: 5 })
     expect(screen.getByText(/Ya tienes 5 tiquetes en este vuelo/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continuar a sillas' })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: 'Agregar al carrito' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Agregar al carrito' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Reservar sin pagar' })).toBeDisabled()
   })
 
   it('"Ida y vuelta" ofrece los vuelos de regreso y exige elegir uno', { timeout: 15000 }, async () => {
@@ -135,16 +150,11 @@ describe('ReservaCompraPage (HU6 / HU7)', () => {
     await userEvent.click(screen.getByLabelText('Ida y vuelta'))
     expect(await screen.findByText('AT-205')).toBeInTheDocument()
     await llenarViajero()
-    await continuar()
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
     expect(await screen.findByText(/Elige el vuelo de regreso/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('radio', { name: /AT-205/ }))
-    await continuar()
-    // Al elegir el regreso aparece un segundo mapa: hay que seleccionar una silla por tramo.
-    const sillas = await screen.findAllByRole('button', { name: '1A' })
-    await userEvent.click(sillas[0])
-    await userEvent.click(sillas[1])
     await userEvent.click(screen.getByRole('button', { name: 'Agregar al carrito' }))
-    await waitFor(() => expect(JSON.parse(sessionStorage.getItem('at.cart.v2'))).toHaveLength(2))
+    await waitFor(() => expect(JSON.parse(sessionStorage.getItem('at.cart.v3'))).toHaveLength(2))
   })
 
   it('si el vuelo no existe, lo dice y ofrece buscar otros', async () => {

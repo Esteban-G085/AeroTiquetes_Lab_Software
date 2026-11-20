@@ -35,6 +35,17 @@ class OrdenVuelos(str, Enum):
     DURACION_DESC = "duracion_desc"
 
 
+class MotivoCancelacion(str, Enum):
+    """Causas prefijadas de cancelacion (HU13). Se validan, pero NO se persisten."""
+
+    CLIMA = "clima"
+    EMERGENCIA_MEDICA = "emergencia_medica"
+    FALLA_TECNICA = "falla_tecnica"
+    HUELGA = "huelga"
+    RESTRICCION = "restriccion"
+    SOBREVENTA = "sobreventa"
+
+
 class UsoCiudad(str, Enum):
     NACIONAL = "nacional"
     INTERNACIONAL = "internacional"
@@ -202,8 +213,10 @@ class VueloEditar(BaseModel):
 class VueloCancelar(BaseModel):
     """Cuerpo de `PATCH /admin/vuelos/{id}/cancelar` (HU13).
 
-    `motivo` es opcional cuando no hay tiquetes vendidos, pero obligatorio (minimo 10 caracteres)
-    cuando el vuelo ya tiene reservas o compras activas.
+    `motivo` es opcional cuando no hay tiquetes vendidos, pero obligatorio cuando el vuelo ya tiene
+    reservas o compras activas. Solo se acepta uno de los codigos de `MotivoCancelacion`.
     """
 
-    motivo: str | None = Field(None, max_length=300, description="Causa de fuerza mayor; obligatoria si hay tiquetes vendidos.")
+    motivo: MotivoCancelacion | None = Field(
+        None, description="Codigo de la causa prefijada; obligatorio si hay tiquetes vendidos."
+    )

@@ -138,9 +138,9 @@ se comprueba al consultar). Cada viajero recibe por correo su `codigo_reserva`.
 ```
 
 Todos los datos del viajero son obligatorios. `trayecto: "completo"` es **un solo ítem** con `vuelo_id` y `vuelo_regreso_id`,
-y crea **dos tiquetes por viajero** (`ida` y `regreso`) que comparten el mismo `codigo_reserva`. Envíe `asientos` y
-`asientos_regreso` para elegir silla en cada tramo; el vuelo de regreso debe ir de destino a origen y salir **después** de
-que llegue la ida.
+y crea **dos tiquetes por viajero** (`ida` y `regreso`) que comparten el mismo `codigo_reserva`. **No envíe** `asientos`
+ni `asientos_regreso`: el backend asigna una silla libre al azar por viajero y tramo al confirmar. El vuelo de regreso debe
+ir de destino a origen y salir **después** de que llegue la ida.
 
 ### Reglas de negocio y errores
 
@@ -253,9 +253,9 @@ Añadidas en la integración con el frontend (solo `cliente`); viven en el módu
 
 ## Pendiente / decisiones abiertas
 
-1. ✅ **Sillas (resuelto):** se eligen en el mapa y se envían como IDs de `Asiento` (`asientos` / `asientos_regreso`).
-   `Asiento` es la fuente de verdad y `tiquete.numero_silla` guarda la etiqueta texto (`"12A"`). La asignación automática
-   solo se usa cuando el cliente no eligió silla.
+1. ✅ **Sillas (resuelto):** `Asiento` es la fuente de verdad y `tiquete.numero_silla` guarda la etiqueta texto (`"12A"`).
+   El cliente ya no elige silla ni envía IDs: el backend toma una libre al azar por viajero y tramo (los campos
+   `asientos` / `asientos_regreso` siguen existiendo en la API solo por compatibilidad).
 2. ✅ **Cancelar un vuelo (resuelto):** B2 ya llama a `compras.service.reintegrar_vuelo_cancelado(db, id_vuelo)` al cancelar,
    por lo que se cancelan los tiquetes y se devuelve el dinero a los clientes.
 3. **Tarjetas:** se guardan completas en la base (es simulado); la API solo expone los últimos 4 dígitos. Antes de producción real habría que tokenizarlas.

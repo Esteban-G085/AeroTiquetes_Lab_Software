@@ -110,11 +110,11 @@ describe('evaluarCancelacion (HU21)', () => {
     for (const estado of ['realizado', 'sucedido', 'cancelado']) expect(evaluarCancelacion(vuelo({ estado })).puede).toBe(false)
     expect(evaluarCancelacion(vuelo({ salida_utc: new Date(Date.now() - H).toISOString() })).puede).toBe(false)
   })
-  it('valida el motivo: obligatorio solo cuando hay tiquetes vendidos', () => {
+  it('valida la causa prefijada: obligatoria solo cuando hay tiquetes vendidos', () => {
     expect(validarMotivo('', false)).toBeNull()
-    expect(validarMotivo('', true)).toMatch(/fuerza mayor/)
-    expect(validarMotivo('corto', true)).toMatch(/al menos 10/)
-    expect(validarMotivo('Cierre del aeropuerto por tormenta', true)).toBeNull()
-    expect(validarMotivo('Opcional corto', false)).toBeNull()
+    expect(validarMotivo('', true)).toMatch(/Selecciona la causa/)
+    expect(validarMotivo('texto libre', true)).toBe('Selecciona una causa válida.')
+    expect(validarMotivo('clima', true)).toBeNull()
+    expect(validarMotivo('emergencia_medica', false)).toBeNull()
   })
 })

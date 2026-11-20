@@ -1,4 +1,5 @@
 import { http } from '@/services/http'
+import { normalizarDocumento } from './rules'
 
 // Cliente de API de Compra y reserva (B1-12 … B1-15). Contrato real del backend: docs/CONTRATO_COMPRAS.md
 //
@@ -73,9 +74,9 @@ const viajeroAlBackend = (v) => {
 /**
  * Ítems del carrito (uno por vuelo, con `tramo`) → cuerpo de POST /reservas y POST /compras.
  *
- * El backend modela ida+vuelta como UN item `completo`, con `asientos` para la ida y
- * `asientos_regreso` para la vuelta. El carrito sigue mostrando dos tramos, así que aquí se
- * fusionan: el item de ida lleva la referencia al regreso y el item de vuelta se omite.
+ * El backend modela ida+vuelta como UN item `completo`. El carrito sigue mostrando dos tramos,
+ * así que aquí se fusionan: el item de ida lleva la referencia al regreso y el de vuelta se omite.
+ * NO se envían sillas: el backend asigna una libre al azar por viajero y tramo.
  */
 const toPayload = (items) => {
   const regresos = new Set(items.map((i) => i.vuelo_regreso_id).filter((v) => v != null).map(String))
@@ -89,15 +90,12 @@ const toPayload = (items) => {
       ...(completo ? { vuelo_regreso_id: i.vuelo_regreso_id } : {}),
       clase: i.clase,
       viajeros: i.viajeros.map(viajeroAlBackend),
-      ...(i.asientos?.length ? { asientos: i.asientos } : {}),
-      ...(completo && i.asientos_regreso?.length ? { asientos_regreso: i.asientos_regreso } : {}),
     })
   }
   return { items: objetos }
 }
 
 const CAMPOS_DEL_FORMULARIO = { nombre_contacto: 'contacto_nombre', telefono_contacto: 'contacto_telefono' }
-const normalizarDocumento = (d) => String(d ?? '').replace(/[\s.-]/g, '').toUpperCase()
 
 /**
  * Los errores por campo del backend llegan como `items.0.viajeros.1.correo` o `documento`; las pantallas esperan

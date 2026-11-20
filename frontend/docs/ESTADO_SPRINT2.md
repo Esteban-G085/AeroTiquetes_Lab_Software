@@ -112,6 +112,10 @@ en el selector (no un defecto de la lógica). Luego, probar contra B1/B2 y ampli
 - [x] API real: `GET /admin/vuelos/{id}/asientos` devuelve columnas `A,B,C,D,E,F` y números `1A…1F`. Front en `localhost:5173` y backend en `127.0.0.1:8001`, ambos 200.
 
 ## ✅ Cierre del flujo de sillas (paso extra y revalidación)
+
+> **Actualización posterior:** este flujo de selección ya no está vigente. Se eliminó el paso de sillas y la revalidación
+> del carrito; el backend asigna una silla libre al azar al confirmar compra o reserva. Lo que sigue es el registro
+> histórico de aquella implementación.
 - [x] Bug del pasillo corregido: se insertaba antes de C (`indice === 2`), ahora antes de D (`columnasPresentes.indexOf('D')`). Test con el orden exacto `1A 1B 1C |pasillo| 1D 1E 1F` y la cabecera `A B C Pasillo D E F`.
 - [x] Visibilidad: cabecera fija de columnas, scroll propio en el mapa, contador «125 sillas · económica · filas 1–N», etiqueta «Pasillo» solo en la cabecera y ajuste responsive para que quepan las 6 columnas en móvil.
 - [x] 4 pasos: `PASOS = ['Viajeros', 'Sillas', 'Carrito y pago', 'Confirmación']`. La selección de sillas salió del formulario de viajeros; el carrito usa `current={2}` y la confirmación `current={3}`. El carrito sigue enviando los mismos IDs en `asientos` / `asientos_regreso`: el contrato de la API no cambia.

@@ -14,7 +14,16 @@ export const estadoVuelo = (e) => ESTADOS_VUELO[e] ?? { label: e, tone: 'neutral
 export const DURACION_MIN = 10        // minutos
 export const DURACION_MAX = 1440      // 24 h
 export const PRECIO_MAX = 100_000_000
-export const MOTIVO_MIN = 10          // caracteres, para la causa de fuerza mayor
+
+/** Causas prefijadas de cancelación (HU13). El valor enviado al backend es el código, no la etiqueta. */
+export const MOTIVOS_CANCELACION = [
+  { value: 'clima', label: 'Cierre del aeropuerto por condiciones climáticas' },
+  { value: 'emergencia_medica', label: 'Emergencia médica a bordo' },
+  { value: 'falla_tecnica', label: 'Falla técnica de la aeronave' },
+  { value: 'huelga', label: 'Huelga del personal aeroportuario' },
+  { value: 'restriccion', label: 'Restricción gubernamental o sanitaria' },
+  { value: 'sobreventa', label: 'Sobreventa o reasignación operacional' },
+]
 
 const REQUIRED = 'Este campo es obligatorio.'
 
@@ -131,8 +140,8 @@ export function evaluarEdicion(v, ahora = Date.now()) {
 }
 
 /**
- * ¿Se puede cancelar? (HU21/HU13) Un vuelo programado. Si ya tiene tiquetes vendidos, solo con una causa de fuerza mayor
- * registrada por el administrador (`requiereMotivo`). Un vuelo realizado o ya sucedido no se cancela.
+ * ¿Se puede cancelar? (HU21/HU13) Un vuelo programado. Si ya tiene tiquetes vendidos, solo con una causa
+ * prefijada elegida por el administrador (`requiereMotivo`). Un vuelo realizado o ya sucedido no se cancela.
  *  → { puede, requiereMotivo, motivo }
  */
 export function evaluarCancelacion(v, ahora = Date.now()) {
@@ -145,12 +154,12 @@ export function evaluarCancelacion(v, ahora = Date.now()) {
   return { puede: true, requiereMotivo: Number(v.tiquetes_vendidos ?? 0) > 0, motivo: null }
 }
 
-/** Causa de fuerza mayor: obligatoria (10–300 caracteres) solo cuando el vuelo tiene tiquetes vendidos. */
-export const validarMotivo = (texto, requerido) => {
-  const t = String(texto ?? '').trim()
-  if (!t) return requerido ? 'Registra la causa de fuerza mayor.' : null
-  if (!requerido) return null  // el backend solo la exige con tiquetes vendidos
-  if (t.length < MOTIVO_MIN) return `Escribe al menos ${MOTIVO_MIN} caracteres.`
-  if (t.length > 300) return 'Máximo 300 caracteres.'
-  return null
+/**
+ * Valida la causa prefijada: obligatoria solo cuando el vuelo tiene tiquetes vendidos, y siempre
+ * debe ser uno de los códigos de `MOTIVOS_CANCELACION`. El backend aplica la misma regla.
+ */
+export const validarMotivo = (codigo, requerido) => {
+  const valor = String(codigo ?? '').trim()
+  if (!valor) return requerido ? 'Selecciona la causa de la cancelación.' : null
+  return MOTIVOS_CANCELACION.some((m) => m.value === valor) ? null : 'Selecciona una causa válida.'
 }

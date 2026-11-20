@@ -63,7 +63,7 @@ Mismo cuerpo. Verifica saldo, descuenta de la billetera (precio × viajeros de c
   "total": 500000, "saldo": 1300000, "correo": "ana@correo.com" }
 ```
 Una compra por ítem. `correo` = dirección a la que se enviaron los códigos. **Atómico:** si un ítem falla, no se cobra nada.
-`tiquetes[].numero_silla` es **texto** (`"12A"`). El mapa de selección ya está integrado: se envían IDs de `Asiento` en `asientos` / `asientos_regreso` (uno por viajero y tramo); sin ellos, el backend elige sillas disponibles. Los asientos se generan en configuración **3-3 (A–F)**: A/F ventana, B/E medio, C/D pasillo. El front deriva la posición de `columna`, así que el contrato de la API no cambia. La selección ocurre en su propio paso (`Viajeros → Sillas → Carrito y pago → Confirmación`) y el carrito revalida la disponibilidad antes de pagar; si otra operación tomó la silla, el backend responde `409` con `error.code = asiento_no_disponible`.
+`tiquetes[].numero_silla` es **texto** (`"12A"`). El front **ya no envía** `asientos` ni `asientos_regreso`: el backend asigna una silla libre al azar por viajero y tramo al confirmar la compra o la reserva. Los asientos se generan en configuración **3-3 (A–F)**: A/F ventana, B/E medio, C/D pasillo. El flujo es `Viajeros → Carrito y pago → Confirmación`; el carrito no revalida disponibilidad porque la asignación es atómica en el backend. Los campos `asientos` siguen aceptándose en la API por compatibilidad, pero el cliente actual no los usa.
 
 ### Errores de reserva y compra
 | Regla del SRS / plan §7 | HTTP | `code` sugerido | Notas |
@@ -143,9 +143,9 @@ La billetera se crea con **saldo 0** al primer acceso del cliente (plan §7). El
 * Reglas que el front ya anticipa (y el backend debe imponer): solo si **no ha sucedido, no tiene tiquetes vendidos y no está realizado** (HU20 del documento); respuesta 409 con `message` si no se cumple.
 
 ### ✅ PATCH `/admin/vuelos/{id}/cancelar` — cancelar vuelo (B2-13)
-Cuerpo: `{}` o `{ "motivo": "Cierre del aeropuerto por tormenta" }`.
+Cuerpo: `{}` o `{ "motivo": "clima" }` (código de una causa prefijada; la lista completa está en `CONTRATO_VUELOS.md`).
 * Pasa el vuelo a `cancelado` y **libera los cupos**. No se cancela un vuelo `realizado` ni `sucedido` (409).
-* Con **tiquetes vendidos** solo se permite si hay **causa de fuerza mayor**: el front exige `motivo` (10–300 caracteres) en ese caso; el backend debe validarlo y responder 422/409 con `fields.motivo` o `message`.
+* Con **tiquetes vendidos** solo se permite con una causa prefijada: el front exige `motivo` en ese caso; el backend valida el código y responde 422 con `fields.motivo` si falta o es desconocido. La causa no se persiste.
 * Qué pasa con los tiquetes ya vendidos (reintegro o reubicación) queda fuera del plan del Sprint 2; pregunta 7.
 
 ### ✅ GET `/admin/vuelos/realizados` (B2-14)

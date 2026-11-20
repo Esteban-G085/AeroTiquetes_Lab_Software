@@ -18,9 +18,11 @@ const FIELDS = [
  *  value / errors : objetos { campo: valor } y { campo: mensaje }
  *  onChange(campo, valor)
  *  onUseMine      : si existe, muestra "Usar mis datos" (solo en el primer viajero)
+ *  onDocumentoBlur: si existe, se llama con el documento al salir de ese campo (autocompletado)
  */
-export default function ViajeroFields({ index, value, errors = {}, onChange, onUseMine, usingMine = false, onRemove }) {
+export default function ViajeroFields({ index, value, errors = {}, onChange, onUseMine, usingMine = false, onRemove, onDocumentoBlur }) {
   const set = (e) => onChange(e.target.name, e.target.value)
+  const blur = (e) => { if (e.target.name === 'documento') onDocumentoBlur?.(e.target.value) }
   return (
     <fieldset className="co-viajero">
       <legend className="co-viajero__legend">
@@ -33,7 +35,7 @@ export default function ViajeroFields({ index, value, errors = {}, onChange, onU
 
       <div className="co-viajero__grid">
         {FIELDS.slice(0, 4).map(([name, label, props]) => (
-          <Input key={name} label={label} name={name} value={value[name] ?? ''} onChange={set}
+          <Input key={name} label={label} name={name} value={value[name] ?? ''} onChange={set} onBlur={blur}
             error={errors[name]} {...(name === 'fecha_nacimiento' ? { max: todayISO() } : {})} {...props} />
         ))}
         <Select label="Género" name="genero" placeholder="Selecciona" options={GENEROS}

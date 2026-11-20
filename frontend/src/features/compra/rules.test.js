@@ -1,6 +1,6 @@
 import {
-  MAX_TIQUETES_VUELO, VIAJERO_VACIO, cupoRestante, edadEn, esMayorDeEdad, msRestantesReserva, puedeCancelarCompra,
-  reservaVigente, validarViajero, validarViajeros,
+  MAX_TIQUETES_VUELO, VIAJERO_VACIO, cupoRestante, datosViajeroDesdePerfil, edadEn, esMayorDeEdad,
+  msRestantesReserva, normalizarDocumento, puedeCancelarCompra, reservaVigente, validarViajero, validarViajeros,
 } from './rules'
 
 const SALIDA = '2027-03-12T13:15:00Z'
@@ -19,6 +19,26 @@ describe('edad y mayoría de edad (RF19: 18 años)', () => {
   it('18 años cumplidos el día del vuelo ya es mayor de edad', () => {
     expect(esMayorDeEdad('2009-03-12', SALIDA)).toBe(true)
     expect(esMayorDeEdad('2009-03-13', SALIDA)).toBe(false)
+  })
+})
+
+describe('autocompletado desde el perfil (RF06)', () => {
+  it('normaliza espacios, puntos y guiones al comparar documentos', () => {
+    expect(normalizarDocumento(' 11.111-aa ')).toBe('11111AA')
+  })
+
+  it('copia los datos del perfil y compone el contacto a partir de nombres y apellidos', () => {
+    const perfil = {
+      dni: '1.111.1', nombres: 'María José', apellidos: 'Gómez Ríos', fecha_nacimiento: '1998-05-10',
+      genero: 'femenino', correo: 'usuario@123.com', telefono: '3001112233',
+    }
+    const viajero = datosViajeroDesdePerfil(perfil, { ...VIAJERO_VACIO, contacto_nombre: 'Otro contacto' })
+    expect(viajero).toMatchObject({
+      documento: '11111', nombres: 'María José', apellidos: 'Gómez Ríos', fecha_nacimiento: '1998-05-10',
+      genero: 'femenino', correo: 'usuario@123.com', telefono: '3001112233',
+      contacto_nombre: 'María José Gómez Ríos', contacto_telefono: '3001112233',
+    })
+    expect(datosViajeroDesdePerfil(null, { ...VIAJERO_VACIO })).toEqual({ ...VIAJERO_VACIO })
   })
 })
 
