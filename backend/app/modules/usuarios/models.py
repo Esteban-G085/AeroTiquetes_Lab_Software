@@ -71,10 +71,25 @@ class Usuario(Base, TimestampMixin):
     apellidos: Mapped[str | None] = mapped_column(String(100), nullable=True)
     fecha_nacimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
     lugar_nacimiento: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    # Direccion de facturacion estructurada (HU4): cadena pais -> departamento -> ciudad.
+    # `lugar_nacimiento` sigue guardando solo el nombre del pais, como siempre.
+    id_pais_facturacion: Mapped[int | None] = mapped_column(ForeignKey("pais.id"), nullable=True)
+    id_departamento_facturacion: Mapped[int | None] = mapped_column(
+        ForeignKey("departamento.id"), nullable=True
+    )
+    id_ciudad_facturacion: Mapped[int | None] = mapped_column(ForeignKey("ciudad.id"), nullable=True)
     direccion_facturacion: Mapped[str | None] = mapped_column(String(255), nullable=True)
     genero: Mapped[str | None] = mapped_column(String(30), nullable=True)
     telefono: Mapped[str | None] = mapped_column(String(30), nullable=True)  # opcional (D1/HU4)
     imagen_perfil: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Relaciones declaradas por nombre de clase para evitar el import circular
+    # con vuelos.models (que a su vez importa este modulo por la FK de vuelo).
+    pais_facturacion = relationship("Pais", foreign_keys=[id_pais_facturacion])
+    departamento_facturacion = relationship(
+        "Departamento", foreign_keys=[id_departamento_facturacion]
+    )
+    ciudad_facturacion = relationship("Ciudad", foreign_keys=[id_ciudad_facturacion])
 
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

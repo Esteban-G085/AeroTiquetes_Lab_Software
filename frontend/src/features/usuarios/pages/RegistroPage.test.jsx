@@ -1,7 +1,7 @@
-import { screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AppRouter from '@/routes/AppRouter'
-import { renderWithProviders } from '@/test/helpers'
+import { CATALOGO_UBICACION, renderWithProviders } from '@/test/helpers'
 import { ApiError } from '@/services/apiError'
 import * as api from '../api'
 
@@ -14,7 +14,9 @@ const open = async () => {
 const type = (label, value) => userEvent.type(screen.getByLabelText(label), value)
 
 beforeEach(() => {
-  api.listarPaises.mockResolvedValue([{ id: 1, nombre: 'Colombia' }, { id: 2, nombre: 'Perú' }])
+  api.listarPaises.mockResolvedValue(CATALOGO_UBICACION.paises)
+  api.listarDepartamentos.mockResolvedValue(CATALOGO_UBICACION.departamentos)
+  api.listarCiudadesPorDepartamento.mockResolvedValue(CATALOGO_UBICACION.ciudades)
 })
 
 async function fillValid() {
@@ -24,6 +26,9 @@ async function fillValid() {
   fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '1998-05-10' } })
   await userEvent.selectOptions(screen.getByLabelText('Lugar de nacimiento'), 'Colombia')
   await type('Dirección de facturación', 'Cra 8 # 20-15')
+  await userEvent.selectOptions(screen.getByLabelText('País de facturación'), 'Colombia')
+  await userEvent.selectOptions(screen.getByLabelText('Departamento / región'), 'CO-BDC')
+  await userEvent.selectOptions(screen.getByLabelText('Ciudad de facturación'), 'BOG')
   await userEvent.selectOptions(screen.getByLabelText('Género'), 'femenino')
   await type('Correo', 'maria@correo.com')
   await type('Usuario', 'maria.j')
@@ -32,10 +37,11 @@ async function fillValid() {
 const submit = () => userEvent.click(screen.getByRole('button', { name: 'Registrarse' }))
 
 describe('RegistroPage (HU4)', () => {
-  it('muestra los 10 campos, el selector de foto y la pantalla es completa (sin barra)', async () => {
+  it('muestra los 13 campos, el selector de foto y la pantalla es completa (sin barra)', async () => {
     await open()
     for (const l of ['Nombres', 'Apellidos', 'Documento (DNI)', 'Fecha de nacimiento', 'Lugar de nacimiento',
-      'Dirección de facturación', 'Género', 'Correo', 'Usuario', 'Contraseña']) {
+      'Dirección de facturación', 'País de facturación', 'Departamento / región', 'Ciudad de facturación',
+      'Género', 'Correo', 'Usuario', 'Contraseña']) {
       expect(screen.getByLabelText(l)).toBeInTheDocument()
     }
     expect(screen.getByRole('button', { name: 'Elegir foto de perfil' })).toBeInTheDocument()
@@ -83,7 +89,8 @@ describe('RegistroPage (HU4)', () => {
     expect(api.registrarCliente).toHaveBeenCalledWith(
       expect.objectContaining({
         dni: '1088123456', correo: 'maria@correo.com', genero: 'femenino', password: 'Clave1234',
-        lugar_nacimiento: 'Colombia',
+        lugar_nacimiento: 'Colombia', pais_facturacion: 'Colombia',
+        departamento_facturacion: 'CO-BDC', ciudad_facturacion: 'BOG',
       }),
       null,
     )
@@ -110,6 +117,33 @@ describe('RegistroPage (HU4)', () => {
     await submit()
     expect(await screen.findByText(/No pudimos conectar/)).toBeInTheDocument()
     expect(screen.getByLabelText('Usuario')).toHaveValue('maria.j')
+  })
+
+  it('la facturación tiene selects dependientes y cambiar de país limpia la cadena', async () => {
+    await open()
+    const pais = screen.getByLabelText('País de facturación')
+    const dep = screen.getByLabelText('Departamento / región')
+    const ciu = screen.getByLabelText('Ciudad de facturación')
+
+    expect(within(dep).queryByRole('option', { name: 'Bogotá, D.C.' })).not.toBeInTheDocument()
+    await userEvent.selectOptions(pais, 'Colombia')
+    expect(within(dep).getByRole('option', { name: 'Bogotá, D.C.' })).toBeInTheDocument()
+    expect(within(ciu).queryByRole('option', { name: 'Bogotá' })).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(dep, 'CO-BDC')
+    expect(within(ciu).getByRole('option', { name: 'Bogotá' })).toBeInTheDocument()
+    await userEvent.selectOptions(ciu, 'BOG')
+
+    await userEvent.selectOptions(pais, 'España')
+    expect(dep).toHaveValue('')
+    expect(ciu).toHaveValue('')
+    expect(within(dep).getByRole('option', { name: 'Europa continental' })).toBeInTheDocument()
+    expect(within(dep).queryByRole('option', { name: 'Bogotá, D.C.' })).not.toBeInTheDocument()
+
+    // Un país sin región asignada de fábrica (Perú) también puede inscribirse.
+    await userEvent.selectOptions(pais, 'Perú')
+    expect(within(dep).getByRole('option', { name: 'Europa continental' })).toBeInTheDocument()
+    expect(within(dep).queryByRole('option', { name: 'Risaralda' })).not.toBeInTheDocument()
   })
 
   it('enlaza de vuelta al login', async () => {

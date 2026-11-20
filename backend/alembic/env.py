@@ -16,9 +16,13 @@ from app.core.config import get_settings
 from app.core.db import Base
 
 # Importa los modelos de cada modulo para que Base.metadata los conozca.
+from app.modules.catalogos import models as catalogos_models  # noqa: F401
 from app.modules.usuarios import models as usuarios_models  # noqa: F401
 from app.modules.vuelos import models as vuelos_models  # noqa: F401
+from app.modules.financiero import models as financiero_models  # noqa: F401
+from app.modules.compras import models as compras_models  # noqa: F401
 from app.modules.noticias import models as noticias_models  # noqa: F401
+from app.modules.notificaciones import models as notificaciones_models  # noqa: F401
 
 config = context.config
 

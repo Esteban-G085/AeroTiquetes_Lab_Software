@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Button, ConfirmDialog, Icon, Input, Notice, Skeleton } from '@/components/ui'
+import { useEffect, useState } from 'react'
+import { Button, ConfirmDialog, Icon, Input, Notice, Select, Skeleton } from '@/components/ui'
 import { EmptyState, ErrorState, useToast } from '@/components/feedback'
 import { PageHeader } from '@/components/layout'
 import { maskCard, formatPrice } from '@/utils/format'
@@ -7,32 +7,48 @@ import { useAsyncData } from '@/utils/useAsyncData'
 import {
   actualizarTarjeta, agregarSaldo, crearTarjeta, eliminarTarjeta, listarTarjetas, obtenerBilletera,
 } from '../api'
-import { MONTOS_RAPIDOS, parseMonto, validarMonto } from '../validators'
+import { MONTOS_RAPIDOS, parseMonto, validarMonto, vencimientoVigente } from '../validators'
 import TarjetaVisual from '../components/TarjetaVisual'
 import TarjetaDialog from '../components/TarjetaDialog'
 import '../financiero.css'
 
-function SaldoCard({ billetera, onChanged }) {
+function SaldoCard({ billetera, tarjetas, onChanged }) {
   const toast = useToast()
   const [visible, setVisible] = useState(true)
   const [monto, setMonto] = useState('')
+  const [idTarjeta, setIdTarjeta] = useState('')
   const [error, setError] = useState('')
+  const [tarjetaError, setTarjetaError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Solo se pueden usar tarjetas propias que sigan vigentes; el backend lo vuelve a comprobar.
+  const vigentes = tarjetas.filter((t) => vencimientoVigente(t.vencimiento))
+
+  useEffect(() => {
+    if (!idTarjeta && tarjetas.length) {
+      const primera = tarjetas.find((t) => vencimientoVigente(t.vencimiento))
+      if (primera) setIdTarjeta(String(primera.id))
+    }
+  }, [idTarjeta, tarjetas])
 
   async function submit(e) {
     e.preventDefault()
     const msg = validarMonto(monto)
     setError(msg ?? '')
-    if (msg) return
+    setTarjetaError(idTarjeta ? '' : 'Selecciona una tarjeta registrada y vigente.')
+    if (msg || !idTarjeta) return
+
     setSaving(true)
     try {
       const valor = parseMonto(monto)
-      const r = await agregarSaldo(valor)
+      const r = await agregarSaldo(valor, Number(idTarjeta))
       toast.success(`Agregamos ${formatPrice(valor)} a tu saldo.`)
       setMonto('')
       onChanged(r)
     } catch (err) {
-      setError(err.fields?.monto ?? err.fields?.saldo ?? err.message)
+      const campos = err.fields ?? {}
+      setError(campos.monto ?? campos.saldo ?? (Object.keys(campos).length ? '' : err.message))
+      setTarjetaError(campos.id_tarjeta ?? '')
     } finally {
       setSaving(false)
     }
@@ -56,9 +72,22 @@ function SaldoCard({ billetera, onChanged }) {
             <button key={m} type="button" className="fi-quick__btn" onClick={() => { setMonto(String(m)); setError('') }}>{formatPrice(m)}</button>
           ))}
         </div>
-        <Button type="submit" loading={saving}>Agregar saldo</Button>
+        <Select
+          label="Tarjeta registrada" name="id_tarjeta" value={idTarjeta}
+          onChange={(e) => { setIdTarjeta(e.target.value); setTarjetaError('') }}
+          error={tarjetaError}
+          placeholder={vigentes.length ? 'Selecciona una tarjeta' : 'No tienes tarjetas vigentes'}
+          options={vigentes.map((t) => ({
+            value: String(t.id),
+            label: `${t.marca && t.marca !== 'Otra' ? `${t.marca} · ` : ''}•••• ${t.numero} (vence ${t.vencimiento})`,
+          }))}
+        />
+        {vigentes.length === 0 && (
+          <p className="fi-balance__hint">Registra una tarjeta vigente en «Mis tarjetas» para poder recargar.</p>
+        )}
+        <Button type="submit" loading={saving} disabled={vigentes.length === 0}>Agregar saldo</Button>
       </form>
-      <p className="fi-balance__note">Saldo simulado: no está conectado a ningún banco.</p>
+      <p className="fi-balance__note">Saldo simulado: no está conectado a ningún banco ni se pide el CVV al recargar.</p>
     </section>
   )
 }
@@ -102,7 +131,13 @@ export default function BilleteraPage() {
         <div>
           {bil.status === 'loading' && <Skeleton height="17rem" />}
           {bil.status === 'error' && <ErrorState message={bil.error?.message} onRetry={bil.reload} />}
-          {bil.status === 'ready' && <SaldoCard billetera={bil.data} onChanged={() => bil.refresh()} />}
+          {bil.status === 'ready' && (
+            <SaldoCard
+              billetera={bil.data}
+              tarjetas={tar.status === 'ready' ? tar.data : []}
+              onChanged={() => bil.refresh()}
+            />
+          )}
         </div>
 
         <section className="at-card at-enter-3" aria-labelledby="fi-tarjetas-t">
@@ -123,7 +158,7 @@ export default function BilleteraPage() {
               ))}
             </div>
           )}
-          <Notice tone="info" className="mt-3">Las tarjetas son simuladas: no se validan con ningún banco.</Notice>
+          <Notice tone="info" className="mt-3">Las tarjetas son simuladas: el número se valida con Luhn, pero no se consulta ningún banco.</Notice>
         </section>
       </div>
 

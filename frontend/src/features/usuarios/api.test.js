@@ -2,11 +2,13 @@ import { http } from '@/services/http'
 import {
   registrarCliente, buildPersonalDataFormData, obtenerPerfil, actualizarPerfil, solicitarCambioCorreo, cambiarPassword,
   listarAdministradores, crearAdministrador, eliminarAdministrador, validarInvitacion, completarRegistro,
+  listarDepartamentos, listarCiudadesPorDepartamento,
 } from './api'
 
 const values = {
   dni: ' 123 ', nombres: ' Ana ', apellidos: 'Gómez', fecha_nacimiento: '2000-01-01', lugar_nacimiento: 'Cali',
   direccion_facturacion: 'Calle 1', genero: 'femenino', correo: 'a@b.co', usuario: 'ana_g', password: ' Clave 123 ',
+  pais_facturacion: ' Colombia ', departamento_facturacion: ' CO-BDC ', ciudad_facturacion: ' BOG ',
 }
 
 describe('API de usuarios', () => {
@@ -16,6 +18,9 @@ describe('API de usuarios', () => {
     expect(fd.get('dni')).toBe('123')
     expect(fd.get('nombres')).toBe('Ana')
     expect(fd.get('password')).toBe(' Clave 123 ')
+    expect(fd.get('pais_facturacion')).toBe('Colombia')
+    expect(fd.get('departamento_facturacion')).toBe('CO-BDC')
+    expect(fd.get('ciudad_facturacion')).toBe('BOG')
     expect(fd.get('imagen')).toBeInstanceOf(File)
   })
 
@@ -110,5 +115,27 @@ describe('API de administradores e invitación', () => {
     expect(seen.data.get('token')).toBe('tok123')
     expect(seen.data.get('nombres')).toBe('Ana')
     expect(seen.data.get('password')).toBe(' Clave 1 ')
+  })
+})
+
+describe('catálogo geográfico de facturación', () => {
+  const reply = (data) => {
+    let seen
+    http.defaults.adapter = async (config) => { seen = config; return { status: 200, data, headers: {}, config } }
+    return () => seen
+  }
+
+  it('listarDepartamentos envía el país como query', async () => {
+    const seen = reply([{ id: 1, codigo: 'CO-BDC', nombre: 'Bogotá, D.C.' }])
+    expect(await listarDepartamentos('Colombia')).toHaveLength(1)
+    expect(seen().url).toBe('/catalogos/departamentos')
+    expect(seen().params).toEqual({ pais: 'Colombia' })
+  })
+
+  it('listarCiudadesPorDepartamento envía el código del departamento', async () => {
+    const seen = reply([{ codigo: 'BOG', nombre: 'Bogotá', id_departamento: 1 }])
+    expect(await listarCiudadesPorDepartamento('CO-BDC')).toEqual([{ codigo: 'BOG', nombre: 'Bogotá', id_departamento: 1 }])
+    expect(seen().url).toBe('/catalogos/ciudades')
+    expect(seen().params).toEqual({ departamento: 'CO-BDC' })
   })
 })

@@ -8,6 +8,8 @@ el saldo en negativo. No hacen commit: el que llama controla la transaccion.
 Cada cambio de saldo deja un `MovimientoBilletera` de auditoria interna (no se expone en la
 API: R19/R20 excluyen historial y comprobantes visibles para el cliente).
 """
+from datetime import date
+
 from fastapi import status
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -33,16 +35,57 @@ def obtener_o_crear_billetera(db: Session, id_cliente: int) -> Billetera:
     return billetera
 
 
-def agregar_saldo(db: Session, id_cliente: int, monto: int) -> Billetera:
+def _tarjeta_vigente(tarjeta: Tarjeta) -> bool:
+    """La tarjeta pudo vencer desde que se registro: se revisa de nuevo al recargar."""
+    try:
+        mes, anio = (int(parte) for parte in tarjeta.fecha_expiracion.split("/"))
+        return 1 <= mes <= 12 and (anio, mes) >= (date.today().year, date.today().month)
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
+def agregar_saldo(db: Session, id_cliente: int, monto: int, id_tarjeta: int) -> Billetera:
+    """Recarga condicionada a una tarjeta propia y vigente.
+
+    No se pide el CVV: la tarjeta ya esta registrada y se elige por su id. La
+    tarjeta usada se guarda en el movimiento de auditoria, nunca se expone al
+    cliente mas alla del id que el mismo selecciono.
+    """
     billetera = obtener_o_crear_billetera(db, id_cliente)
-    acreditar(db, billetera.id, monto, tipo=TipoMovimiento.RECARGA, referencia="recarga")
+    tarjeta = db.scalar(
+        select(Tarjeta).where(Tarjeta.id == id_tarjeta, Tarjeta.id_billetera == billetera.id)
+    )
+    if tarjeta is None:
+        raise AppError(
+            "Selecciona una tarjeta registrada a tu nombre.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="tarjeta_recarga_invalida",
+            fields={"id_tarjeta": "Selecciona una tarjeta registrada."},
+        )
+    if not _tarjeta_vigente(tarjeta):
+        raise AppError(
+            "La tarjeta seleccionada esta vencida.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="tarjeta_recarga_invalida",
+            fields={"id_tarjeta": "La tarjeta esta vencida."},
+        )
+
+    acreditar(
+        db, billetera.id, monto,
+        tipo=TipoMovimiento.RECARGA, referencia="recarga", id_tarjeta=tarjeta.id,
+    )
     db.commit()
     db.refresh(billetera)
     return billetera
 
 
 def _registrar_movimiento(
-    db: Session, id_billetera: int, tipo: TipoMovimiento, monto: int, referencia: str | None
+    db: Session,
+    id_billetera: int,
+    tipo: TipoMovimiento,
+    monto: int,
+    referencia: str | None,
+    id_tarjeta: int | None = None,
 ) -> None:
     """Audita el cambio ya aplicado, leyendo el saldo dentro de la misma transaccion."""
     saldo = db.scalar(select(Billetera.saldo).where(Billetera.id == id_billetera))
@@ -53,6 +96,7 @@ def _registrar_movimiento(
             monto=monto,
             saldo_resultante=saldo,
             referencia=referencia,
+            id_tarjeta=id_tarjeta,
         )
     )
 
@@ -64,10 +108,11 @@ def acreditar(
     *,
     tipo: TipoMovimiento = TipoMovimiento.REINTEGRO,
     referencia: str | None = None,
+    id_tarjeta: int | None = None,
 ) -> None:
     db.flush()
     db.execute(update(Billetera).where(Billetera.id == id_billetera).values(saldo=Billetera.saldo + monto))
-    _registrar_movimiento(db, id_billetera, tipo, monto, referencia)
+    _registrar_movimiento(db, id_billetera, tipo, monto, referencia, id_tarjeta=id_tarjeta)
     db.expire_all()
 
 

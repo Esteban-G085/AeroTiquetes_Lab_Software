@@ -10,13 +10,15 @@ import PerfilShell, { PerfilAvatar } from '../components/PerfilShell'
 import PerfilSection from '../components/PerfilSection'
 import CorreoDialog from '../components/CorreoDialog'
 import { usePerfil } from '../hooks/usePerfil'
-import { actualizarPerfil, listarPaises } from '../api'
+import { actualizarPerfil, listarCiudadesPorDepartamento, listarDepartamentos, listarPaises } from '../api'
+import { departamentosParaPais } from '../catalogo'
 import { GENEROS, PROFILE_EDITABLE, todayISO, validateImagen, validateProfile } from '../validators'
 import '../usuarios.css'
 
 const GENERO_LABEL = Object.fromEntries(GENEROS.map((g) => [g.value, g.label]))
 const fullName = (p) => [p?.nombres, p?.apellidos].filter(Boolean).join(' ')
 const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj?.[k] ?? '']))
+const asList = (valor) => (Array.isArray(valor) ? valor : [])
 
 const formatDate = (iso) => {
   if (!iso) return '—'
@@ -64,16 +66,41 @@ export default function PerfilPage() {
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
   const [correoOpen, setCorreoOpen] = useState(false)
-  const [paises, setPaises] = useState([])
+  const [catalogo, setCatalogo] = useState({ paises: [], departamentos: [], ciudades: [] })
+  const { paises, departamentos: todosLosDepartamentos, ciudades: todasLasCiudades } = catalogo
 
-  // El backend solo acepta países del catálogo como lugar de nacimiento.
+  // Catálogo común con el registro: países para nacer y la cadena jerárquica de facturación.
   useEffect(() => {
     let vigente = true
-    listarPaises()
-      .then((lista) => { if (vigente) setPaises(lista) })
-      .catch(() => { if (vigente) setPaises([]) })
+    Promise.all([
+      Promise.resolve(listarPaises()),
+      Promise.resolve(listarDepartamentos()),
+      Promise.resolve(listarCiudadesPorDepartamento()),
+    ])
+      .then(([listaPaises, listaDepartamentos, listaCiudades]) => {
+        if (vigente) {
+          setCatalogo({
+            paises: asList(listaPaises),
+            departamentos: asList(listaDepartamentos),
+            ciudades: asList(listaCiudades),
+          })
+        }
+      })
+      .catch(() => { if (vigente) setCatalogo({ paises: [], departamentos: [], ciudades: [] }) })
     return () => { vigente = false }
   }, [])
+
+  // Selects dependientes de la dirección de facturación. Como en el registro:
+  // Colombia -> departamentos; resto del mundo -> regiones del exterior.
+  const departamentos = useMemo(
+    () => departamentosParaPais(paises, todosLosDepartamentos, values.pais_facturacion),
+    [paises, todosLosDepartamentos, values.pais_facturacion],
+  )
+
+  const ciudades = useMemo(() => {
+    const dep = todosLosDepartamentos.find((d) => d.codigo === values.departamento_facturacion)
+    return dep ? todasLasCiudades.filter((c) => c.id_departamento === dep.id) : []
+  }, [todosLosDepartamentos, todasLasCiudades, values.departamento_facturacion])
 
   const preview = useMemo(() => (imagen ? URL.createObjectURL(imagen) : null), [imagen])
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
@@ -95,8 +122,26 @@ export default function PerfilPage() {
 
   const onChange = (e) => {
     const { name, value } = e.target
-    setValues((v) => ({ ...v, [name]: value }))
-    setErrors((p) => (p[name] ? { ...p, [name]: undefined } : p))
+    setValues((v) => {
+      const next = { ...v, [name]: value }
+      if (name === 'pais_facturacion') {
+        next.departamento_facturacion = ''
+        next.ciudad_facturacion = ''
+      } else if (name === 'departamento_facturacion') {
+        next.ciudad_facturacion = ''
+      }
+      return next
+    })
+    setErrors((p) => {
+      const dependientes = name === 'pais_facturacion'
+        ? ['pais_facturacion', 'departamento_facturacion', 'ciudad_facturacion']
+        : name === 'departamento_facturacion'
+          ? ['departamento_facturacion', 'ciudad_facturacion']
+          : [name]
+      const limpios = { ...p }
+      for (const campo of dependientes) limpios[campo] = undefined
+      return limpios
+    })
   }
 
   const onPickFile = (e) => {
@@ -189,6 +234,18 @@ export default function PerfilPage() {
                   })()} />
                 <Input label="Dirección de facturación" name="direccion_facturacion" value={values.direccion_facturacion}
                   onChange={onChange} error={errors.direccion_facturacion} />
+                <Select label="País de facturación" name="pais_facturacion" value={values.pais_facturacion}
+                  onChange={onChange} error={errors.pais_facturacion} placeholder="Selecciona un país"
+                  options={paises.map((p) => ({ value: p.nombre, label: p.nombre }))} />
+                <Select label="Departamento / región" name="departamento_facturacion"
+                  value={values.departamento_facturacion} onChange={onChange}
+                  error={errors.departamento_facturacion}
+                  placeholder={values.pais_facturacion ? 'Selecciona un departamento' : 'Selecciona primero un país'}
+                  options={departamentos.map((d) => ({ value: d.codigo, label: d.nombre }))} />
+                <Select label="Ciudad de facturación" name="ciudad_facturacion" value={values.ciudad_facturacion}
+                  onChange={onChange} error={errors.ciudad_facturacion}
+                  placeholder={values.departamento_facturacion ? 'Selecciona una ciudad' : 'Selecciona primero un departamento'}
+                  options={ciudades.map((c) => ({ value: c.codigo, label: c.nombre }))} />
                 <Select label="Género" name="genero" value={values.genero} onChange={onChange}
                   error={errors.genero} placeholder="Selecciona" options={GENEROS} />
               </div>
@@ -199,6 +256,13 @@ export default function PerfilPage() {
               <ReadOnlyItem label="Fecha de nacimiento" value={formatDate(perfil.fecha_nacimiento)} />
               <ReadOnlyItem label="Lugar de nacimiento" value={perfil.lugar_nacimiento} />
               <ReadOnlyItem label="Dirección de facturación" value={perfil.direccion_facturacion} />
+              <ReadOnlyItem label="Ubicación de facturación" value={[
+                perfil.pais_facturacion,
+                todosLosDepartamentos.find((d) => d.codigo === perfil.departamento_facturacion)?.nombre
+                  ?? perfil.departamento_facturacion,
+                todasLasCiudades.find((c) => c.codigo === perfil.ciudad_facturacion)?.nombre
+                  ?? perfil.ciudad_facturacion,
+              ].filter(Boolean).join(' · ')} />
               <ReadOnlyItem label="Género" value={GENERO_LABEL[perfil.genero] ?? perfil.genero} />
             </dl>
           )}

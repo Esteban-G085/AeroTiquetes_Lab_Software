@@ -84,6 +84,11 @@ class Ciudad(Base):
     codigo: Mapped[str] = mapped_column(String(3), unique=True, nullable=False)
     nombre: Mapped[str] = mapped_column(String(100), nullable=False)
     pais: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Ubicacion de facturacion: la ciudad pertenece a un departamento (o region del exterior).
+    #nullable=True para no romper las 37 ciudades ya existentes; el backfill las completa.
+    id_departamento: Mapped[int | None] = mapped_column(
+        ForeignKey("departamento.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     zona_horaria: Mapped[str] = mapped_column(String(64), nullable=False)  # IANA, ej. America/Bogota
     es_capital_departamento: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()

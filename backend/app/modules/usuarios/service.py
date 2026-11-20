@@ -24,7 +24,7 @@ from app.core.security import (
     verify_password,
 )
 from app.core.security import TokenError
-from app.modules.catalogos.service import obtener_pais_canonico
+from app.modules.catalogos.service import obtener_pais_canonico, resolver_ubicacion_facturacion
 from app.modules.usuarios.models import (
     Administrador,
     Cliente,
@@ -169,6 +169,13 @@ def registrar_cliente(db: Session, datos: dict, ruta_imagen: str | None) -> Usua
             fields={"lugar_nacimiento": "No es un país válido o no está habilitado."},
         )
 
+    ubicacion = resolver_ubicacion_facturacion(
+        db,
+        datos.get("pais_facturacion"),
+        datos.get("departamento_facturacion"),
+        datos.get("ciudad_facturacion"),
+    )
+
     usuario = Usuario(
         rol=RolNombre.CLIENTE,
         usuario=datos["usuario"],
@@ -179,6 +186,9 @@ def registrar_cliente(db: Session, datos: dict, ruta_imagen: str | None) -> Usua
         apellidos=datos["apellidos"],
         fecha_nacimiento=datos["fecha_nacimiento"],
         lugar_nacimiento=pais.nombre,
+        id_pais_facturacion=ubicacion.id_pais if ubicacion else None,
+        id_departamento_facturacion=ubicacion.id_departamento if ubicacion else None,
+        id_ciudad_facturacion=ubicacion.id_ciudad if ubicacion else None,
         direccion_facturacion=datos["direccion_facturacion"],
         genero=datos["genero"],
         telefono=datos.get("telefono"),
@@ -210,10 +220,23 @@ def _exigir_no_root(usuario: Usuario) -> None:
 
 def actualizar_perfil(db: Session, usuario: Usuario, cambios: dict, ruta_imagen: str | None = None) -> Usuario:
     _exigir_no_root(usuario)
+
+    # La ubicacion de facturacion se valida como cadena completa ANTES de
+    # aplicar cualquier otro cambio, para no dejar el perfil a medias.
+    claves_ubicacion = ("pais_facturacion", "departamento_facturacion", "ciudad_facturacion")
+    if any(cambios.get(campo) for campo in claves_ubicacion):
+        ubicacion = resolver_ubicacion_facturacion(
+            db, *(cambios.get(campo) for campo in claves_ubicacion)
+        )
+        if ubicacion is not None:
+            usuario.id_pais_facturacion = ubicacion.id_pais
+            usuario.id_departamento_facturacion = ubicacion.id_departamento
+            usuario.id_ciudad_facturacion = ubicacion.id_ciudad
+
     # El documento nunca se toca aqui (ya lo garantiza el schema PerfilUpdate,
     # que no expone ese campo); el correo tampoco (ver solicitar_cambio_correo).
     for campo, valor in cambios.items():
-        if valor is None:
+        if valor is None or campo in claves_ubicacion:
             continue
         if campo == "lugar_nacimiento":
             pais = obtener_pais_canonico(db, valor)
@@ -413,7 +436,16 @@ def completar_registro_administrador(db: Session, datos: dict, ruta_imagen: str 
     usuario.nombres = datos["nombres"]
     usuario.apellidos = datos["apellidos"]
     usuario.fecha_nacimiento = datos["fecha_nacimiento"]
+    ubicacion = resolver_ubicacion_facturacion(
+        db,
+        datos.get("pais_facturacion"),
+        datos.get("departamento_facturacion"),
+        datos.get("ciudad_facturacion"),
+    )
     usuario.lugar_nacimiento = pais.nombre
+    usuario.id_pais_facturacion = ubicacion.id_pais if ubicacion else None
+    usuario.id_departamento_facturacion = ubicacion.id_departamento if ubicacion else None
+    usuario.id_ciudad_facturacion = ubicacion.id_ciudad if ubicacion else None
     usuario.direccion_facturacion = datos["direccion_facturacion"]
     usuario.genero = datos["genero"]
     usuario.telefono = datos.get("telefono")

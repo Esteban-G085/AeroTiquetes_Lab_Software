@@ -6,6 +6,7 @@ import {
 const valid = {
   dni: '1088123456', nombres: 'María José', apellidos: "O'Brien-Gómez", fecha_nacimiento: '1998-05-10',
   lugar_nacimiento: 'Pereira', direccion_facturacion: 'Cra 8 # 20-15', genero: 'femenino',
+  pais_facturacion: 'Colombia', departamento_facturacion: 'CO-RIS', ciudad_facturacion: 'PEI',
   correo: 'maria@correo.com', usuario: 'maria.j', password: 'Clave1234',
 }
 
@@ -14,8 +15,8 @@ describe('validatePersonalData', () => {
     expect(validatePersonalData(valid)).toEqual({})
   })
 
-  it('formulario vacío marca los 10 campos', () => {
-    expect(Object.keys(validatePersonalData(EMPTY_PERSONAL_DATA))).toHaveLength(10)
+  it('formulario vacío marca los 13 campos', () => {
+    expect(Object.keys(validatePersonalData(EMPTY_PERSONAL_DATA))).toHaveLength(13)
   })
 
   it('`skip` omite campos ya fijados (ej. correo del administrador)', () => {
@@ -59,6 +60,14 @@ describe('reglas individuales', () => {
     expect(rules.genero('x')).toBeTruthy()
     expect(rules.genero('otro')).toBeNull()
   })
+  it('la dirección de facturación exige país, departamento y ciudad', () => {
+    expect(rules.pais_facturacion('')).toMatch(/país/)
+    expect(rules.pais_facturacion('Colombia')).toBeNull()
+    expect(rules.departamento_facturacion('')).toMatch(/departamento/)
+    expect(rules.departamento_facturacion('CO-BDC')).toBeNull()
+    expect(rules.ciudad_facturacion('')).toMatch(/ciudad/)
+    expect(rules.ciudad_facturacion('BOG')).toBeNull()
+  })
 })
 
 describe('todayISO', () => {
@@ -85,10 +94,13 @@ describe('validateProfile (HU2)', () => {
     const editable = {
       nombres: 'Ana', apellidos: 'Gómez', fecha_nacimiento: '2000-01-01',
       lugar_nacimiento: 'Cali', direccion_facturacion: 'Calle 1', genero: 'otro',
+      pais_facturacion: 'Colombia', departamento_facturacion: 'CO-VAC', ciudad_facturacion: 'CLO',
     }
     expect(validateProfile(editable)).toEqual({})
-    expect(Object.keys(validateProfile({}))).toEqual(
-      ['nombres', 'apellidos', 'fecha_nacimiento', 'lugar_nacimiento', 'direccion_facturacion', 'genero'])
+    expect(Object.keys(validateProfile({}))).toEqual([
+      'nombres', 'apellidos', 'fecha_nacimiento', 'lugar_nacimiento', 'direccion_facturacion',
+      'pais_facturacion', 'departamento_facturacion', 'ciudad_facturacion', 'genero',
+    ])
   })
 })
 

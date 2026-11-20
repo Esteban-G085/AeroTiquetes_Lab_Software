@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.modules.catalogos.seeds import CIUDAD_DEPARTAMENTO, mapa_departamentos
 from app.modules.vuelos.models import Ciudad, EstadoVuelo, GrupoInternacional, Vuelo
 from app.modules.vuelos.service import crear_vuelo, tipo_entre
 
@@ -74,11 +75,26 @@ CIUDADES_SEMILLA: list[dict] = [
 
 
 def asegurar_ciudades(db: Session) -> int:
-    """Inserta las ciudades que falten (por `codigo`). Idempotente. Devuelve cuantas inserto."""
+    """Inserta las ciudades que falten (por `codigo`) y completa su departamento.
+
+    Idempotente. Devuelve cuantas ciudades inserto. El backfill de
+    `id_departamento` tambien cubre las ciudades que ya existian, para que una
+    base anterior a la migracion 018 quede con el catalogo completo al arrancar.
+    """
     existentes = set(db.scalars(select(Ciudad.codigo)))
     nuevas = [Ciudad(**datos) for datos in CIUDADES_SEMILLA if datos["codigo"] not in existentes]
     db.add_all(nuevas)
     db.commit()
+
+    departamentos = mapa_departamentos(db)
+    cambios = 0
+    for ciudad in db.scalars(select(Ciudad)):
+        id_departamento = departamentos.get(CIUDAD_DEPARTAMENTO.get(ciudad.codigo, ""))
+        if id_departamento and ciudad.id_departamento != id_departamento:
+            ciudad.id_departamento = id_departamento
+            cambios += 1
+    if cambios:
+        db.commit()
     return len(nuevas)
 
 

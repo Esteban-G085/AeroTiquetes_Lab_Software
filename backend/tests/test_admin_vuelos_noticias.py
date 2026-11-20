@@ -14,7 +14,7 @@ from app.modules.noticias.models import Noticia
 from app.modules.vuelos import service
 from app.modules.vuelos.models import EstadoVuelo, Vuelo
 from app.modules.vuelos.seeds import sembrar_vuelos_ejemplo
-from tests.conftest import auth_headers, login
+from tests.conftest import auth_headers, login, recargar
 from tests.test_compras import _cuerpo, _cupos, _item, _otro_cliente, _saldo, _token, _viajero
 from tests.test_contrato_vuelos import _agregar_vuelo, token_admin, token_cliente  # noqa: F401
 
@@ -31,7 +31,7 @@ def cab(client):
 
 @pytest.fixture()
 def con_saldo(client, cab):
-    client.post("/mi-billetera/agregar-saldo", json={"monto": 5_000_000}, headers=cab)
+    recargar(client, cab, 5_000_000)
     return cab
 
 

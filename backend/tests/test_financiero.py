@@ -4,10 +4,10 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import select
 
-from app.modules.financiero.models import MovimientoBilletera, TipoMovimiento
+from app.modules.financiero.models import MovimientoBilletera, Tarjeta, TipoMovimiento
 from app.modules.vuelos.models import Vuelo
-from tests.conftest import auth_headers
-from tests.test_compras import _cuerpo, _item, _saldo, _viajero, cab, v1  # noqa: F401
+from tests.conftest import auth_headers, crear_tarjeta_valida, recargar
+from tests.test_compras import _cuerpo, _item, _otro_cliente, _saldo, _viajero, cab, v1  # noqa: F401
 from tests.test_contrato_vuelos import token_admin  # noqa: F401
 
 
@@ -18,7 +18,7 @@ def adm(token_admin):
 
 @pytest.fixture()
 def con_saldo(client, cab):
-    client.post("/mi-billetera/agregar-saldo", json={"monto": 5_000_000}, headers=cab)
+    recargar(client, cab, 5_000_000)
     return cab
 
 
@@ -38,7 +38,8 @@ def _programar(client, adm, *, dias=10):
 
 
 def test_recarga_auditada(client, db_session, cab):
-    resp = client.post("/mi-billetera/agregar-saldo", json={"monto": 250_000}, headers=cab)
+    tarjeta = crear_tarjeta_valida(client, cab)
+    resp = recargar(client, cab, 250_000, id_tarjeta=tarjeta["id"])
     assert resp.status_code == 200 and resp.json()["saldo"] == 250_000
 
     movimientos = _movimientos(db_session)
@@ -47,6 +48,41 @@ def test_recarga_auditada(client, db_session, cab):
     assert mov.tipo == TipoMovimiento.RECARGA
     assert mov.monto == 250_000 and mov.saldo_resultante == 250_000
     assert mov.referencia == "recarga" and mov.creado_en is not None
+    assert mov.id_tarjeta == tarjeta["id"]  # auditoria de la tarjeta usada
+
+
+def test_recarga_exige_tarjeta_registrada(client, db_session, cab):
+    resp = client.post("/mi-billetera/agregar-saldo", json={"monto": 100_000}, headers=cab)
+    assert resp.status_code == 422 and resp.json()["error"]["code"] == "validacion"
+    assert "id_tarjeta" in resp.json()["error"]["fields"]
+
+    resp = client.post(
+        "/mi-billetera/agregar-saldo", json={"monto": 100_000, "id_tarjeta": 9999}, headers=cab
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "tarjeta_recarga_invalida"
+    assert "id_tarjeta" in resp.json()["error"]["fields"]
+    assert _movimientos(db_session) == []
+
+
+def test_recarga_rechaza_tarjeta_ajena(client, db_session, cab):
+    ajena = crear_tarjeta_valida(client, cab, numero="5500000000000004")
+    otro = _otro_cliente(client)
+    resp = recargar(client, otro, 100_000, id_tarjeta=ajena["id"])
+    assert resp.status_code == 422 and resp.json()["error"]["code"] == "tarjeta_recarga_invalida"
+    assert _movimientos(db_session) == []
+
+
+def test_recarga_rechaza_tarjeta_vencida(client, db_session, cab):
+    tarjeta = crear_tarjeta_valida(client, cab, numero="5500000000000004")
+    db_session.rollback()  # la API usa otra sesion
+    fila = db_session.get(Tarjeta, tarjeta["id"])
+    fila.fecha_expiracion = "01/2020"  # vencio despues de registrarla
+    db_session.commit()
+
+    resp = recargar(client, cab, 100_000, id_tarjeta=tarjeta["id"])
+    assert resp.status_code == 422 and resp.json()["error"]["code"] == "tarjeta_recarga_invalida"
+    assert _movimientos(db_session) == []
 
 
 def test_ya_no_se_puede_fijar_el_saldo(client, db_session, cab):

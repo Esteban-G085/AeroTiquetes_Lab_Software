@@ -28,6 +28,23 @@ export async function listarPaises() {
   return Array.isArray(data) ? data : []
 }
 
+/** Departamentos de Colombia y regiones del exterior (facturación, HU4).
+ *  Sin `pais` devuelve los 37; con él filtra por nombre o código ISO2. */
+export async function listarDepartamentos(pais) {
+  const { data } = await http.get('/catalogos/departamentos', {
+    params: pais ? { pais } : {},
+  })
+  return Array.isArray(data) ? data : []
+}
+
+/** Ciudades del catálogo de facturación; con `departamento` (código) filtra el select dependiente. */
+export async function listarCiudadesPorDepartamento(departamento) {
+  const { data } = await http.get('/catalogos/ciudades', {
+    params: departamento ? { departamento } : {},
+  })
+  return Array.isArray(data) ? data : []
+}
+
 /** HU4 — POST /auth/registro */
 export async function registrarCliente(values, imagen) {
   const { data } = await http.post('/auth/registro', buildFormData(values, imagen))

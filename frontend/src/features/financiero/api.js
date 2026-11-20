@@ -17,9 +17,12 @@ export async function obtenerBilletera() {
   return saldoDe(data)
 }
 
-/** POST /mi-billetera/agregar-saldo { monto } → { saldo }  (suma al saldo actual) */
-export async function agregarSaldo(monto) {
-  const { data } = await http.post('/mi-billetera/agregar-saldo', { monto })
+/** Recargar exige elegir una tarjeta registrada y vigente; el backend audita cuál se usó.
+ *  POST /mi-billetera/agregar-saldo { monto, id_tarjeta } → { saldo }. Nunca se envía el CVV. */
+export async function agregarSaldo(monto, idTarjeta) {
+  const { data } = await http.post('/mi-billetera/agregar-saldo', {
+    monto, id_tarjeta: Number(idTarjeta),
+  })
   return saldoDe(data)
 }
 
@@ -33,6 +36,7 @@ const vencimientoCorto = (v) => {
 export const adaptarTarjeta = (t) => ({
   id: t.id,
   tipo: t.tipo,
+  marca: t.marca ?? 'Otra',
   numero: t.ultimos4,
   titular: t.titular,
   vencimiento: vencimientoCorto(t.fecha_expiracion),

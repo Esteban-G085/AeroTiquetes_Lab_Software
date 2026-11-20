@@ -30,10 +30,10 @@ class Settings(BaseSettings):
     ROOT_ID: str = "root"
     ROOT_PASSWORD: str = "root1234"
 
-    # --- Correo (Gmail por defecto; Mailpit solo para pruebas locales) ---
+    # --- Correo (Gmail por defecto) ---
     # Al arrancar la app se usa SMTP real: 587 con STARTTLS (o 465 con
-    # SMTP_USE_SSL=true). Para probar sin internet, apunta SMTP_HOST a
-    # localhost/127.0.0.1/mailpit: la validacion de credenciales se omite.
+    # SMTP_USE_SSL=true). Solo si se configura explicitamente un host local
+    # de prueba se omite la validacion de credenciales.
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: str | None = None
@@ -70,15 +70,15 @@ class Settings(BaseSettings):
 
     @property
     def es_smtp_local(self) -> bool:
-        """Mailpit u otro SMTP de prueba: no requiere credenciales ni TLS."""
+        """SMTP de prueba local: no requiere credenciales ni TLS."""
         host = (self.SMTP_HOST or "").strip().lower().rstrip(".")
         return host in {"localhost", "127.0.0.1", "::1", "mailpit"} or host.startswith("mailpit.")
 
     def validar_correo(self) -> None:
         """Se llama al arrancar: un SMTP remoto (Gmail) necesita credenciales y TLS.
 
-        Con Mailpit/localhost no exige nada para no romper las pruebas ni el
-        desarrollo sin internet. Nunca incluye la contraseña en el mensaje.
+        Con un SMTP local de prueba no exige nada para no romper las pruebas ni
+        el desarrollo sin internet. Nunca incluye la contraseña en el mensaje.
         """
         if self.es_smtp_local:
             return
@@ -93,7 +93,7 @@ class Settings(BaseSettings):
             raise RuntimeError(
                 f"Configuracion de correo incompleta para {self.SMTP_HOST}:{self.SMTP_PORT} "
                 f"(faltan {', '.join(falta)}). Configura una contrasena de aplicacion de Gmail "
-                "en backend/.env o apunta SMTP_HOST a localhost/mailpit para pruebas."
+                "en backend/.env o configura explicitamente un SMTP local de prueba."
             )
 
     def validar_seguridad_produccion(self) -> None:

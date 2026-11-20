@@ -1,7 +1,7 @@
 import { screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AppRouter from '@/routes/AppRouter'
-import { renderWithProviders, seedSession, PERFIL_CLIENTE } from '@/test/helpers'
+import { CATALOGO_UBICACION, renderWithProviders, seedSession, PERFIL_CLIENTE } from '@/test/helpers'
 import { ApiError } from '@/services/apiError'
 import * as api from '../api'
 
@@ -15,7 +15,9 @@ const open = async (route = '/perfil') => {
 beforeEach(() => {
   seedSession({ rol: 'cliente' })
   api.obtenerPerfil.mockResolvedValue(PERFIL_CLIENTE)
-  api.listarPaises.mockResolvedValue([{ id: 1, nombre: 'Colombia' }, { id: 2, nombre: 'Perú' }])
+  api.listarPaises.mockResolvedValue(CATALOGO_UBICACION.paises)
+  api.listarDepartamentos.mockResolvedValue(CATALOGO_UBICACION.departamentos)
+  api.listarCiudadesPorDepartamento.mockResolvedValue(CATALOGO_UBICACION.ciudades)
 })
 
 describe('PerfilPage (HU2) — cliente', () => {
@@ -48,13 +50,44 @@ describe('PerfilPage (HU2) — cliente', () => {
 
     await waitFor(() => expect(api.actualizarPerfil).toHaveBeenCalledTimes(1))
     const [sent, imagen] = api.actualizarPerfil.mock.calls[0]
-    expect(Object.keys(sent).sort()).toEqual(
-      ['apellidos', 'direccion_facturacion', 'fecha_nacimiento', 'genero', 'lugar_nacimiento', 'nombres'])
+    expect(Object.keys(sent).sort()).toEqual([
+      'apellidos', 'ciudad_facturacion', 'departamento_facturacion', 'direccion_facturacion',
+      'fecha_nacimiento', 'genero', 'lugar_nacimiento', 'nombres', 'pais_facturacion',
+    ])
     expect(sent.nombres).toBe('Laura')
     expect(imagen).toBeNull()
     expect(await screen.findByText('Perfil actualizado')).toBeInTheDocument()
     expect(api.obtenerPerfil).toHaveBeenCalledTimes(2) // carga inicial + relectura tras guardar
     expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument()
+  })
+
+  it('la ubicación de facturación se edita con selects dependientes', async () => {
+    api.actualizarPerfil.mockResolvedValue({})
+    await open()
+    expect(screen.getByText('Colombia · Risaralda · Pereira')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Editar mis datos' }))
+
+    const pais = screen.getByLabelText('País de facturación')
+    const dep = screen.getByLabelText('Departamento / región')
+    const ciu = screen.getByLabelText('Ciudad de facturación')
+    expect(pais).toHaveValue('Colombia')
+    expect(dep).toHaveValue('CO-RIS')
+    expect(ciu).toHaveValue('PEI')
+
+    await userEvent.selectOptions(pais, 'España')
+    expect(dep).toHaveValue('')
+    expect(ciu).toHaveValue('')
+    expect(within(dep).getByRole('option', { name: 'Europa continental' })).toBeInTheDocument()
+    expect(within(dep).queryByRole('option', { name: 'Risaralda' })).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(dep, 'EXT-EU')
+    await userEvent.selectOptions(ciu, 'MAD')
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(api.actualizarPerfil).toHaveBeenCalledTimes(1))
+    expect(api.actualizarPerfil.mock.calls[0][0]).toMatchObject({
+      pais_facturacion: 'España', departamento_facturacion: 'EXT-EU', ciudad_facturacion: 'MAD',
+    })
   })
 
   it('validación: no guarda con datos inválidos', async () => {

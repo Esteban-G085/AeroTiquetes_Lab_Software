@@ -11,7 +11,7 @@ from app.modules.compras.models import Compra, EstadoReserva, EstadoTiquete, Res
 from app.modules.financiero.models import Billetera
 from app.modules.vuelos.models import Asiento, Ciudad, ClaseAsiento, EstadoAsiento, TipoVuelo, Vuelo
 from app.modules.vuelos.service import crear_vuelo, tipo_entre
-from tests.conftest import auth_headers, datos_registro_cliente, login
+from tests.conftest import auth_headers, datos_registro_cliente, login, recargar
 
 AHORA = lambda: datetime.now(timezone.utc)  # noqa: E731
 
@@ -67,7 +67,7 @@ def cab(client):
 
 @pytest.fixture()
 def con_saldo(client, cab):
-    client.post("/mi-billetera/agregar-saldo", json={"monto": 5_000_000}, headers=cab)
+    recargar(client, cab, 5_000_000)
     return cab
 
 
@@ -308,7 +308,7 @@ def test_un_viajero_no_puede_estar_dos_veces_en_el_mismo_vuelo_ni_con_otro_compr
     assert resp.status_code == 409 and resp.json()["error"]["code"] == "viajero_duplicado_en_vuelo"
     # otro comprador distinto, mismo viajero (R20: "sea o no el comprador")
     otro = _otro_cliente(client)
-    client.post("/mi-billetera/agregar-saldo", json={"monto": 1_000_000}, headers=otro)
+    recargar(client, otro, 1_000_000)
     resp = client.post("/compras", json=_cuerpo(_item(v1)), headers=otro)
     assert resp.status_code == 409 and resp.json()["error"]["code"] == "viajero_duplicado_en_vuelo"
 
@@ -428,7 +428,7 @@ def test_comprar_descuenta_el_saldo_y_envia_el_codigo(client, db_session, con_sa
 
 
 def test_con_saldo_insuficiente_no_se_compra_nada(client, db_session, cab, v1, correos):
-    client.post("/mi-billetera/agregar-saldo", json={"monto": 100_000}, headers=cab)
+    recargar(client, cab, 100_000)
     antes = len(correos)
     resp = client.post("/compras", json=_cuerpo(_item(v1)), headers=cab)
     assert resp.status_code == 402 and resp.json()["error"]["code"] == "saldo_insuficiente"

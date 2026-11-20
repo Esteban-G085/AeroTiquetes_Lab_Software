@@ -89,9 +89,23 @@ class PerfilResponse(BaseModel):
     fecha_nacimiento: date | None = None
     lugar_nacimiento: str | None = None
     direccion_facturacion: str | None = None
+    # Valores legibles de la cadena guardada como FKs (pais=nombre, otros=codigo).
+    pais_facturacion: str | None = None
+    departamento_facturacion: str | None = None
+    ciudad_facturacion: str | None = None
     genero: str | None = None
     telefono: str | None = None
     imagen_perfil: str | None = None
+
+    @field_validator("pais_facturacion", mode="before")
+    @classmethod
+    def _pais_a_nombre(cls, v):
+        return getattr(v, "nombre", v)
+
+    @field_validator("departamento_facturacion", "ciudad_facturacion", mode="before")
+    @classmethod
+    def _catalogo_a_codigo(cls, v):
+        return getattr(v, "codigo", v)
 
     @computed_field  # nombre que espera el front (CONTRATO_USUARIOS.md)
     @property
@@ -109,6 +123,10 @@ class PerfilUpdate(BaseModel):
     fecha_nacimiento: date | None = None
     lugar_nacimiento: str | None = Field(default=None, min_length=1, max_length=150)
     direccion_facturacion: str | None = Field(default=None, min_length=1, max_length=255)
+    # Se actualizan los tres juntos; el servicio valida que formen una cadena valida.
+    pais_facturacion: str | None = Field(default=None, max_length=150)
+    departamento_facturacion: str | None = Field(default=None, max_length=150)
+    ciudad_facturacion: str | None = Field(default=None, max_length=150)
     genero: str | None = Field(default=None, min_length=1, max_length=30)
     telefono: str | None = Field(default=None, max_length=30)
 
@@ -145,6 +163,10 @@ class RegistroClienteRequest(BaseModel):
     fecha_nacimiento: date
     lugar_nacimiento: str = Field(..., min_length=1, max_length=150)
     direccion_facturacion: str = Field(..., min_length=1, max_length=255)
+    # Cadena pais -> departamento -> ciudad (resuelta a FKs por el servicio).
+    pais_facturacion: str | None = Field(default=None, max_length=150)
+    departamento_facturacion: str | None = Field(default=None, max_length=150)
+    ciudad_facturacion: str | None = Field(default=None, max_length=150)
     genero: str = Field(..., min_length=1, max_length=30)
     correo: EmailStr
     usuario: str = Field(..., min_length=3, max_length=50)
@@ -167,6 +189,10 @@ class CompletarRegistroAdminRequest(BaseModel):
     fecha_nacimiento: date
     lugar_nacimiento: str = Field(..., min_length=1, max_length=150)
     direccion_facturacion: str = Field(..., min_length=1, max_length=255)
+    # Cadena pais -> departamento -> ciudad (resuelta a FKs por el servicio).
+    pais_facturacion: str | None = Field(default=None, max_length=150)
+    departamento_facturacion: str | None = Field(default=None, max_length=150)
+    ciudad_facturacion: str | None = Field(default=None, max_length=150)
     genero: str = Field(..., min_length=1, max_length=30)
     correo: EmailStr
     usuario: str = Field(..., min_length=3, max_length=50)

@@ -6,6 +6,7 @@ No se requiere un servidor Postgres para correr la suite; eso hace que
 `pytest` corra igual en CI que en la maquina de cualquiera del equipo.
 """
 import os
+from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
@@ -79,14 +80,18 @@ def db_path(tmp_path):
 
 @pytest.fixture()
 def engine(db_path):
-    from app.modules.catalogos.seeds import sembrar_paises
+    from app.modules.catalogos.seeds import sembrar_departamentos, sembrar_paises
 
     engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     Base.metadata.create_all(engine)
 
-    # Catalogo de paises: el registro valida `lugar_nacimiento` contra la tabla.
+    # Paises y departamentos: el registro valida `lugar_nacimiento` y la cadena de
+    # facturacion contra ellos. Las CIUDADES las siembra el lifespan de la app al
+    # abrir `client`; sembrarlas aqui romperia los tests de seeds y de modelos de
+    # vuelos, que necesitan partir de una tabla `ciudad` vacia.
     with sessionmaker(bind=engine)() as session:
         sembrar_paises(session)
+        sembrar_departamentos(session)
 
     yield engine
     Base.metadata.drop_all(engine)
@@ -147,6 +152,31 @@ def login(client: TestClient, identificador: str, password: str) -> str:
 
 def auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+def crear_tarjeta_valida(client, headers: dict, **over) -> dict:
+    """Registra una tarjeta que pasa Luhn y esta vigente; devuelve la respuesta."""
+    datos = dict(
+        tipo="credito",
+        numero="4111 1111 1111 1111",
+        titular="Ana Gomez",
+        fecha_expiracion=f"12/{(date.today().year + 3) % 100:02d}",
+        codigo="123",
+    )
+    datos.update(over)
+    resp = client.post("/mi-billetera/tarjetas", json=datos, headers=headers)
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+def recargar(client, headers: dict, monto: int, id_tarjeta: int | None = None):
+    """Recarga usando una tarjeta propia: reutiliza la primera o crea una valida."""
+    if id_tarjeta is None:
+        tarjetas = client.get("/mi-billetera/tarjetas", headers=headers).json()["items"]
+        id_tarjeta = tarjetas[0]["id"] if tarjetas else crear_tarjeta_valida(client, headers)["id"]
+    return client.post(
+        "/mi-billetera/agregar-saldo", json={"monto": monto, "id_tarjeta": id_tarjeta}, headers=headers
+    )
 
 
 def datos_registro_cliente(**overrides) -> dict:

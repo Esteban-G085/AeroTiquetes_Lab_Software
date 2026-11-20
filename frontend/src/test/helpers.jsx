@@ -29,7 +29,27 @@ export function renderWithProviders(ui, { route = '/' } = {}) {
 export const PERFIL_CLIENTE = {
   id: 7, rol: 'cliente', dni: '11111', nombres: 'María José', apellidos: 'Gómez Ríos',
   fecha_nacimiento: '1998-05-10', lugar_nacimiento: 'Pereira', direccion_facturacion: 'Cra 8 # 20-15',
+  pais_facturacion: 'Colombia', departamento_facturacion: 'CO-RIS', ciudad_facturacion: 'PEI',
   genero: 'femenino', correo: 'usuario@123.com', usuario: 'maria.j', imagen_url: null, correo_pendiente: null,
+}
+
+/** Catálogo geográfico de ejemplo para los tests de registro y perfil (HU4). */
+export const CATALOGO_UBICACION = {
+  paises: [
+    { id: 1, codigo_iso2: 'CO', nombre: 'Colombia' },
+    { id: 2, codigo_iso2: 'ES', nombre: 'España' },
+    { id: 3, codigo_iso2: 'PE', nombre: 'Perú' },
+  ],
+  departamentos: [
+    { id: 11, codigo: 'CO-BDC', nombre: 'Bogotá, D.C.', id_pais: 1 },
+    { id: 12, codigo: 'CO-RIS', nombre: 'Risaralda', id_pais: 1 },
+    { id: 13, codigo: 'EXT-EU', nombre: 'Europa continental', id_pais: 2 },
+  ],
+  ciudades: [
+    { codigo: 'BOG', nombre: 'Bogotá', pais: 'Colombia', id_departamento: 11 },
+    { codigo: 'PEI', nombre: 'Pereira', pais: 'Colombia', id_departamento: 12 },
+    { codigo: 'MAD', nombre: 'Madrid', pais: 'España', id_departamento: 13 },
+  ],
 }
 
 /** Vuelo de ejemplo (forma de la API de vuelos, ver docs/CONTRATO_SPRINT2.md §1). */

@@ -13,8 +13,14 @@ export const IMAGE_TYPES = ['image/jpeg', 'image/png']
 
 export const EMPTY_PERSONAL_DATA = Object.freeze({
   dni: '', nombres: '', apellidos: '', fecha_nacimiento: '', lugar_nacimiento: '',
-  direccion_facturacion: '', genero: '', correo: '', usuario: '', password: '',
+  direccion_facturacion: '', pais_facturacion: '', departamento_facturacion: '', ciudad_facturacion: '',
+  genero: '', correo: '', usuario: '', password: '',
 })
+
+/** Cadena país → departamento/región → ciudad que el formulario exige completar. */
+export const UBICACION_FACTURACION = Object.freeze([
+  'pais_facturacion', 'departamento_facturacion', 'ciudad_facturacion',
+])
 
 const REQUIRED = 'Este campo es obligatorio.'
 const text = (v) => String(v ?? '').trim()
@@ -42,6 +48,10 @@ export const rules = {
     : v < '1900-01-01' ? 'Fecha no válida.' : null,
   lugar_nacimiento: (v) => !text(v) ? REQUIRED : text(v).length > 80 ? 'Máximo 80 caracteres.' : null,
   direccion_facturacion: (v) => !text(v) ? REQUIRED : text(v).length > 150 ? 'Máximo 150 caracteres.' : null,
+  // Los tres se envían juntos; el backend valida además que formen una cadena real.
+  pais_facturacion: (v) => !text(v) ? 'Selecciona un país.' : text(v).length > 150 ? 'Máximo 150 caracteres.' : null,
+  departamento_facturacion: (v) => !text(v) ? 'Selecciona un departamento o región.' : null,
+  ciudad_facturacion: (v) => !text(v) ? 'Selecciona una ciudad.' : null,
   genero: (v) => !text(v) ? 'Selecciona una opción.'
     : !GENEROS.some((g) => g.value === v) ? 'Selecciona una opción válida.' : null,
   correo: (v) => !text(v) ? REQUIRED
@@ -77,7 +87,8 @@ export function validateImagen(file) {
 
 /** Campos que el usuario puede editar en su perfil. Documento, usuario y correo NO (el correo va por verificación, D8). */
 export const PROFILE_EDITABLE = [
-  'nombres', 'apellidos', 'fecha_nacimiento', 'lugar_nacimiento', 'direccion_facturacion', 'genero',
+  'nombres', 'apellidos', 'fecha_nacimiento', 'lugar_nacimiento', 'direccion_facturacion',
+  ...UBICACION_FACTURACION, 'genero',
 ]
 
 export function validateProfile(values) {

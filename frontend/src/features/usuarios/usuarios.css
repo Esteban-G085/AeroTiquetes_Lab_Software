@@ -38,6 +38,7 @@
 .us-reg__step { width: 1.6rem; height: 1.6rem; border-radius: 50%; display: inline-grid; place-items: center; background: var(--at-blue-600); color: #fff; font-family: var(--at-font-sans); font-size: var(--at-text-xs); font-weight: 700; }
 .us-reg__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.1rem; }
 .us-reg__cell--direccion_facturacion, .us-reg__cell--password { grid-column: 1 / -1; }
+.us-reg__hint { margin: .35rem 0 0; color: var(--at-muted); font-size: var(--at-text-xs); }
 .us-reg__note { text-align: center; color: var(--at-muted); font-size: var(--at-text-sm); margin: 0 0 1.25rem; }
 .us-reg__actions { display: grid; justify-items: center; gap: .5rem; }
 .us-reg__submit { min-width: 18rem; }

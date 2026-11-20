@@ -33,7 +33,9 @@ def ver_billetera(db: DbSession, cliente=_cliente):
 
 @router.post("/agregar-saldo", response_model=BilleteraOut)
 def agregar_saldo(payload: AgregarSaldoRequest, db: DbSession, cliente=_cliente):
-    return BilleteraOut.model_validate(service.agregar_saldo(db, cliente.id, payload.monto))
+    return BilleteraOut.model_validate(
+        service.agregar_saldo(db, cliente.id, payload.monto, payload.id_tarjeta)
+    )
 
 
 @router.get("/tarjetas", response_model=ListaTarjetas)

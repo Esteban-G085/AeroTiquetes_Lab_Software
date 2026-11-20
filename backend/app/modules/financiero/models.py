@@ -67,6 +67,10 @@ class MovimientoBilletera(Base):
     monto: Mapped[int] = mapped_column(Integer, nullable=False)  # con signo: + recarga/reintegro, - compra
     saldo_resultante: Mapped[int] = mapped_column(Integer, nullable=False)
     referencia: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # Auditoria de la recarga: que tarjeta registrada se uso (nunca se pide el CVV al recargar).
+    id_tarjeta: Mapped[int | None] = mapped_column(
+        ForeignKey("tarjeta.id", ondelete="SET NULL"), nullable=True
+    )
     creado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
         default=lambda: datetime.now(timezone.utc), server_default=text("CURRENT_TIMESTAMP"),

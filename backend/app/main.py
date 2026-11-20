@@ -22,7 +22,7 @@ from app.core.errors import register_error_handlers
 from app.modules.busqueda.router import router as busqueda_router
 from app.modules.catalogos import models as _catalogos_models  # noqa: F401
 from app.modules.catalogos.router import router as catalogos_router
-from app.modules.catalogos.seeds import asegurar_paises
+from app.modules.catalogos.seeds import asegurar_departamentos, asegurar_paises
 from app.modules.compras.router import router as compras_router
 from app.modules.compras.service import vencer_reservas
 from app.modules.financiero import models as _financiero_models  # noqa: F401
@@ -115,8 +115,9 @@ async def lifespan(app: FastAPI):
     # para que correr la app varias veces no duplique nada.
     with session_scope() as db:
         asegurar_root_por_defecto(db)
-        asegurar_ciudades(db)  # catalogo de ciudades (B2-04), idempotente
-        asegurar_paises(db)  # catalogo de paises para lugar de nacimiento
+        asegurar_paises(db)  # paises para lugar de nacimiento y facturacion
+        asegurar_departamentos(db)  # 32 departamentos + 5 regiones del exterior
+        asegurar_ciudades(db)  # ciudades (B2-04) con su departamento ya vinculado
         sincronizar_estados(db)  # programado -> sucedido -> realizado segun la hora (HU14)
         noticias_service.publicar_noticias_faltantes(db)  # noticias de los vuelos que ya existian (HU11)
     _reenviar_correos_pendientes()  # vaciar la bandeja antes de arrancar los ciclos

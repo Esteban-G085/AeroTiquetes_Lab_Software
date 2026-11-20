@@ -1,7 +1,7 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AppRouter from '@/routes/AppRouter'
-import { renderWithProviders } from '@/test/helpers'
+import { CATALOGO_UBICACION, renderWithProviders } from '@/test/helpers'
 import { ApiError } from '@/services/apiError'
 import * as api from '../api'
 
@@ -11,7 +11,9 @@ const open = (route = '/completar-registro?token=tok123') => renderWithProviders
 const type = (label, v) => userEvent.type(screen.getByLabelText(label), v)
 
 beforeEach(() => {
-  api.listarPaises.mockResolvedValue([{ id: 1, nombre: 'Colombia' }, { id: 2, nombre: 'Perú' }])
+  api.listarPaises.mockResolvedValue(CATALOGO_UBICACION.paises)
+  api.listarDepartamentos.mockResolvedValue(CATALOGO_UBICACION.departamentos)
+  api.listarCiudadesPorDepartamento.mockResolvedValue(CATALOGO_UBICACION.ciudades)
 })
 
 describe('CompletarRegistroPage (HU23 / D6)', () => {
@@ -23,7 +25,9 @@ describe('CompletarRegistroPage (HU23 / D6)', () => {
     expect(screen.getByLabelText('Correo')).toHaveValue('camila@123.com')
     expect(screen.getByLabelText('Correo')).toHaveAttribute('readonly')
     expect(screen.getByLabelText('Nombres')).toHaveValue('Camila')
-    for (const l of ['Apellidos', 'Documento (DNI)', 'Fecha de nacimiento', 'Lugar de nacimiento', 'Dirección de facturación', 'Género', 'Usuario', 'Contraseña']) {
+    for (const l of ['Apellidos', 'Documento (DNI)', 'Fecha de nacimiento', 'Lugar de nacimiento',
+      'Dirección de facturación', 'País de facturación', 'Departamento / región', 'Ciudad de facturación',
+      'Género', 'Usuario', 'Contraseña']) {
       expect(screen.getByLabelText(l)).toBeInTheDocument()
     }
   })
@@ -47,6 +51,9 @@ describe('CompletarRegistroPage (HU23 / D6)', () => {
     fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '1995-03-02' } })
     await userEvent.selectOptions(screen.getByLabelText('Lugar de nacimiento'), 'Colombia')
     await type('Dirección de facturación', 'Cra 8 # 20-15')
+    await userEvent.selectOptions(screen.getByLabelText('País de facturación'), 'Colombia')
+    await userEvent.selectOptions(screen.getByLabelText('Departamento / región'), 'CO-BDC')
+    await userEvent.selectOptions(screen.getByLabelText('Ciudad de facturación'), 'BOG')
     await userEvent.selectOptions(screen.getByLabelText('Género'), 'femenino')
     await type('Usuario', 'camila.t')
     await type('Contraseña', 'Clave1234')
@@ -55,7 +62,10 @@ describe('CompletarRegistroPage (HU23 / D6)', () => {
     expect(await screen.findByRole('heading', { name: 'Iniciar sesión' })).toBeInTheDocument()
     expect(screen.getByText(/Registro completado/)).toBeInTheDocument()
     expect(api.completarRegistro).toHaveBeenCalledWith(
-      'tok123', expect.objectContaining({ correo: 'camila@123.com', nombres: 'Camila', apellidos: 'Torres', usuario: 'camila.t' }), null)
+      'tok123', expect.objectContaining({
+        correo: 'camila@123.com', nombres: 'Camila', apellidos: 'Torres', usuario: 'camila.t',
+        pais_facturacion: 'Colombia', departamento_facturacion: 'CO-BDC', ciudad_facturacion: 'BOG',
+      }), null)
   })
 
   it.each([404, 410, 400])('enlace vencido o ya usado (%i): explica qué hacer y no muestra el formulario', async (status) => {
@@ -92,6 +102,9 @@ describe('CompletarRegistroPage (HU23 / D6)', () => {
     fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '1995-03-02' } })
     await userEvent.selectOptions(screen.getByLabelText('Lugar de nacimiento'), 'Colombia')
     await type('Dirección de facturación', 'Cra 8')
+    await userEvent.selectOptions(screen.getByLabelText('País de facturación'), 'Colombia')
+    await userEvent.selectOptions(screen.getByLabelText('Departamento / región'), 'CO-RIS')
+    await userEvent.selectOptions(screen.getByLabelText('Ciudad de facturación'), 'PEI')
     await userEvent.selectOptions(screen.getByLabelText('Género'), 'otro')
     await type('Usuario', 'camila.t')
     await type('Contraseña', 'Clave1234')

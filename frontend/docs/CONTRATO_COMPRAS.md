@@ -18,7 +18,7 @@ y sin token **401** (`no_autenticado`). Los vuelos se obtienen con el contrato d
   `GET /vuelos/{id}`) y se ocupa la silla elegida (o una disponible si no se indicó). `Asiento` es la fuente de verdad;
   `tiquete.numero_silla` es texto (`"12A"`, no un entero). El mapa visual de selección ya está integrado.
 * **Correos:** los códigos de reserva y los avisos de reintegro se envían **en segundo plano** al correo de cada viajero
-  (en desarrollo se ven en Mailpit, http://localhost:8025). El front no tiene que hacer nada.
+  por **Gmail SMTP** (`smtp.gmail.com:587`, configurado en `backend/.env`). El front no tiene que hacer nada.
 
 ---
 
@@ -31,9 +31,15 @@ queda auditado, sin exponerse en la API.
 | Método | Ruta | Cuerpo | Respuesta |
 |---|---|---|---|
 | `GET` | `/mi-billetera` | — | `200 { "saldo": 250000 }` |
-| `POST` | `/mi-billetera/agregar-saldo` | `{ "monto": 500000 }` | `200 { "saldo": 750000 }` (suma al saldo actual) |
+| `POST` | `/mi-billetera/agregar-saldo` | `{ "monto": 500000, "id_tarjeta": 4 }` | `200 { "saldo": 750000 }` (suma al saldo actual) |
 
-Validaciones: `monto` entero `> 0` y hasta 1.000.000.000 → `422 validacion` con `fields`. `PUT /mi-billetera` ya no existe (405).
+Validaciones: `monto` entero `> 0` y hasta **100.000.000** → `422 validacion` con `fields`.
+`id_tarjeta` es **obligatorio**: debe ser una tarjeta propia y vigente del cliente; de lo contrario
+**422 `tarjeta_recarga_invalida`** con `fields.id_tarjeta` ("Selecciona una tarjeta registrada." /
+"La tarjeta esta vencida."). El backend audita qué tarjeta se usó (`MovimientoBilletera.id_tarjeta`).
+**Nunca se envía el CVV** (ni ningún dato del plástico) al recargar. El front deshabilita el botón
+cuando el cliente no tiene tarjetas vigentes y preselecciona la primera. `PUT /mi-billetera` ya no
+existe (405).
 
 ### Tarjetas (crédito o débito)
 
@@ -47,15 +53,20 @@ Validaciones: `monto` entero `> 0` y hasta 1.000.000.000 → `422 validacion` co
 ```jsonc
 // POST /mi-billetera/tarjetas
 { "tipo": "credito",                   // "credito" | "debito"
-  "numero": "4111 1111 1111 1234",     // 13 a 19 dígitos; se aceptan espacios y guiones
+  "numero": "4111 1111 1111 1111",     // 13 a 19 dígitos; se aceptan espacios y guiones; DEBE pasar Luhn
   "titular": "Ana Gómez",
   "fecha_expiracion": "12/30",         // MM/AA o MM/AAAA; no puede estar vencida. Se devuelve como "12/2030"
-  "codigo": "123" }                    // 3 o 4 dígitos
+  "codigo": "123" }                    // 3 o 4 dígitos; se pide al registrar/editar, NUNCA al recargar
 
 // Tarjeta (respuesta)  — el número completo y el código NUNCA se devuelven
-{ "id": 4, "tipo": "credito", "titular": "Ana Gómez", "fecha_expiracion": "12/2030",
-  "ultimos4": "1234", "numero_enmascarado": "**** **** **** 1234" }
+{ "id": 4, "tipo": "credito", "marca": "Visa", "titular": "Ana Gómez", "fecha_expiracion": "12/2030",
+  "ultimos4": "1111", "numero_enmascarado": "**** **** **** 1111" }
 ```
+
+`marca` se **deriva del número** al leer (Visa, Mastercard, American Express, Discover, Otra): no se
+guarda en una columna propia ni se pide al usuario. El número se valida con el algoritmo de Luhn al
+dar de alta o editar; `4111 1111 1111 1111` y `5500000000000004` son válidos, `4111 1111 1111 1234`
+no. El front replica la comprobación para dar aviso inmediato; el backend es la autoridad.
 
 Errores: `409 tarjeta_duplicada` (mismo número ya registrado, con `fields.numero`), `404 tarjeta_no_encontrada`,
 `422 validacion` (número, código o vencimiento inválidos). Una tarjeta de otro cliente responde 404, nunca 403.
@@ -224,7 +235,7 @@ Añadidas en la integración con el frontend (solo `cliente`); viven en el módu
 |---|---|
 | Detalle de vuelo → "Reservar" / "Comprar" | Formulario de viajeros → `POST /reservas` o `POST /compras` con `items` |
 | Carrito (varios vuelos) | El front acumula los `items` y llama a `POST /compras` una sola vez |
-| Mi billetera | `GET /mi-billetera`, `POST …/agregar-saldo` (solo recargas), CRUD de `/mi-billetera/tarjetas` |
+| Mi billetera | `GET /mi-billetera`, `GET /mi-billetera/tarjetas` (elegir una vigente), `POST …/agregar-saldo { monto, id_tarjeta }` (solo recargas), CRUD de `/mi-billetera/tarjetas` |
 | Mis viajes / historial | `GET /mi-historial` (con `tipo` para las pestañas) |
 | Cancelar | `POST /compras/{id}/cancelar` (con o sin `tiquete_ids`) · `POST /reservas/{id}/cancelar` |
 | Pagar reserva pendiente | `POST /reservas/{id}/comprar` |
@@ -238,7 +249,7 @@ Añadidas en la integración con el frontend (solo `cliente`); viven en el módu
 | 402 | `saldo_insuficiente` |
 | 404 | `vuelo_no_encontrado` · `reserva_no_encontrada` · `compra_no_encontrada` · `tiquete_no_encontrado` · `tarjeta_no_encontrada` |
 | 409 | `vuelo_no_disponible` · `sin_cupos` · `viajero_duplicado_en_vuelo` · `limite_tiquetes_vuelo` · `compra_y_reserva_simultaneas` · `reserva_vencida` · `reserva_cancelada` · `reserva_ya_comprada` · `compra_ya_cancelada` · `fuera_de_plazo_cancelacion` · `tarjeta_duplicada` · `conflicto_concurrencia` |
-| 422 | `validacion` · `trayecto_invalido` · `menor_viajero_unico` · `viajero_duplicado` |
+| 422 | `validacion` · `trayecto_invalido` · `menor_viajero_unico` · `viajero_duplicado` · `tarjeta_recarga_invalida` |
 
 ## Pendiente / decisiones abiertas
 

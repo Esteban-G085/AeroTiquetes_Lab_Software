@@ -1,4 +1,6 @@
-import { parseMonto, validarMonto, validarTarjeta, vencimientoVigente, normalizarVencimiento } from './validators'
+import {
+  parseMonto, validarMonto, validarTarjeta, vencimientoVigente, normalizarVencimiento, validarLuhn,
+} from './validators'
 
 const AHORA = new Date('2026-11-06T12:00:00')
 const tarjeta = (extra = {}) => ({ tipo: 'credito', numero: '4111 1111 1111 1111', titular: 'María José Gómez', vencimiento: '12/29', codigo: '123', ...extra })
@@ -30,6 +32,13 @@ describe('tarjetas (SRS 3.2.6 RF04–RF08)', () => {
     expect(e.numero).toBeTruthy()
     expect(e.codigo).toBeTruthy()
     expect(e.tipo).toBeTruthy()
+  })
+  it('el número debe pasar la verificación de Luhn', () => {
+    expect(validarLuhn('4111 1111 1111 1111')).toBe(true)
+    expect(validarLuhn('5500000000000004')).toBe(true)
+    expect(validarLuhn('4111111111111234')).toBe(false)
+    expect(validarLuhn('1234')).toBe(false)
+    expect(validarTarjeta(tarjeta({ numero: '4111111111111234' }), AHORA).numero).toMatch(/Luhn/)
   })
   it('el mes de vencimiento actual todavía es válido; uno anterior no', () => {
     expect(vencimientoVigente('11/26', AHORA)).toBe(true)

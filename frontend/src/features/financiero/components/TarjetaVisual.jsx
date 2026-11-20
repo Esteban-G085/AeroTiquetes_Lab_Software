@@ -7,7 +7,7 @@ export default function TarjetaVisual({ tarjeta, onEdit, onDelete }) {
   return (
     <article className={`fi-card fi-card--${tarjeta.tipo}`} aria-label={`Tarjeta ${tipoLabel(tarjeta.tipo)} ${maskCard(tarjeta.numero)}`}>
       <header className="fi-card__top">
-        <span className="fi-card__type">{tipoLabel(tarjeta.tipo)}</span>
+        <span className="fi-card__type">{tarjeta.marca && tarjeta.marca !== 'Otra' ? `${tarjeta.marca} · ` : ''}{tipoLabel(tarjeta.tipo)}</span>
         <Icon name="card" size={26} />
       </header>
       <p className="fi-card__num at-mono">{maskCard(tarjeta.numero)}</p>

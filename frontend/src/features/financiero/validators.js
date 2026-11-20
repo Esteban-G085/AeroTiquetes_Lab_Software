@@ -17,6 +17,23 @@ const NAME_RE = /^[\p{L}][\p{L}\s'’.-]*$/u
 /** "1234 5678-9012" → "123456789012" */
 export const soloDigitos = (v) => String(v ?? '').replace(/\D/g, '')
 
+/** Algoritmo de Luhn (mod 10): espejo de la validación del backend al dar de alta la tarjeta. */
+export function validarLuhn(valor) {
+  const digitos = soloDigitos(valor)
+  if (!/^\d{13,19}$/.test(digitos)) return false
+  let total = 0
+  const duplicarPrimero = digitos.length % 2 === 0
+  for (let i = 0; i < digitos.length; i += 1) {
+    let n = Number(digitos[i])
+    if ((i % 2 === 0) === duplicarPrimero) {
+      n *= 2
+      if (n > 9) n -= 9
+    }
+    total += n
+  }
+  return total % 10 === 0
+}
+
 /** Monto escrito por la persona ("1.500.000" o "1500000") → entero, o NaN. */
 export const parseMonto = (v) => {
   const d = soloDigitos(v)
@@ -45,7 +62,13 @@ export function vencimientoVigente(v, ahora = new Date()) {
 
 const campos = {
   tipo: (v) => (!text(v) ? 'Selecciona una opción.' : TIPOS_TARJETA.some((t) => t.value === v) ? null : 'Selecciona una opción válida.'),
-  numero: (v) => (!text(v) ? REQUIRED : !/^[\d\s-]+$/.test(text(v)) || soloDigitos(v).length < 13 || soloDigitos(v).length > 19 ? 'Entre 13 y 19 dígitos.' : null),
+  numero: (v) => {
+    if (!text(v)) return REQUIRED
+    if (!/^[\d\s-]+$/.test(text(v)) || soloDigitos(v).length < 13 || soloDigitos(v).length > 19) {
+      return 'Entre 13 y 19 dígitos.'
+    }
+    return validarLuhn(v) ? null : 'El número de tarjeta no es válido (verificación de Luhn).'
+  },
   titular: (v) => (!text(v) ? REQUIRED : !NAME_RE.test(text(v)) || text(v).length > 60 ? 'Usa solo letras (máximo 60).' : null),
   vencimiento: (v, ahora) => (!text(v) ? REQUIRED : !/^\d{2}\s*\/?\s*\d{2}$/.test(text(v)) ? 'Usa el formato MM/AA.' : !vencimientoVigente(v, ahora) ? 'La tarjeta está vencida o la fecha no es válida.' : null),
   codigo: (v) => (!text(v) ? REQUIRED : !/^\d{3,4}$/.test(text(v)) ? 'Son 3 o 4 dígitos.' : null),

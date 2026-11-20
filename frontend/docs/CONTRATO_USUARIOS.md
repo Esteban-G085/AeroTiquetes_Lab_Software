@@ -36,7 +36,10 @@ Respuesta 200 (**supuesto actual**):
 | `nombres`, `apellidos` | letras (tildes, espacios, `'`, `-`), máx. 60 |
 | `fecha_nacimiento` | `YYYY-MM-DD`, no futura, ≥ 1900-01-01 |
 | `lugar_nacimiento` | **un país del catálogo** `GET /catalogos/paises` (no texto libre). Se guarda el nombre canónico |
-| `direccion_facturacion` | máx. 150 |
+| `direccion_facturacion` | máx. 150 (calle y número) |
+| `pais_facturacion` | **nombre canónico** del país, de `GET /catalogos/paises` |
+| `departamento_facturacion` | **código** del departamento/región, de `GET /catalogos/departamentos?pais=…` (p. ej. `BOG`→`CO-BDC`, exterior→`EXT-EU`) |
+| `ciudad_facturacion` | **código** de la ciudad, de `GET /catalogos/ciudades?departamento=…` (p. ej. `BOG`, `MAD`) |
 | `genero` | `femenino` \| `masculino` \| `otro` ← **confirmar el enum** |
 | `correo` | email válido, máx. 120 |
 | `usuario` | 4–20, `[A-Za-z0-9._]` |
@@ -59,11 +62,40 @@ Público (sin token). Devuelve solo países activos, ordenados:
   Un valor fuera del catálogo → **422** `error.code = "lugar_nacimiento_invalido"` con `fields.lugar_nacimiento`.
 * Se usa en registro (HU4), completar registro de administrador (HU23) y edición de perfil (HU2).
 
+## ✅ GET `/catalogos/departamentos` y `/catalogos/ciudades` — facturación (`features/usuarios/api.js`)
+Públicos (sin token). Devuelven arreglos planos, ordenados, con `activo = true`:
+
+```json
+GET /catalogos/departamentos?pais=Colombia
+[ { "id": 14, "codigo": "CO-BDC", "nombre": "Bogotá, D.C.", "id_pais": 18, "activo": true } ]
+
+GET /catalogos/ciudades?departamento=CO-BDC
+[ { "codigo": "BOG", "nombre": "Bogotá", "pais": "Colombia", "id_departamento": 14 } ]
+```
+
+* Catálogo: **32 departamentos de Colombia + 5 regiones del exterior** (`EXT-EU`, `EXT-GB`,
+  `EXT-NA`, `EXT-SA`, `EXT-AP`). Colombia ofrece sus 32 departamentos; **cualquier otro país
+  habilitado ofrece las 5 regiones**, así se puede inscribir a alguien que viva fuera de Colombia
+  aunque su país no tenga una región asignada de fábrica (p. ej. México o Perú).
+* `pais` acepta el **nombre** o el código ISO2; `departamento` acepta el **código**. Sin filtro
+  devuelven el catálogo completo (37 departamentos / 37 ciudades). `?pais=México` devuelve las
+  5 regiones `EXT-*`; `?pais=Colombia` devuelve los 32 departamentos.
+* El front carga los tres catálogos en paralelo y filtra los selects en pantalla: país →
+  departamento/región → ciudad. Cambiar de país o de departamento limpia los niveles inferiores.
+* Envío: `pais_facturacion` = nombre, `departamento_facturacion` y `ciudad_facturacion` = códigos.
+  El backend resuelve las FKs y guarda los tres códigos canónicos en el perfil.
+* Los tres campos son **opcionales en la API** (compatibilidad con cuentas antiguas), pero si se
+  envía al menos uno se exigen los tres y se valida la cadena completa → **422
+  `ubicacion_facturacion_invalida`** con `fields` indicando el nivel roto. El **front sí los exige**
+  en registro, completar registro y edición de perfil.
+* Se usan en los mismos tres flujos que `/catalogos/paises`.
+
 ## ✅ GET `/me` — HU2 (`features/usuarios/api.js`)
 Autenticado. Respuesta (**supuesto actual**):
 ```json
 { "id": 7, "rol": "cliente", "dni": "11111", "nombres": "María José", "apellidos": "Gómez Ríos",
-  "fecha_nacimiento": "1998-05-10", "lugar_nacimiento": "Pereira", "direccion_facturacion": "Cra 8 # 20-15",
+  "fecha_nacimiento": "1998-05-10", "lugar_nacimiento": "Colombia", "direccion_facturacion": "Cra 8 # 20-15",
+  "pais_facturacion": "Colombia", "departamento_facturacion": "CO-RIS", "ciudad_facturacion": "PEI",
   "genero": "femenino", "correo": "usuario@123.com", "usuario": "maria.j",
   "imagen_url": "/uploads/7.png", "correo_pendiente": null }
 ```
@@ -76,7 +108,7 @@ Dos usos sobre la misma ruta; todos los campos son opcionales:
 
 | Uso | Campos enviados |
 |---|---|
-| Editar datos | `nombres, apellidos, fecha_nacimiento, lugar_nacimiento, direccion_facturacion, genero` + `imagen` opcional |
+| Editar datos | `nombres, apellidos, fecha_nacimiento, lugar_nacimiento, direccion_facturacion, pais_facturacion, departamento_facturacion, ciudad_facturacion, genero` + `imagen` opcional |
 | Cambiar correo (D8) | `correo_nuevo` + `password_actual` |
 
 * **Nunca** se envían `dni`, `usuario` ni `correo` en la edición de datos (el documento es inmutable, R14).

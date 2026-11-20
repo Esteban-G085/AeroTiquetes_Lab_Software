@@ -10,7 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validat
 from app.modules.financiero.models import TipoTarjeta
 
 # Limite de seguridad para un saldo/monto simulado (evita desbordes y errores de digitacion).
-MONTO_MAXIMO = 1_000_000_000
+# Igual que el tope que ya usa el formulario de la billetera.
+MONTO_MAXIMO = 100_000_000
 
 
 class BilleteraOut(BaseModel):
@@ -21,10 +22,49 @@ class BilleteraOut(BaseModel):
 
 class AgregarSaldoRequest(BaseModel):
     monto: int = Field(gt=0, le=MONTO_MAXIMO, description="COP a sumar al saldo actual.")
+    id_tarjeta: int = Field(
+        gt=0, description="Id de una tarjeta registrada y vigente del cliente (sin CVV)."
+    )
 
 
 def _solo_digitos(v: str) -> str:
     return re.sub(r"[\s-]", "", v)
+
+
+def validar_luhn(numero: str) -> bool:
+    """Algoritmo de Luhn (mod 10): valida el numero al dar de alta la tarjeta."""
+    digitos = [int(c) for c in _solo_digitos(numero) if c.isdigit()]
+    if not 13 <= len(digitos) <= 19:
+        return False
+    total = 0
+    duplicar_par = len(digitos) % 2 == 0
+    for indice, digito in enumerate(digitos):
+        if (indice % 2 == 0) == duplicar_par:
+            digito *= 2
+            if digito > 9:
+                digito -= 9
+        total += digito
+    return total % 10 == 0
+
+
+def marca_tarjeta(numero: str) -> str:
+    """Deriva la marca del numero (no se guarda en una columna aparte)."""
+    digits = _solo_digitos(numero)
+    if not digits:
+        return "Desconocida"
+    if digits.startswith("4"):
+        return "Visa"
+    if len(digits) >= 2 and 51 <= int(digits[:2]) <= 55:
+        return "Mastercard"
+    if len(digits) >= 4 and 2221 <= int(digits[:4]) <= 2720:
+        return "Mastercard"
+    if digits.startswith(("34", "37")):
+        return "American Express"
+    if digits.startswith("6011") or digits.startswith("65"):
+        return "Discover"
+    if len(digits) >= 3 and 644 <= int(digits[:3]) <= 649:
+        return "Discover"
+    return "Otra"
 
 
 def _normalizar_vencimiento(v: str) -> str:
@@ -52,6 +92,8 @@ class _TarjetaCampos(BaseModel):
         v = _solo_digitos(v)
         if not re.fullmatch(r"\d{13,19}", v):
             raise ValueError("El numero debe tener entre 13 y 19 digitos.")
+        if not validar_luhn(v):
+            raise ValueError("El numero de tarjeta no es valido (verificacion de Luhn).")
         return v
 
     @field_validator("fecha_expiracion", check_fields=False)
@@ -110,6 +152,12 @@ class TarjetaOut(BaseModel):
     @property
     def numero_enmascarado(self) -> str:
         return f"**** **** **** {self.numero[-4:]}"
+
+    @computed_field
+    @property
+    def marca(self) -> str:
+        """Marca derivada del numero: no se guarda ni se pide al usuario."""
+        return marca_tarjeta(self.numero)
 
 
 class ListaTarjetas(BaseModel):

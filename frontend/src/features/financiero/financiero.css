@@ -10,7 +10,9 @@
 .fi-balance__eye:hover { background: rgb(255 255 255 / 22%); }
 .fi-balance__form .form-label { color: #e4ecfd; }
 .fi-balance__form .at-field__error { color: #ffd0cb; }
-.fi-balance__form .form-control { border-color: transparent; }
+.fi-balance__form .form-control, .fi-balance__form .form-select { border-color: transparent; }
+.fi-balance__form .form-select option { color: var(--at-ink); }
+.fi-balance__hint { margin: -.4rem 0 0; color: #ffd0cb; font-size: var(--at-text-xs); }
 .fi-balance__form .btn-primary { background: #fff; border-color: #fff; color: var(--at-blue-800); box-shadow: none; }
 .fi-balance__form .btn-primary:hover { background: var(--at-blue-50); border-color: var(--at-blue-50); color: var(--at-blue-800); }
 .fi-quick { display: flex; flex-wrap: wrap; gap: .4rem; margin: -.3rem 0 1rem; }
